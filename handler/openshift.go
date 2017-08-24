@@ -229,40 +229,45 @@ func (osr *OpenshiftREST) doRequest(returnIfAlreadyError bool, method, url strin
 		return osr
 	}
 
-	var body []byte
-	if bodyParams != nil {
-		body, osr.Err = json.Marshal(bodyParams)
-		if osr.Err != nil {
-			return osr
+	err := func() error {
+		var body []byte
+		if bodyParams != nil {
+			var err error
+			body, err = json.Marshal(bodyParams)
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	//res, osr.Err := oc.request(method, url, body, GeneralRequestTimeout) // non-name error
-	res, err := osr.oc.request(method, url, body, GeneralRequestTimeout)
-	osr.Err = err
-	if osr.Err != nil {
-		return osr
-	}
-	defer res.Body.Close()
+		//res, osr.Err := oc.request(method, url, body, GeneralRequestTimeout) // non-name error
+		res, err := osr.oc.request(method, url, body, GeneralRequestTimeout)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
 
-	var data []byte
-	data, osr.Err = ioutil.ReadAll(res.Body)
-	if osr.Err != nil {
-		return osr
-	}
+		data, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
 
-	//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
+		//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
 
-	if res.StatusCode == 404 {
-		osr.Err = NotFound
-	} else if res.StatusCode < 200 || res.StatusCode >= 400 {
-		osr.Err = errors.New(string(data))
-	} else {
-		if into != nil {
+		if res.StatusCode == 404 {
+			return NotFound
+		} else if res.StatusCode < 200 || res.StatusCode >= 400 {
+			return errors.New(string(data))
+		} else if into != nil {
 			//println("into data = ", string(data), "\n")
 
-			osr.Err = json.Unmarshal(data, into)
+			return json.Unmarshal(data, into)
 		}
+
+		return nil
+	}()
+
+	if osr.Err == nil {
+		osr.Err = err
 	}
 
 	return osr

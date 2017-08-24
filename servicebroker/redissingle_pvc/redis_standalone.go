@@ -323,24 +323,19 @@ func (handler *RedisSingle_Handler) DoDeprovision(myServiceInfo *oshandler.Servi
 
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *redisResources_Master) oshandler.Credentials {
-	var master_res redisResources_Master
-	err := loadRedisSingleResources_Master(myServiceInfo.Url, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
-	if err != nil {
-		return oshandler.Credentials{}
-	}
-
-	client_port := &master_res.service.Spec.Ports[0]
-
-	//cluser_name := "cluster-" + master_res.serviceSentinel.Name
-	svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	svcport := strconv.Itoa(client_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
+	//var master_res redisResources_Master
+	//err := loadRedisSingleResources_Master(myServiceInfo.Url, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
+	//if err != nil {
+	//	return oshandler.Credentials{}
+	//}
 
 	ndhost := oshandler.RandomNodeAddress()
-	var ndport string = ""
+	var svchost, svcport, ndport string
 	if nodePort != nil && len(nodePort.serviceNodePort.Spec.Ports) > 0 {
-		ndport = strconv.Itoa(nodePort.serviceNodePort.Spec.Ports[0].NodePort)
+		port := &nodePort.serviceNodePort.Spec.Ports[0]
+		ndport = strconv.Itoa(port.NodePort)
+		svchost = fmt.Sprintf("%s.%s.%s", nodePort.serviceNodePort.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+		svcport = strconv.Itoa(port.Port)
 	}
 
 	return oshandler.Credentials{
@@ -368,6 +363,7 @@ func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo,
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
+	/*
 	client_port := &master_res.service.Spec.Ports[0]
 	//if client_port == nil {
 	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
@@ -393,6 +389,9 @@ func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo,
 		Password: myServiceInfo.Password,
 		//Name:     cluser_name,
 	}
+	*/
+
+	mycredentials := getCredentialsOnPrivision(myServiceInfo, master_res)
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
 
@@ -450,7 +449,7 @@ func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes [
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
-		Decode(&res.service).
+		//Decode(&res.service).
 		Decode(&res.serviceNodePort).
 		Decode(&res.rc)
 
@@ -458,7 +457,7 @@ func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes [
 }
 
 type redisResources_Master struct {
-	service         kapi.Service
+	//service         kapi.Service
 	serviceNodePort kapi.Service
 	rc              kapi.ReplicationController
 }
@@ -477,7 +476,7 @@ func createRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redis
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		KPost(prefix+"/services", &input.service, &output.service).
+		//KPost(prefix+"/services", &input.service, &output.service).
 		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
 
 	if osr.Err != nil {
@@ -516,7 +515,7 @@ func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPas
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		KGet(prefix+"/services/"+input.service.Name, &output.service).
+		//KGet(prefix+"/services/"+input.service.Name, &output.service).
 		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort).
 		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc)
 
@@ -530,7 +529,7 @@ func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPas
 func destroyRedisSingleResources_Master(masterRes *redisResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
 }
