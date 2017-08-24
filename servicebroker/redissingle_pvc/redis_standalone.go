@@ -313,7 +313,7 @@ func (handler *RedisSingle_Handler) DoDeprovision(myServiceInfo *oshandler.Servi
 
 		// ...
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		fmt.Println("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
