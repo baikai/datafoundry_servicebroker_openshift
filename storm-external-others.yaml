@@ -62,8 +62,6 @@ metadata:
   name: sb-instanceid-su
 spec:
   host: sb-instanceid-stormui.endpoint-postfix-place-holder
-  port:
-    targetPort: storm-ui-port
   to:
     kind: Service
     name: sb-instanceid-su
