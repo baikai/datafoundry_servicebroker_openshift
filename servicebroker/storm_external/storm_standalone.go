@@ -68,7 +68,10 @@ func RetrieveStormLocalHostname(m map[string]string) string {
 }
 
 func BuildStormZkEntryRoot(instanceId string) string {
-	return fmt.Sprintf("/storm/%s", instanceId)
+	//return fmt.Sprintf("/storm/%s", instanceId)
+	// Baikai: it is best not to use the /storm prefix,
+	// for it is the default pzk root ath for a storm cluster.
+	return fmt.Sprintf("/%s", instanceId)
 }
 
 //==============================================================
