@@ -17,9 +17,9 @@ spec:
       - image: http://neo4j-image-place-holder/neo4j-openshift-orchestration
         imagePullPolicy: IfNotPresent
         name: sb-instanceid-neo4j
-        resources:
-          limits:
-            cpu: 0.1
+        #resources:
+        #  limits:
+        #    cpu: 0.1
         env:
           - name: NEO4J_DEFAULT_USER
             value: user*****
