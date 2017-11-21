@@ -29,6 +29,7 @@ type ProvisionDetails struct {
 type ProvisionedServiceSpec struct {
 	IsAsync      bool
 	DashboardURL string
+	Credentials  interface{}
 }
 
 type BindDetails struct {

@@ -61,6 +61,10 @@ func (handler *Redis_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servi
 	return newRedisHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *Redis_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newRedisHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Redis_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newRedisHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -143,6 +147,10 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	serviceSpec.DashboardURL = ""
 
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -194,6 +202,10 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	}
 }
 
+func (handler *Redis_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *Redis_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		job := getRedisOrchestrationJob(myServiceInfo.Url)
@@ -223,6 +235,33 @@ func (handler *Redis_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 	return brokerapi.IsAsync(false), nil
 }
 
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var more_res redisResources_More
+	err := loadRedisResources_More(myServiceInfo.Url, myServiceInfo.Password, &more_res)
+
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+	
+	client_port := &more_res.serviceSentinel.Spec.Ports[0]
+
+	cluser_name := "cluster-" + more_res.serviceSentinel.Name
+	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(client_port.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
+
+	return oshandler.Credentials{
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		//Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+		Name:     cluser_name,
+	}
+}
+
 func (handler *Redis_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
@@ -239,7 +278,7 @@ func (handler *Redis_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 	//}
 
 	cluser_name := "cluster-" + more_res.serviceSentinel.Name
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", more_res.serviceSentinel.Name, myServiceInfo.Database)
+	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(client_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"

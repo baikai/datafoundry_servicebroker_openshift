@@ -1,21 +1,20 @@
-package rabbitmq_pvc
+package redissingle_pvc
 
 import (
-	"errors"
 	"fmt"
+	"errors"
 	//marathon "github.com/gambol99/go-marathon"
 	//kapi "golang.org/x/build/kubernetes/api"
 	//"golang.org/x/build/kubernetes"
 	//"golang.org/x/oauth2"
 	//"net/http"
+	//"net"
 	"bytes"
 	"encoding/json"
-	"net"
+	"github.com/pivotal-cf/brokerapi"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/pivotal-cf/brokerapi"
 	//"crypto/sha1"
 	//"encoding/base64"
 	//"text/template"
@@ -27,8 +26,8 @@ import (
 	"github.com/pivotal-golang/lager"
 
 	//"k8s.io/kubernetes/pkg/util/yaml"
-	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
+	//routeapi "github.com/openshift/origin/route/api/v1"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
@@ -37,12 +36,12 @@ import (
 //
 //==============================================================
 
-const RabbitmqServcieBrokerName_Standalone = "RabbitMQ_volumes_standalone"
+const RedisSingleServcieBrokerName_Standalone = "Redis_volumes_single"
 
 func init() {
-	oshandler.Register(RabbitmqServcieBrokerName_Standalone, &Rabbitmq_freeHandler{})
+	oshandler.Register(RedisSingleServcieBrokerName_Standalone, &RedisSingle_freeHandler{})
 
-	logger = lager.NewLogger(RabbitmqServcieBrokerName_Standalone)
+	logger = lager.NewLogger(RedisSingleServcieBrokerName_Standalone)
 	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
@@ -52,30 +51,30 @@ var logger lager.Logger
 //
 //==============================================================
 
-type Rabbitmq_freeHandler struct{}
+type RedisSingle_freeHandler struct{}
 
-func (handler *Rabbitmq_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	return newRabbitmqHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
+func (handler *RedisSingle_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	return newRedisSingleHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
 }
 
-func (handler *Rabbitmq_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-	return newRabbitmqHandler().DoLastOperation(myServiceInfo)
+func (handler *RedisSingle_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+	return newRedisSingleHandler().DoLastOperation(myServiceInfo)
 }
 
-func (handler *Rabbitmq_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return newRabbitmqHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+func (handler *RedisSingle_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newRedisSingleHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
-func (handler *Rabbitmq_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
-	return newRabbitmqHandler().DoDeprovision(myServiceInfo, asyncAllowed)
+func (handler *RedisSingle_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+	return newRedisSingleHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
 
-func (handler *Rabbitmq_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
-	return newRabbitmqHandler().DoBind(myServiceInfo, bindingID, details)
+func (handler *RedisSingle_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+	return newRedisSingleHandler().DoBind(myServiceInfo, bindingID, details)
 }
 
-func (handler *Rabbitmq_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
-	return newRabbitmqHandler().DoUnbind(myServiceInfo, mycredentials)
+func (handler *RedisSingle_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+	return newRedisSingleHandler().DoUnbind(myServiceInfo, mycredentials)
 }
 
 //==============================================================
@@ -83,13 +82,13 @@ func (handler *Rabbitmq_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceIn
 //==============================================================
 
 // version 1:
-//   one peer volume,
+//   one master volume, two slave volumes,
 
 func volumeBaseName(instanceId string) string {
-	return "rbbtmq-" + instanceId
+	return "rdscls-" + instanceId
 }
 
-func peerPvcName0(volumes []oshandler.Volume) string {
+func masterPvcName(volumes []oshandler.Volume) string {
 	if len(volumes) > 0 {
 		return volumes[0].Volume_name
 	}
@@ -100,14 +99,14 @@ func peerPvcName0(volumes []oshandler.Volume) string {
 //
 //==============================================================
 
-type Rabbitmq_Handler struct {
+type RedisSingle_Handler struct {
 }
 
-func newRabbitmqHandler() *Rabbitmq_Handler {
-	return &Rabbitmq_Handler{}
+func newRedisSingleHandler() *RedisSingle_Handler {
+	return &RedisSingle_Handler{}
 }
 
-func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
 	//初始化到openshift的链接
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
@@ -122,12 +121,12 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	rabbitmqUser := oshandler.NewElevenLengthID()
-	rabbitmqPassword := oshandler.GenGUID()
+	//redisUser := oshandler.NewElevenLengthID()
+	redisPassword := oshandler.GenGUID()
 
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
 	volumes := []oshandler.Volume{
-		// one peer volume
+		// one master volume
 		{
 			Volume_size: planInfo.Volume_size,
 			Volume_name: volumeBaseName + "-0",
@@ -139,20 +138,19 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
 
-	// master rabbitmq
+	// ...
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	serviceInfo.User = rabbitmqUser
-	serviceInfo.Password = rabbitmqPassword
+	//serviceInfo.User = redisUser
+	serviceInfo.Password = redisPassword
 
 	serviceInfo.Volumes = volumes
 
 	//>> may be not optimized
-	var template rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(
+	var template redisResources_Master
+	err := loadRedisSingleResources_Master(
 		serviceInfo.Url,
-		serviceInfo.User,
 		serviceInfo.Password,
 		serviceInfo.Volumes,
 		&template)
@@ -161,7 +159,7 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	}
 	//<<
 
-	nodePort, err := createRabbitmqResources_NodePort(
+	nodePort, err := createRedisSingleResources_NodePort(
 		&template,
 		serviceInfo.Database,
 	)
@@ -186,34 +184,35 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 
 		err = <-result
 		if err != nil {
-			logger.Error("rabbitmq create volume", err)
+			logger.Error("redis single create volume", err)
 			handler.DoDeprovision(&serviceInfo, true)
 			return
 		}
 
-		println("createRabbitmqResources_Master ...")
+		println("createRedisSingleResources_Master ...")
 
 		// create master res
 
-		output, err := createRabbitmqResources_Master(
+		output, err := createRedisSingleResources_Master(
 			serviceInfo.Url,
 			serviceInfo.Database,
-			serviceInfo.User,
 			serviceInfo.Password,
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" rabbitmq createRabbitmqResources_Master error: ", err)
-			logger.Error("rabbitmq createRabbitmqResources_Master error", err)
+			println(" redis createRedisSingleResources_Master error: ", err)
+			logger.Error("redis createRedisSingleResources_Master error", err)
 
-			destroyRabbitmqResources_Master(output, serviceBrokerNamespace)
+			destroyRedisSingleResources_Master(output, serviceInfo.Database)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
 			return
 		}
 	}()
 
-	serviceSpec.DashboardURL = "http://" + net.JoinHostPort(template.routeAdmin.Spec.Host, "80")
+	// ...
+
+	serviceSpec.DashboardURL = ""
 
 	//>>>
 	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, nodePort)
@@ -222,9 +221,7 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	return serviceSpec, serviceInfo, nil
 }
 
-func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-
-	// assume in provisioning
+func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 
 	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
 	if volumeJob != nil {
@@ -234,15 +231,26 @@ func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 		}, nil
 	}
 
-	// the job may be finished or interrupted or running in another instance.
-
-	master_res, _ := getRabbitmqResources_Master(
+	master_res, err := getRedisSingleResources_Master(
 		myServiceInfo.Url,
 		myServiceInfo.Database,
-		myServiceInfo.User,
 		myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
+	//if err == oshandler.NotFound {
+	//	return brokerapi.LastOperation{
+	//		State:       brokerapi.InProgress,
+	//		Description: "In progress .",
+	//	}, nil
+	//} else if err != nil {
+	//	return return brokerapi.LastOperation{}, err
+	//}
+	if err != nil {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: "In progress .",
+		}, err
+	}
 
 	//ok := func(rc *kapi.ReplicationController) bool {
 	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -251,10 +259,12 @@ func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 	//	return true
 	//}
 	ok := func(rc *kapi.ReplicationController) bool {
+		println("rc.Name =", rc.Name)
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
 		}
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
+		println("n =", n)
 		return n >= *rc.Spec.Replicas
 	}
 
@@ -273,11 +283,11 @@ func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 	}
 }
 
-func (handler *Rabbitmq_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+func (handler *RedisSingle_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
 	return errors.New("not implemented")
 }
 
-func (handler *Rabbitmq_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+func (handler *RedisSingle_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		// ...
 		volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
@@ -293,22 +303,17 @@ func (handler *Rabbitmq_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 			}
 		}
 
-		// ...
-
-		println("to destroy resources:", myServiceInfo.Url)
-
-		master_res, _ := getRabbitmqResources_Master(
+		master_res, _ := getRedisSingleResources_Master(
 			myServiceInfo.Url,
 			myServiceInfo.Database,
-			myServiceInfo.User,
 			myServiceInfo.Password,
 			myServiceInfo.Volumes,
 		)
-		destroyRabbitmqResources_Master(master_res, myServiceInfo.Database)
+		destroyRedisSingleResources_Master(master_res, myServiceInfo.Database)
 
 		// ...
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		fmt.Println("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
@@ -317,46 +322,40 @@ func (handler *Rabbitmq_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 }
 
 // please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *rabbitmqResources_Master) oshandler.Credentials {
-	var master_res rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
-	if err != nil {
-		return oshandler.Credentials{}
-	}
-
-	mq_port := oshandler.GetServicePortByName(&master_res.service, "mq")
-	if mq_port == nil {
-		return oshandler.Credentials{}
-	}
-
-	svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	svcport := strconv.Itoa(mq_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *redisResources_Master) oshandler.Credentials {
+	//var master_res redisResources_Master
+	//err := loadRedisSingleResources_Master(myServiceInfo.Url, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
+	//if err != nil {
+	//	return oshandler.Credentials{}
+	//}
 
 	ndhost := oshandler.RandomNodeAddress()
-	var ndport string = ""
+	var svchost, svcport, ndport string
 	if nodePort != nil && len(nodePort.serviceNodePort.Spec.Ports) > 0 {
-		ndport = strconv.Itoa(nodePort.serviceNodePort.Spec.Ports[0].NodePort)
+		port := &nodePort.serviceNodePort.Spec.Ports[0]
+		ndport = strconv.Itoa(port.NodePort)
+		svchost = fmt.Sprintf("%s.%s.%s", nodePort.serviceNodePort.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+		svcport = strconv.Itoa(port.Port)
 	}
 
 	return oshandler.Credentials{
-		Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, svchost, svcport),
+		Uri:      fmt.Sprintf("internal address: %s:%s", svchost, svcport),
 		Hostname: ndhost,
 		Port:     ndport,
-		Username: myServiceInfo.User,
+		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
-		Vhost:    svchost,
+		//Name:     cluser_name,
 	}
 }
 
-func (handler *Rabbitmq_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	master_res, err := getRabbitmqResources_Master(
+	// master_res may has been shutdown normally.
+
+	master_res, err := getRedisSingleResources_Master(
 		myServiceInfo.Url,
 		myServiceInfo.Database,
-		myServiceInfo.User,
 		myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
@@ -364,32 +363,42 @@ func (handler *Rabbitmq_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	mq_port := oshandler.GetServicePortByName(&master_res.service, "mq")
-	if mq_port == nil {
-		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("mq port not found")
-	}
+	/*
+	client_port := &master_res.service.Spec.Ports[0]
+	//if client_port == nil {
+	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
+	//}
 
-	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(mq_port.Port)
+	//cluser_name := "cluster-" + master_res.service.Name
+	svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	svcport := strconv.Itoa(client_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
 
-	// todo: return NodePort?
+	ndhost := oshandler.RandomNodeAddress()
+	var ndport string = ""
+	if len(master_res.serviceNodePort.Spec.Ports) > 0 {
+		ndport = strconv.Itoa(master_res.serviceNodePort.Spec.Ports[0].NodePort)
+	}
 
 	mycredentials := oshandler.Credentials{
-		Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, host, port),
-		Hostname: host,
-		Port:     port,
-		Username: myServiceInfo.User,
+		Uri:      fmt.Sprintf("internal address: %s:%s", svchost, svcport),
+		Hostname: ndhost,
+		Port:     ndport,
+		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
+		//Name:     cluser_name,
 	}
+	*/
+
+	mycredentials := getCredentialsOnPrivision(myServiceInfo, master_res)
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
 
 	return myBinding, mycredentials, nil
 }
 
-func (handler *Rabbitmq_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+func (handler *RedisSingle_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
 	// do nothing
 
 	return nil
@@ -399,48 +408,40 @@ func (handler *Rabbitmq_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, 
 //
 //=======================================================================
 
-var RabbitmqTemplateData_Master []byte = nil
+var RedisSingleTemplateData_Master []byte = nil
 
-func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword string, volumes []oshandler.Volume, res *rabbitmqResources_Master) error {
-	if RabbitmqTemplateData_Master == nil {
-		f, err := os.Open("rabbitmq-pvc.yaml")
+func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes []oshandler.Volume, res *redisResources_Master) error {
+	if RedisSingleTemplateData_Master == nil {
+
+		f, err := os.Open("redis-single-pvc-master.yaml")
 		if err != nil {
 			return err
 		}
-		RabbitmqTemplateData_Master, err = ioutil.ReadAll(f)
+		RedisSingleTemplateData_Master, err = ioutil.ReadAll(f)
 		if err != nil {
 			return err
 		}
-		rabbitmq_image := oshandler.RabbitmqImage()
-		rabbitmq_image = strings.TrimSpace(rabbitmq_image)
-		if len(rabbitmq_image) > 0 {
-			RabbitmqTemplateData_Master = bytes.Replace(
-				RabbitmqTemplateData_Master,
-				[]byte("http://rabbitmq-image-place-holder/rabbitmq-openshift-orchestration"),
-				[]byte(rabbitmq_image),
-				-1)
-		}
-		endpoint_postfix := oshandler.EndPointSuffix()
-		endpoint_postfix = strings.TrimSpace(endpoint_postfix)
-		if len(endpoint_postfix) > 0 {
-			RabbitmqTemplateData_Master = bytes.Replace(
-				RabbitmqTemplateData_Master,
-				[]byte("endpoint-postfix-place-holder"),
-				[]byte(endpoint_postfix),
+		redis_image := oshandler.Redis32Image()
+		redis_image = strings.TrimSpace(redis_image)
+		if len(redis_image) > 0 {
+			RedisSingleTemplateData_Master = bytes.Replace(
+				RedisSingleTemplateData_Master,
+				[]byte("http://redis-image-place-holder/redis-openshift-orchestration"),
+				[]byte(redis_image),
 				-1)
 		}
 	}
 
 	// ...
-	peerPvcName0 := peerPvcName0(volumes)
 
-	yamlTemplates := RabbitmqTemplateData_Master
+	masterPvcName := masterPvcName(volumes)
+
+	yamlTemplates := RedisSingleTemplateData_Master
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(rabbitmqUser), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(rabbitmqPassword), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
 
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****node"), []byte(peerPvcName0), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****master"), []byte(masterPvcName), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -448,51 +449,45 @@ func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword str
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
-		Decode(&res.rc).
-		Decode(&res.routeAdmin).
-		//Decode(&res.routeMQ).
-		Decode(&res.service).
-		Decode(&res.serviceNodePort)
+		//Decode(&res.service).
+		Decode(&res.serviceNodePort).
+		Decode(&res.rc)
 
 	return decoder.Err
 }
 
-type rabbitmqResources_Master struct {
-	rc         kapi.ReplicationController
-	routeAdmin routeapi.Route
-	//routeMQ    routeapi.Route
-	service         kapi.Service
+type redisResources_Master struct {
+	//service         kapi.Service
 	serviceNodePort kapi.Service
+	rc              kapi.ReplicationController
 }
 
-func createRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUser, rabbitmqPassword string, volumes []oshandler.Volume) (*rabbitmqResources_Master, error) {
-	var input rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
+func createRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPassword string, volumes []oshandler.Volume) (*redisResources_Master, error) {
+	var input redisResources_Master
+	err := loadRedisSingleResources_Master(instanceId, redisPassword, volumes, &input)
 	if err != nil {
 		return nil, err
 	}
 
-	var output rabbitmqResources_Master
+	var output redisResources_Master
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc).
-		OPost(prefix+"/routes", &input.routeAdmin, &output.routeAdmin).
-		//OPost(prefix + "/routes", &input.routeMQ, &output.routeMQ).
-		KPost(prefix+"/services", &input.service, &output.service)
+		//KPost(prefix+"/services", &input.service, &output.service).
+		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
 
 	if osr.Err != nil {
-		logger.Error("createRabbitmqResources_Master", osr.Err)
+		logger.Error("createRedisSingleResources_Master", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func createRabbitmqResources_NodePort(input *rabbitmqResources_Master, serviceBrokerNamespace string) (*rabbitmqResources_Master, error) {
-	var output rabbitmqResources_Master
+func createRedisSingleResources_NodePort(input *redisResources_Master, serviceBrokerNamespace string) (*redisResources_Master, error) {
+	var output redisResources_Master
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
@@ -501,17 +496,17 @@ func createRabbitmqResources_NodePort(input *rabbitmqResources_Master, serviceBr
 	osr.KPost(prefix+"/services", &input.serviceNodePort, &output.serviceNodePort)
 
 	if osr.Err != nil {
-		logger.Error("createRabbitmqResources_NodePort", osr.Err)
+		logger.Error("createRedisSingleResources_NodePort", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUser, rabbitmqPassword string, volumes []oshandler.Volume) (*rabbitmqResources_Master, error) {
-	var output rabbitmqResources_Master
+func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPassword string, volumes []oshandler.Volume) (*redisResources_Master, error) {
+	var output redisResources_Master
 
-	var input rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
+	var input redisResources_Master
+	err := loadRedisSingleResources_Master(instanceId, redisPassword, volumes, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -520,27 +515,23 @@ func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUse
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc).
-		OGet(prefix+"/routes/"+input.routeAdmin.Name, &output.routeAdmin).
-		//OGet(prefix + "/routes/" + input.routeMQ.Name, &output.routeMQ).
-		KGet(prefix+"/services/"+input.service.Name, &output.service).
-		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort)
+		//KGet(prefix+"/services/"+input.service.Name, &output.service).
+		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort).
+		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc)
 
 	if osr.Err != nil {
-		logger.Error("getRabbitmqResources_Master", osr.Err)
+		logger.Error("getRedisSingleResources_Master", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func destroyRabbitmqResources_Master(masterRes *rabbitmqResources_Master, serviceBrokerNamespace string) {
+func destroyRedisSingleResources_Master(masterRes *redisResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
-	//go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
+	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
 }
 
 //===============================================================
@@ -689,11 +680,11 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA rabbitmq rc error", status.Err)
+				logger.Error("watch HA redis rc error", status.Err)
 				close(cancel)
 				return
 			} else {
-				//logger.Debug("watch rabbitmq HA rc, status.Info: " + string(status.Info))
+				//logger.Debug("watch redis HA rc, status.Info: " + string(status.Info))
 			}
 
 			var wrcs watchReplicationControllerStatus

@@ -62,6 +62,10 @@ func (handler *Kafka_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servi
 	return newKafkaHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *Kafka_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newKafkaHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Kafka_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newKafkaHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -149,6 +153,10 @@ func (handler *Kafka_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	serviceSpec.DashboardURL = ""
 
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -197,6 +205,10 @@ func (handler *Kafka_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	}
 }
 
+func (handler *Kafka_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *Kafka_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		job := getKafkaOrchestrationJob(myServiceInfo.Url)
@@ -230,6 +242,46 @@ func (handler *Kafka_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 	return brokerapi.IsAsync(false), nil
 }
 
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var zookeeper_res zookeeper.ZookeeperResources_Master
+	err := zookeeper.LoadZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Admin_user, myServiceInfo.Admin_password, &zookeeper_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	zk_host, zk_port, err := zookeeper_res.ServiceHostPort(myServiceInfo.Database)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	var master_res kafkaResources_Master
+	err = loadKafkaResources_Master(myServiceInfo.Url, myServiceInfo.Database /*, kafkaUser, kafkaPassword*/, &master_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	kafka_port := oshandler.GetServicePortByName(&master_res.service, "kafka-port")
+	if kafka_port == nil {
+		return oshandler.Credentials{}
+	}
+
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(kafka_port.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
+
+	return oshandler.Credentials{
+		Uri: fmt.Sprintf("kafka: %s:%s zookeeper: %s:%s (SuperUser: %s, Password: %s)",
+			host, port, zk_host, zk_port, myServiceInfo.Admin_user, myServiceInfo.Admin_password),
+		Hostname: host,
+		Port:     port,
+		//Username: myServiceInfo.User,
+		//Password: myServiceInfo.Password,
+		// todo: need return zookeeper password?
+	}
+}
+
 func (handler *Kafka_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
@@ -253,7 +305,7 @@ func (handler *Kafka_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("kafka-port port not found")
 	}
 
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", master_res.service.Name, myServiceInfo.Database)
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(kafka_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
@@ -397,7 +449,8 @@ func loadKafkaResources_Master(instanceID, serviceBrokerNamespace /*, kafkaUser,
 	yamlTemplates := KafkaTemplateData_Master
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace+".svc.cluster.local"), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
+		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))

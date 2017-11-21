@@ -1,0 +1,80 @@
+
+# https://redis.io/topics/cluster-tutorial
+# * at least 3 masters are recommend, otherwise may not work as expected.
+# * Currently Redis Cluster does not support NAT, what does this mean? so NodePort ...?
+# so still use a non-cluster master now.
+# 
+# rdss: redis single
+
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  labels:
+#    servicebroker: sb-instanceid-redis-single
+#  name: sb-instanceid-rdss
+#spec:
+#  ports:
+#    - port: 6379
+#      targetPort: 6379
+#  selector:
+#    sb-instanceid-redis-single: master
+#---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    servicebroker: sb-instanceid-redis-single-nodeport
+  name: sb-instanceid-rdss-np
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: client
+  selector:
+    sb-instanceid-redis-single: master
+---
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: sb-instanceid-rdss
+spec:
+  replicas: 1
+  selector:
+    sb-instanceid-redis-single: master
+  template:
+    metadata:
+      labels:
+        sb-instanceid-redis-single: master
+        servicebroker: sb-instanceid-redis-single
+      name: sb-instanceid-rdss
+    spec:
+      containers:
+        - name: master
+          image: http://redis-image-place-holder/redis-openshift-orchestration
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CLUSTER_NAME
+              value: cluster-sb-instanceid-redis
+            - name: MASTER
+              value: "true"
+            - name: REDIS_PASSWORD
+              value: pass*****
+          ports:
+            - containerPort: 6379
+          #resources:
+          #  limits:
+          #    cpu: "0.1"
+          volumeMounts:
+            - mountPath: /redis-master-data
+              name: data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: "pvcname*****master"
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

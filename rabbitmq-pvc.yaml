@@ -17,9 +17,9 @@ spec:
       - image: http://rabbitmq-image-place-holder/rabbitmq-openshift-orchestration
         imagePullPolicy: IfNotPresent
         name: sb-instanceid-rbbtmq
-        resources:
-          limits:
-            cpu: 0.1
+        #resources:
+        #  limits:
+        #    cpu: 0.1
         env:
           - name: RABBITMQ_ERLANG_COOKIE
             value: 3B694385-9169-42FF-8667-21E4F808F3AD
@@ -73,5 +73,19 @@ spec:
     name: admin
   - port: 25672
     name: cluster
+  selector:
+    servicebroker: sb-instanceid-rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    servicebroker: sb-instanceid-rabbitmq-nodeport
+  name: sb-instanceid-rbmq-np
+spec:
+  type: NodePort
+  ports:
+  - port: 5672
+    name: mq
   selector:
     servicebroker: sb-instanceid-rabbitmq

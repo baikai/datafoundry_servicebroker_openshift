@@ -124,10 +124,12 @@ func provision(serviceBroker ServiceBroker, router httpRouter, logger lager.Logg
 		if provisionResponse.IsAsync {
 			respond(w, http.StatusAccepted, ProvisioningResponse{
 				DashboardURL: provisionResponse.DashboardURL,
+				Credentials:  provisionResponse.Credentials,
 			})
 		} else {
 			respond(w, http.StatusCreated, ProvisioningResponse{
 				DashboardURL: provisionResponse.DashboardURL,
+				Credentials:  provisionResponse.Credentials,
 			})
 		}
 	}

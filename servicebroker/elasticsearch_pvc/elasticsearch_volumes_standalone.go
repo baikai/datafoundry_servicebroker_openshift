@@ -143,6 +143,7 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 		err = <-result
 		if err != nil {
 			logger.Error("elasticsearch create volume", err)
+			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
 			return
 		}
 
@@ -170,6 +171,10 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 	}()
 
 	serviceSpec.DashboardURL = ""
+
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
 
 	return serviceSpec, serviceInfo, nil
 }
@@ -217,6 +222,10 @@ func (handler *Elasticsearch_handler) DoLastOperation(myServiceInfo *oshandler.S
 	}
 }
 
+func (handler *Elasticsearch_handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return errors.New("not implemented")
+}
+
 func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 
 	go func() {
@@ -254,6 +263,27 @@ func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.Ser
 	}()
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var ha_res esResources_HA
+	err := loadESResources_HA(myServiceInfo.Url, myServiceInfo.Volumes, &ha_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	es_host, es_port, err := ha_res.ServiceHostPort(myServiceInfo.Database)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+	es_uri := fmt.Sprintf("http://%s:%s", es_host, es_port)
+
+	return oshandler.Credentials{
+		Uri:      es_uri,
+		Hostname: es_host,
+		Port:     es_port,
+	}
 }
 
 func (handler *Elasticsearch_handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -370,7 +400,7 @@ func (esResources_HA *esResources_HA) ServiceHostPort(serviceBrokerNamespace str
 		return "", "", errors.New("client port not found")
 	}
 
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", esResources_HA.svc.Name, serviceBrokerNamespace)
+	host := fmt.Sprintf("%s.%s.%s", esResources_HA.svc.Name, serviceBrokerNamespace, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(client_port.Port)
 
 	return host, port, nil

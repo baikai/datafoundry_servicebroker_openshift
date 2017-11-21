@@ -116,5 +116,17 @@ spec:
     port: 9092
   selector:
     app: sb-instanceid-kafka
----
+
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: sb-instanceid-kfk-np
+#spec:
+#  type: NodePort
+#  ports:
+#  - name: client
+#    port: 9092
+#  selector:
+#    app: sb-instanceid-kafka
 

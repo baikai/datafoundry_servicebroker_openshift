@@ -61,6 +61,10 @@ func (handler *NiFi_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 	return newNiFiHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *NiFi_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newNiFiHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *NiFi_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newNiFiHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -137,6 +141,10 @@ func (handler *NiFi_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 
 	serviceSpec.DashboardURL = fmt.Sprintf("http://%s/nifi/", input.route.Spec.Host)
 
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -179,6 +187,10 @@ func (handler *NiFi_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInf
 	}
 }
 
+func (handler *NiFi_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *NiFi_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
@@ -188,6 +200,33 @@ func (handler *NiFi_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo,
 	destroyNiFiResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var master_res nifiResources_Master
+	err := loadNiFiResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, &master_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	web_port := oshandler.GetServicePortByName(&master_res.service, "web")
+	if web_port == nil {
+		return oshandler.Credentials{}
+	}
+
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(web_port.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
+
+	return oshandler.Credentials{
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+	}
 }
 
 func (handler *NiFi_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -203,7 +242,7 @@ func (handler *NiFi_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindin
 		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("web port not found")
 	}
 
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", master_res.service.Name, myServiceInfo.Database)
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"

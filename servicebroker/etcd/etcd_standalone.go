@@ -111,6 +111,10 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 
 	serviceSpec.DashboardURL = ""
 
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -145,6 +149,10 @@ func (handler *Etcd_sampleHandler) DoLastOperation(myServiceInfo *oshandler.Serv
 	}
 }
 
+func (handler *Etcd_sampleHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *Etcd_sampleHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 
 	ha_res, _ := getEtcdResources_HA(
@@ -154,6 +162,40 @@ func (handler *Etcd_sampleHandler) DoDeprovision(myServiceInfo *oshandler.Servic
 	destroyEtcdResources_HA(ha_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var ha_res etcdResources_HA
+	err := loadEtcdResources_HA(myServiceInfo.Url, myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, &ha_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	//if err != nil {
+	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
+	//}
+	if ha_res.route.Name == "" {
+		return oshandler.Credentials{}
+	}
+
+	//if len(boot_res.service.Spec.Ports) == 0 {
+	//	err := errors.New("no ports in boot service")
+	//	logger.Error("", err)
+	//	return brokerapi.Binding{}, Credentials{}, err
+	//}
+
+	etcd_addr, host, port := ha_res.endpoint()
+	println("etcd addr: ", etcd_addr)
+	//etcd_addrs := []string{etcd_addr}
+
+	return oshandler.Credentials{
+		Uri:      etcd_addr,
+		Hostname: host,
+		Port:     port,
+		Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+	}
 }
 
 func (handler *Etcd_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {

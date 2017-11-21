@@ -61,6 +61,10 @@ func (handler *Zookeeper_freeHandler) DoLastOperation(myServiceInfo *oshandler.S
 	return newZookeeperHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *Zookeeper_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newZookeeperHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Zookeeper_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newZookeeperHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -131,6 +135,10 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 
 	serviceSpec.DashboardURL = "" // "http://" + net.JoinHostPort(output.route.Spec.Host, "80")
 
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -171,6 +179,10 @@ func (handler *Zookeeper_Handler) DoLastOperation(myServiceInfo *oshandler.Servi
 	}
 }
 
+func (handler *Zookeeper_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *Zookeeper_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
@@ -184,6 +196,29 @@ func (handler *Zookeeper_Handler) DoDeprovision(myServiceInfo *oshandler.Service
 	DestroyZookeeperResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	// todo: handle errors
+	var master_res ZookeeperResources_Master
+	err := LoadZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, &master_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	host, port, err := master_res.ServiceHostPort(myServiceInfo.Database)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	return oshandler.Credentials{
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+	}
 }
 
 func (handler *Zookeeper_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -221,7 +256,7 @@ func (handler *Zookeeper_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo,
 
 func WatchZookeeperOrchestration(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword string) (result <-chan bool, cancel chan<- struct{}, err error) {
 	var input ZookeeperResources_Master
-	err = loadZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, &input)
+	err = LoadZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, &input)
 	if err != nil {
 		return
 	}
@@ -356,7 +391,7 @@ func WatchZookeeperOrchestration(instanceId, serviceBrokerNamespace, zookeeperUs
 
 var ZookeeperTemplateData_Master []byte = nil
 
-func loadZookeeperResources_Master(instanceID, serviceBrokerNamespace, zookeeperUser, zookeeperPassword string, res *ZookeeperResources_Master) error {
+func LoadZookeeperResources_Master(instanceID, serviceBrokerNamespace, zookeeperUser, zookeeperPassword string, res *ZookeeperResources_Master) error {
 	/*
 		if ZookeeperTemplateData_Master == nil {
 			f, err := os.Open("zookeeper.yaml")
@@ -422,7 +457,8 @@ func loadZookeeperResources_Master(instanceID, serviceBrokerNamespace, zookeeper
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("super:password-place-holder"), []byte(zoo_password), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace+".svc.cluster.local"), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
+		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -462,7 +498,7 @@ func (masterRes *ZookeeperResources_Master) ServiceHostPort(serviceBrokerNamespa
 		return "", "", errors.New("client port not found")
 	}
 
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", masterRes.service.Name, serviceBrokerNamespace)
+	host := fmt.Sprintf("%s.%s.%s", masterRes.service.Name, serviceBrokerNamespace, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(client_port.Port)
 
 	return host, port, nil
@@ -470,7 +506,7 @@ func (masterRes *ZookeeperResources_Master) ServiceHostPort(serviceBrokerNamespa
 
 func CreateZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword string) (*ZookeeperResources_Master, error) {
 	var input ZookeeperResources_Master
-	err := loadZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, &input)
+	err := LoadZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +538,7 @@ func GetZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperU
 	var output ZookeeperResources_Master
 
 	var input ZookeeperResources_Master
-	err := loadZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, &input)
+	err := LoadZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, &input)
 	if err != nil {
 		return &output, err
 	}

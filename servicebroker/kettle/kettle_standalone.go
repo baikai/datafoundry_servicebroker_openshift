@@ -62,6 +62,10 @@ func (handler *Kettle_freeHandler) DoLastOperation(myServiceInfo *oshandler.Serv
 	return newKettleHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *Kettle_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newKettleHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Kettle_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newKettleHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -134,7 +138,12 @@ func (handler *Kettle_Handler) DoProvision(etcdSaveResult chan error, instanceID
 	if err != nil {
 		return serviceSpec, serviceInfo, err
 	}
+
 	serviceSpec.DashboardURL = fmt.Sprintf("http://%s:%s@%s", kettleUser, kettlePassword, input.route.Spec.Host)
+
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
 
 	return serviceSpec, serviceInfo, nil
 }
@@ -194,6 +203,10 @@ func (handler *Kettle_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceI
 	}
 }
 
+func (handler *Kettle_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *Kettle_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
@@ -203,6 +216,33 @@ func (handler *Kettle_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInf
 	destroyKettleResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var master_res kettleResources_Master
+	err := loadKettleResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, &master_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	web_port := oshandler.GetServicePortByName(&master_res.service, "web")
+	if web_port == nil {
+		return oshandler.Credentials{}
+	}
+
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(web_port.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
+
+	return oshandler.Credentials{
+		Uri:      fmt.Sprintf("File Uploader URL: http://%s", master_res.routeSfu.Spec.Host),
+		Hostname: host,
+		Port:     port,
+		Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+	}
 }
 
 func (handler *Kettle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -218,7 +258,7 @@ func (handler *Kettle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bind
 		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("web port not found")
 	}
 
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", master_res.service.Name, myServiceInfo.Database)
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"

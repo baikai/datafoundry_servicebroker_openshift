@@ -17,9 +17,9 @@ spec:
       - image: http://nifi-image-place-holder/nifi-openshift-orchestration
         imagePullPolicy: IfNotPresent
         name: sb-instanceid-nifi
-        resources:
-          limits:
-            cpu: 0.1
+        #resources:
+        #  limits:
+        #    cpu: 0.1
         ports:
         - containerPort: 8080
         resources: {}

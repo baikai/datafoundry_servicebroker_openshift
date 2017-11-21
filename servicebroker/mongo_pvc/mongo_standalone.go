@@ -59,6 +59,10 @@ func (handler *Mongo_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servi
 	return newMongoHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *Mongo_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newMongoHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Mongo_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newMongoHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -176,6 +180,7 @@ func (handler *Mongo_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		err = <-result
 		if err != nil {
 			logger.Error("mongo create volume", err)
+			handler.DoDeprovision(&serviceInfo, true)
 			return
 		}
 
@@ -205,6 +210,10 @@ func (handler *Mongo_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	}()
 
 	serviceSpec.DashboardURL = "" // "http://" + net.JoinHostPort(output.route.Spec.Host, "80")
+
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
 
 	return serviceSpec, serviceInfo, nil
 }
@@ -299,6 +308,10 @@ func (handler *Mongo_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	}
 }
 
+func (handler *Mongo_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return errors.New("not implemented")
+}
+
 func (handler *Mongo_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
@@ -332,6 +345,28 @@ func (handler *Mongo_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 	}()
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var master_res MongoResources_Master
+	err := loadMongoResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	host, port, err := master_res.ServiceHostPort(myServiceInfo.Database)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	return oshandler.Credentials{
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+	}
 }
 
 func (handler *Mongo_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -436,7 +471,7 @@ func loadMongoResources_Master(instanceID, serviceBrokerNamespace, mongoUser, mo
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ADMINUSER#"), []byte(mongoUser), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ADMINPASSWORD#"), []byte(mongoPassword), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace + ".svc.cluster.local"), -1)
+	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****node0"), []byte(nodePvcName0), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****node1"), []byte(nodePvcName1), -1)
@@ -478,7 +513,7 @@ func (masterRes *MongoResources_Master) ServiceHostPort(serviceBrokerNamespace s
 
 	port := strconv.Itoa(client_port.Port)
 
-	postfix := fmt.Sprintf("%s.svc.cluster.local:%s", serviceBrokerNamespace, port)
+	postfix := fmt.Sprintf("%s.%s:%s", serviceBrokerNamespace, oshandler.ServiceDomainSuffix(false), port)
 
 	host := fmt.Sprintf("%s.%s;%s.%s;%s.%s",
 		masterRes.svc1.Name, postfix,

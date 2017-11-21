@@ -37,6 +37,8 @@ import (
 //
 //==============================================================
 
+// WAERNING: the development of this service broker is not finished yet!
+
 const StormServcieBrokerName_Standalone = "Storm_volumes_standalone"
 
 func init() {
@@ -60,6 +62,10 @@ func (handler *Storm_freeHandler) DoProvision(etcdSaveResult chan error, instanc
 
 func (handler *Storm_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 	return newStormHandler().DoLastOperation(myServiceInfo)
+}
+
+func (handler *Storm_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newStormHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
 func (handler *Storm_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -150,6 +156,11 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	serviceSpec.DashboardURL = ""
 
+	//>>>
+	// storm pvc has not implemented yet.
+	// serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -197,6 +208,10 @@ func (handler *Storm_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return errors.New("not implemented")
 }
 
 func (handler *Storm_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -266,7 +281,7 @@ func (handler *Storm_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("storm-nimbus-port port not found")
 	}
 
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", nimbus_res.service.Name, myServiceInfo.Database)
+	host := fmt.Sprintf("%s.%s.%s", nimbus_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(storm_nimbus_port.Port)
 	//host := nimbus_res.routeMQ.Spec.Host
 	//port := "80"
@@ -469,7 +484,9 @@ func loadStormResources_Nimbus(instanceID, serviceBrokerNamespace /*, stormUser,
 	yamlTemplates := StormTemplateData_Nimbus
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace+".svc.cluster.local"), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
+		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("dnsmasq*****"), []byte(oshandler.DnsmasqServer()), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -520,7 +537,8 @@ func loadStormResources_UiSuperviser(instanceID, serviceBrokerNamespace /*, stor
 	yamlTemplates := StormTemplateData_UiSuperviser
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace+".svc.cluster.local"), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
+		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))

@@ -2,15 +2,15 @@ package etcd
 
 import (
 	"fmt"
-	//"errors"
 	//marathon "github.com/gambol99/go-marathon"
 	//kapi "golang.org/x/build/kubernetes/api"
 	//"golang.org/x/build/kubernetes"
 	//"golang.org/x/oauth2"
 	//"net/http"
-	"github.com/pivotal-cf/brokerapi"
 	"net"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 	//"strconv"
 	"bytes"
 	"encoding/json"
@@ -139,8 +139,8 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 		if err != nil {
 			return
 		}
-		// create volume
 
+		// create volume
 		result := oshandler.StartCreatePvcVolumnJob(
 			volumeBaseName,
 			serviceInfo.Database,
@@ -149,7 +149,8 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 
 		err = <-result
 		if err != nil {
-			logger.Error("etcd create volume", err)
+			logger.Error("etcd create volume (to delete created ones)", err)
+			handler.DoDeprovision(&serviceInfo, true)
 			return
 		}
 
@@ -167,8 +168,9 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 			println("etcd createEtcdResources_HA error: ", err)
 			logger.Error("etcd createEtcdResources_HA error", err)
 
-			destroyEtcdResources_HA(output, serviceBrokerNamespace)
-			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
+			//destroyEtcdResources_HA(output, serviceBrokerNamespace)
+			//oshandler.DeleteVolumns(serviceInfo.Database, volumes)
+			_ = output
 
 			return
 		}
@@ -177,6 +179,10 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 	}()
 
 	serviceSpec.DashboardURL = ""
+
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
 
 	return serviceSpec, serviceInfo, nil
 }
@@ -222,6 +228,37 @@ func (handler *Etcd_sampleHandler) DoLastOperation(myServiceInfo *oshandler.Serv
 	}
 }
 
+func (handler *Etcd_sampleHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	go func() {
+		// Update volume
+		volumeBaseName := volumeBaseName(myServiceInfo.Url)
+		result := oshandler.StartExpandPvcVolumnJob(
+			volumeBaseName,
+			myServiceInfo.Database,
+			myServiceInfo.Volumes,
+			planInfo.Volume_size,
+		)
+
+		err := <-result
+		if err != nil {
+			logger.Error("etcd expand volume error", err)
+			return
+		}
+
+		println("etcd expand volumens done")
+
+		for i := range myServiceInfo.Volumes {
+			myServiceInfo.Volumes[i].Volume_size = planInfo.Volume_size
+		}
+		err = callbackSaveNewInfo(myServiceInfo)
+		if err != nil {
+			logger.Error("etcd expand volume succeeded but save info error", err)
+		}
+	}()
+
+	return nil
+}
+
 func (handler *Etcd_sampleHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 
 	go func() {
@@ -259,6 +296,40 @@ func (handler *Etcd_sampleHandler) DoDeprovision(myServiceInfo *oshandler.Servic
 	}()
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var ha_res etcdResources_HA
+	err := loadEtcdResources_HA(myServiceInfo.Url, myServiceInfo.Admin_password, myServiceInfo.Volumes, &ha_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	//if err != nil {
+	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
+	//}
+	if ha_res.route.Name == "" {
+		return oshandler.Credentials{}
+	}
+
+	//if len(boot_res.service.Spec.Ports) == 0 {
+	//	err := errors.New("no ports in boot service")
+	//	logger.Error("", err)
+	//	return brokerapi.Binding{}, Credentials{}, err
+	//}
+
+	etcd_addr, host, port := ha_res.endpoint()
+	println("etcd addr: ", etcd_addr)
+	//etcd_addrs := []string{etcd_addr}
+
+	return oshandler.Credentials{
+		Uri:      etcd_addr,
+		Hostname: host,
+		Port:     port,
+		Username: myServiceInfo.Admin_user,
+		Password: myServiceInfo.Admin_password,
+	}
 }
 
 func (handler *Etcd_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -307,7 +378,7 @@ func (handler *Etcd_sampleHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo
 //
 //===============================================================
 
-
+// The function name is for history reason?
 func initEtcdRootPassword(namespasce string, input etcdResources_HA) bool {
 
 	ok := func(dc *dcapi.DeploymentConfig) bool {
@@ -325,7 +396,9 @@ func initEtcdRootPassword(namespasce string, input etcdResources_HA) bool {
 	}
 
 	var output etcdResources_HA
-	for {
+	var i = 0
+	const MaxTries = 9
+	for i < MaxTries {
 		time.Sleep(7 * time.Second)
 		if ok(&input.etcddc1) && ok(&input.etcddc2) && ok(&input.etcddc3) {
 			err := kpost(namespasce, "pods", &input.pod, &output.pod)
@@ -335,6 +408,11 @@ func initEtcdRootPassword(namespasce string, input etcdResources_HA) bool {
 			}
 			break
 		}
+		i++
+	}
+	if i == MaxTries {
+		fmt.Println("cteate init password pod err: max tries reached")
+		return false
 	}
 	return true
 }

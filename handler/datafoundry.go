@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"os"
 	"strings"
 	"time"
+
+	kapi "k8s.io/kubernetes/pkg/api/v1"
 	//"fmt"
 	"sync"
 )
@@ -70,6 +71,12 @@ type VolumnCreateOptions struct {
 	kapi.ObjectMeta `json:"metadata,omitempty"`
 }
 
+type VolumnUpdateOptions struct {
+	Name    string `json:"name,omitempty"`
+	OldSize int    `json:"old-size,omitempty"`
+	NewSize int    `json:"new-size,omitempty"`
+}
+
 func CreateVolumn(namespace, volumnName string, size int) error {
 	oc := OC()
 
@@ -100,6 +107,23 @@ func DeleteVolumn(namespace, volumnName string) error {
 	return err
 }
 
+// oldSize is not used here.
+func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error {
+	oc := OC()
+
+	url := DfProxyApiPrefix() + "/namespaces/" + namespace + "/volumes"
+
+	options := &VolumnUpdateOptions{
+		Name:    volumnName,
+		OldSize: oldSize,
+		NewSize: newSize,
+	}
+
+	err := dfRequest("PUT", url, oc.BearerToken(), options, nil)
+
+	return err
+}
+
 //=======================================================================
 //
 //=======================================================================
@@ -121,6 +145,8 @@ func DeleteVolumns(namespace string, volumes []Volume) <-chan error {
 
 // todo: it is best to save jobs in mysql firstly, ...
 // now, when the server instance is terminated, jobs are lost.
+
+// todo: Volumn -> volume
 
 var pvcVolumnCreatingJobs = map[string]*CreatePvcVolumnJob{}
 var pvcVolumnCreatingJobsMutex sync.Mutex
@@ -146,7 +172,7 @@ func StartCreatePvcVolumnJob(
 		volumes:   volumes,
 	}
 
-	c := make(chan error)
+	c := make(chan error, 1)
 
 	pvcVolumnCreatingJobsMutex.Lock()
 	defer pvcVolumnCreatingJobsMutex.Unlock()
@@ -160,6 +186,8 @@ func StartCreatePvcVolumnJob(
 			delete(pvcVolumnCreatingJobs, jobName)
 			pvcVolumnCreatingJobsMutex.Unlock()
 		}()
+	} else {
+		c <- errors.New("one volume creating job (" + jobName + ") is ongoing")
 	}
 
 	return c
@@ -276,6 +304,136 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 
 	c <- nil
 }
+
+//=======================================================================
+//
+//=======================================================================
+
+// todo: it is best to save jobs in mysql firstly, ...
+// now, when the server instance is terminated, jobs are lost.
+
+// todo: Volumn -> volume
+
+func StartExpandPvcVolumnJob(
+	jobName string,
+	namespace string,
+	volumes []Volume,
+	newVolumeSize int,
+) <-chan error {
+
+	job := &ExpandPvcVolumnJob{
+		CreatePvcVolumnJob{
+			cancelChan: make(chan struct{}),
+
+			namespace: namespace,
+			volumes:   volumes,
+		},
+		newVolumeSize,
+	}
+
+	c := make(chan error, 1)
+
+	pvcVolumnCreatingJobsMutex.Lock()
+	defer pvcVolumnCreatingJobsMutex.Unlock()
+
+	if pvcVolumnCreatingJobs[jobName] == nil {
+		pvcVolumnCreatingJobs[jobName] = &job.CreatePvcVolumnJob
+		go func() {
+			job.run(c)
+
+			pvcVolumnCreatingJobsMutex.Lock()
+			delete(pvcVolumnCreatingJobs, jobName)
+			pvcVolumnCreatingJobsMutex.Unlock()
+		}()
+	} else {
+		c <- errors.New("one volume creating/expanding job (" + jobName + ") is ongoing")
+	}
+
+	return c
+}
+
+type ExpandPvcVolumnJob struct {
+	CreatePvcVolumnJob
+	newVolueSize int
+}
+
+func (job *ExpandPvcVolumnJob) run(c chan<- error) {
+	println("startExpandPvcVolumnJob ...")
+
+	println("ExpandVolumns", job.volumes, "...")
+
+	errChan := make(chan error, len(job.volumes))
+
+	var wg sync.WaitGroup
+	wg.Add(len(job.volumes))
+	for _, vol := range job.volumes {
+		go func(name string, oldSize, newSize int) {
+
+			defer wg.Done()
+
+			// ...
+
+			println("ExpandVolumn: name=", name, ", oldSize=", oldSize, ", newSize =", newSize)
+
+			err := ExpandVolumn(job.namespace, name, oldSize, newSize)
+			if err != nil {
+				println("ExpandVolumn error:", err.Error())
+
+				errChan <- err
+				return
+			}
+
+			// ...
+
+			println("ExpandVolumn succeeded: name=", name, ", oldSize=", oldSize, ", newSize =", newSize)
+
+		}(vol.Volume_name, vol.Volume_size, job.newVolueSize)
+	}
+	wg.Wait()
+	close(errChan)
+
+	if len(errChan) == 0 {
+		c <- nil
+		return
+	}
+
+	errs := make([]string, 0, len(job.volumes))
+	for err := range errChan {
+		errs = append(errs, err.Error())
+	}
+	c <- errors.New(strings.Join(errs, "\n"))
+
+	/*
+		err := ExpandVolumn(job.volumeName, job.volumeSize)
+		if err != nil {
+			println("ExpandVolumn", job.volumeName, "esrror: ", err)
+			c <- fmt.Errorf("ExpandVolumn error: ", err)
+			return
+		}
+
+		println("WaitUntilPvcIsBound", job.volumeName, "...")
+
+		// watch pvc until bound
+
+		err = WaitUntilPvcIsBound(namespace, job.volumeName, job.cancelChan)
+		if err != nil {
+			println("WaitUntilPvcIsBound", job.volumeName, "error: ", err)
+
+			println("DeleteVolumn", job.volumeName, "...")
+
+			// todo: on error
+			DeleteVolumn(job.volumeName)
+
+			c <- fmt.Errorf("WaitUntilPvcIsBound", job.volumeName, "error: ", err)
+
+			return
+		}
+	*/
+
+	c <- nil
+}
+
+//====================
 
 //====================
 

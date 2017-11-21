@@ -8,9 +8,9 @@ spec:
   containers:
   - args:
     - /run.sh
-    resources:
-      limits:
-        cpu: "0.1"
+    #resources:
+    #  limits:
+    #    cpu: "0.1"
     image: http://cassandra-image-place-holder/cassandra-openshift-orchestration
     imagePullPolicy: IfNotPresent
     name: sb-instanceid-cssndr

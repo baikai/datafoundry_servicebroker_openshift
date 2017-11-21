@@ -61,6 +61,10 @@ func (handler *Spark_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servi
 	return newSparkHandler(1).DoLastOperation(myServiceInfo)
 }
 
+func (handler *Spark_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newSparkHandler(1).DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Spark_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newSparkHandler(1).DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -83,6 +87,10 @@ func (handler *Spark_haHandler) DoProvision(etcdSaveResult chan error, instanceI
 
 func (handler *Spark_haHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 	return newSparkHandler(3).DoLastOperation(myServiceInfo)
+}
+
+func (handler *Spark_haHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newSparkHandler(3).DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
 func (handler *Spark_haHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -179,6 +187,10 @@ func (handler *Spark_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	serviceSpec.DashboardURL = master_web_uri
 
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -226,6 +238,10 @@ func (handler *Spark_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	// todo: check zeppelin
 }
 
+func (handler *Spark_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *Spark_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		job := getSparkOrchestrationJob(myServiceInfo.Url)
@@ -258,6 +274,39 @@ func (handler *Spark_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 	return brokerapi.IsAsync(false), nil
 }
 
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var master_res sparkResources_Master
+	err := loadSparkResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password, &master_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	var zeppelin_res sparkResources_Zeppelin
+	err = loadSparkResources_Zeppelin(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password, &zeppelin_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	// todo: check if pods are created and running, return error on false.
+
+	//master_host := master_res.webroute.Spec.Host
+	master_host := fmt.Sprintf("%s.%s.%s", master_res.mastersvc.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	master_port := strconv.Itoa(master_res.mastersvc.Spec.Ports[0].Port)
+	master_uri := "spark://" + net.JoinHostPort(master_host, master_port)
+	zeppelin_host := zeppelin_res.route.Spec.Host
+	zeppelin_port := "80"
+	zeppelin_uri := "http://" + net.JoinHostPort(zeppelin_host, zeppelin_port)
+
+	return oshandler.Credentials{
+		Uri:      fmt.Sprintf("spark: %s zeppelin: %s", master_uri, zeppelin_uri),
+		Hostname: master_host,
+		Port:     master_port,
+		Username: "",
+		Password: myServiceInfo.Password,
+	}
+}
+
 func (handler *Spark_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
@@ -268,7 +317,7 @@ func (handler *Spark_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 	// todo: check if pods are created and running, return error on false.
 
 	//master_host := master_res.webroute.Spec.Host
-	master_host := fmt.Sprintf("%s.%s.svc.cluster.local", master_res.mastersvc.Name, myServiceInfo.Database)
+	master_host := fmt.Sprintf("%s.%s.%s", master_res.mastersvc.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	master_port := strconv.Itoa(master_res.mastersvc.Spec.Ports[0].Port)
 	master_uri := "spark://" + net.JoinHostPort(master_host, master_port)
 	zeppelin_host := zeppelin_res.route.Spec.Host
@@ -505,7 +554,8 @@ func loadSparkResources_Master(instanceID, serviceBrokerNamespace, sparkSecret s
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(sparkSecret), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace+".svc.cluster.local"), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
+		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -552,7 +602,8 @@ func loadSparkResources_Workers(instanceID, serviceBrokerNamespace, sparkSecret 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(sparkSecret), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("num-workers-place-holder"), []byte(strconv.Itoa(numWorkers)), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace+".svc.cluster.local"), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
+		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= HA yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -604,7 +655,8 @@ func loadSparkResources_Zeppelin(instanceID, serviceBrokerNamespace, sparkSecret
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(sparkSecret), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"), []byte(serviceBrokerNamespace+".svc.cluster.local"), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
+		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= HA yamlTemplates ===========")
 	//println(string(yamlTemplates))

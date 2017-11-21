@@ -61,6 +61,10 @@ func (handler *PySpider_freeHandler) DoLastOperation(myServiceInfo *oshandler.Se
 	return newPySpiderHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *PySpider_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newPySpiderHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *PySpider_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newPySpiderHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -136,6 +140,10 @@ func (handler *PySpider_Handler) DoProvision(etcdSaveResult chan error, instance
 
 	serviceSpec.DashboardURL = "http://" + net.JoinHostPort(input.route.Spec.Host, "80")
 
+	//>>>
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	//<<<
+
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -176,6 +184,10 @@ func (handler *PySpider_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 	}
 }
 
+func (handler *PySpider_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *PySpider_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
@@ -185,6 +197,33 @@ func (handler *PySpider_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 	destroyPySpiderResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
+}
+
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var master_res pyspiderResources_Master
+	err := loadPySpiderResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, &master_res)
+	if err != nil {
+		return oshandler.Credentials{}
+	}
+
+	web_port := oshandler.GetServicePortByName(&master_res.service, "5000-tcp")
+	if web_port == nil {
+		return oshandler.Credentials{}
+	}
+
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(web_port.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
+
+	return oshandler.Credentials{
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		//Username: myServiceInfo.User,
+		//Password: myServiceInfo.Password,
+	}
 }
 
 func (handler *PySpider_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -200,7 +239,7 @@ func (handler *PySpider_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("5000-tcp port not found")
 	}
 
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", master_res.service.Name, myServiceInfo.Database)
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
