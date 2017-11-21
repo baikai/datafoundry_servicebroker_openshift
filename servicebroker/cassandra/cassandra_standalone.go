@@ -187,6 +187,10 @@ func (handler *Cassandra_sampleHandler) DoLastOperation(myServiceInfo *oshandler
 	}
 }
 
+func (handler *Cassandra_sampleHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
+}
+
 func (handler *Cassandra_sampleHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		job := getCassandraOrchestrationJob(myServiceInfo.Url)

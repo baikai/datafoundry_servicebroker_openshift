@@ -2,7 +2,7 @@ package redis_pvc
 
 import (
 	"fmt"
-	//"errors"
+	"errors"
 	//marathon "github.com/gambol99/go-marathon"
 	//kapi "golang.org/x/build/kubernetes/api"
 	//"golang.org/x/build/kubernetes"
@@ -59,6 +59,10 @@ func (handler *Redis_freeHandler) DoProvision(etcdSaveResult chan error, instanc
 
 func (handler *Redis_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 	return newRedisHandler().DoLastOperation(myServiceInfo)
+}
+
+func (handler *Redis_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newRedisHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
 func (handler *Redis_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -184,6 +188,7 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		err = <-result
 		if err != nil {
 			logger.Error("redis create volume", err)
+			handler.DoDeprovision(&serviceInfo, true)
 			return
 		}
 
@@ -368,6 +373,10 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *Redis_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return errors.New("not implemented")
 }
 
 func (handler *Redis_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {

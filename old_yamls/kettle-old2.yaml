@@ -21,9 +21,9 @@ spec:
         - /start.sh
         - user*****
         - pass*****
-        resources:
-          limits:
-            cpu: 0.1
+        #resources:
+        #  limits:
+        #    cpu: 0.1
         ports:
         - containerPort: 8080
           protocol: TCP

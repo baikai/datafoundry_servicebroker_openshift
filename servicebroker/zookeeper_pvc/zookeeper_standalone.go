@@ -13,10 +13,11 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/pivotal-cf/brokerapi"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 	//"text/template"
 	//"io"
 	"io/ioutil"
@@ -59,6 +60,10 @@ func (handler *Zookeeper_freeHandler) DoProvision(etcdSaveResult chan error, ins
 
 func (handler *Zookeeper_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 	return newZookeeperHandler().DoLastOperation(myServiceInfo)
+}
+
+func (handler *Zookeeper_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newZookeeperHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
 func (handler *Zookeeper_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -161,6 +166,28 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 
 	serviceInfo.Volumes = volumes
 
+	//>> may be not optimized
+	var template ZookeeperResources_Master
+	err := loadZookeeperResources_Master(
+		serviceInfo.Url,
+		serviceInfo.Database,
+		serviceInfo.User,
+		serviceInfo.Password,
+		serviceInfo.Volumes,
+		&template)
+	if err != nil {
+		return serviceSpec, oshandler.ServiceInfo{}, err
+	}
+	//<<
+
+	nodePort, err := createZookeeperResources_NodePort(
+		&template,
+		serviceInfo.Database,
+	)
+	if err != nil {
+		return serviceSpec, oshandler.ServiceInfo{}, err
+	}
+
 	// ...
 	go func() {
 		err := <-etcdSaveResult
@@ -178,6 +205,7 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 		err = <-result
 		if err != nil {
 			logger.Error("zookeeper create volume", err)
+			handler.DoDeprovision(&serviceInfo, true)
 			return
 		}
 
@@ -209,7 +237,7 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 	serviceSpec.DashboardURL = "" // "http://" + net.JoinHostPort(output.route.Spec.Host, "80")
 
 	//>>>
-	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, nodePort)
 	//<<<
 
 	return serviceSpec, serviceInfo, nil
@@ -305,6 +333,10 @@ func (handler *Zookeeper_Handler) DoLastOperation(myServiceInfo *oshandler.Servi
 	}
 }
 
+func (handler *Zookeeper_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return errors.New("not implemented")
+}
+
 func (handler *Zookeeper_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
@@ -341,22 +373,29 @@ func (handler *Zookeeper_Handler) DoDeprovision(myServiceInfo *oshandler.Service
 }
 
 // please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *ZookeeperResources_Master) oshandler.Credentials {
 	var master_res ZookeeperResources_Master
 	err := loadZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
 	if err != nil {
 		return oshandler.Credentials{}
 	}
 
-	host, port, err := master_res.ServiceHostPort(myServiceInfo.Database)
+	svchost, svcport, err := master_res.ServiceHostPort(myServiceInfo.Database)
 	if err != nil {
 		return oshandler.Credentials{}
 	}
 
+	ndhost := oshandler.RandomNodeAddress()
+	var ndport string = ""
+	np := oshandler.GetServicePortByName(&nodePort.serviceNodePort, "client")
+	if np == nil {
+		ndport = strconv.Itoa(np.Port)
+	}
+
 	return oshandler.Credentials{
-		Uri:      "",
-		Hostname: host,
-		Port:     port,
+		Uri:      fmt.Sprintf("internal host: %s, internal port: %s", svchost, svcport),
+		Hostname: ndhost,
+		Port:     ndport,
 		Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 	}
@@ -606,7 +645,7 @@ func loadZookeeperResources_Master(instanceID, serviceBrokerNamespace, zookeeper
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("super:password-place-holder"), []byte(zoo_password), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****peer1"), []byte(peerPvcName0), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****peer2"), []byte(peerPvcName1), -1)
@@ -625,7 +664,8 @@ func loadZookeeperResources_Master(instanceID, serviceBrokerNamespace, zookeeper
 		Decode(&res.rc1).
 		Decode(&res.rc2).
 		Decode(&res.rc3).
-		Decode(&res.route)
+		Decode(&res.route).
+		Decode(&res.serviceNodePort)
 
 	return decoder.Err
 }
@@ -641,6 +681,8 @@ type ZookeeperResources_Master struct {
 	rc3  kapi.ReplicationController
 
 	route routeapi.Route
+
+	serviceNodePort kapi.Service
 }
 
 func (masterRes *ZookeeperResources_Master) ServiceHostPort(serviceBrokerNamespace string) (string, string, error) {
@@ -686,6 +728,22 @@ func CreateZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeep
 	return &output, osr.Err
 }
 
+func createZookeeperResources_NodePort(input *ZookeeperResources_Master, serviceBrokerNamespace string) (*ZookeeperResources_Master, error) {
+	var output ZookeeperResources_Master
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	// here, not use job.post
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.KPost(prefix+"/services", &input.serviceNodePort, &output.serviceNodePort)
+
+	if osr.Err != nil {
+		logger.Error("createZookeeperResources_NodePort", osr.Err)
+	}
+
+	return &output, osr.Err
+}
+
 func GetZookeeperResources_Master(instanceId, serviceBrokerNamespace, zookeeperUser, zookeeperPassword string, volumes []oshandler.Volume) (*ZookeeperResources_Master, error) {
 	var output ZookeeperResources_Master
 
@@ -712,7 +770,8 @@ func getZookeeperResources_Master(serviceBrokerNamespace string, input, output *
 		KGet(prefix+"/replicationcontrollers/"+input.rc2.Name, &output.rc2).
 		KGet(prefix+"/replicationcontrollers/"+input.rc3.Name, &output.rc3).
 		// old bsi has no route, so get route may be error
-		OGet(prefix+"/routes/"+input.route.Name, &output.route)
+		OGet(prefix+"/routes/"+input.route.Name, &output.route).
+		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort)
 
 	if osr.Err != nil {
 		logger.Error("getZookeeperResources_Master", osr.Err)
@@ -732,6 +791,7 @@ func DestroyZookeeperResources_Master(masterRes *ZookeeperResources_Master, serv
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc2) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc3) }()
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
+	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
 }
 
 //===============================================================

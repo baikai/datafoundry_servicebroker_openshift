@@ -61,6 +61,10 @@ func (handler *TensorFlow_freeHandler) DoLastOperation(myServiceInfo *oshandler.
 	return newTensorFlowHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *TensorFlow_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newTensorFlowHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *TensorFlow_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newTensorFlowHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -179,6 +183,10 @@ func (handler *TensorFlow_Handler) DoLastOperation(myServiceInfo *oshandler.Serv
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *TensorFlow_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
 }
 
 func (handler *TensorFlow_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {

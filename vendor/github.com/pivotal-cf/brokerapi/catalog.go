@@ -30,6 +30,7 @@ type ServicePlanMetadata struct {
 	DisplayName string        `json:"displayName,omitempty"`
 	Bullets     []string      `json:"bullets,omitempty"`
 	Costs       []ServiceCost `json:"costs,omitempty"`
+	Customize   interface{}   `json:"customize,omitempty"`
 }
 
 type ServiceCost struct {

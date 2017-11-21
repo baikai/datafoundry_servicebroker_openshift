@@ -62,6 +62,10 @@ func (handler *Kettle_freeHandler) DoLastOperation(myServiceInfo *oshandler.Serv
 	return newKettleHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *Kettle_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newKettleHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Kettle_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newKettleHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -197,6 +201,10 @@ func (handler *Kettle_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceI
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *Kettle_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
 }
 
 func (handler *Kettle_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {

@@ -61,6 +61,10 @@ func (handler *Spark_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servi
 	return newSparkHandler(1).DoLastOperation(myServiceInfo)
 }
 
+func (handler *Spark_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newSparkHandler(1).DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Spark_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newSparkHandler(1).DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -83,6 +87,10 @@ func (handler *Spark_haHandler) DoProvision(etcdSaveResult chan error, instanceI
 
 func (handler *Spark_haHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 	return newSparkHandler(3).DoLastOperation(myServiceInfo)
+}
+
+func (handler *Spark_haHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newSparkHandler(3).DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
 func (handler *Spark_haHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -228,6 +236,10 @@ func (handler *Spark_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	}
 
 	// todo: check zeppelin
+}
+
+func (handler *Spark_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
 }
 
 func (handler *Spark_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {

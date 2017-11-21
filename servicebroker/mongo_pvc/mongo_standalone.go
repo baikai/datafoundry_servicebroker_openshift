@@ -59,6 +59,10 @@ func (handler *Mongo_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servi
 	return newMongoHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *Mongo_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newMongoHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *Mongo_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newMongoHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -176,6 +180,7 @@ func (handler *Mongo_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		err = <-result
 		if err != nil {
 			logger.Error("mongo create volume", err)
+			handler.DoDeprovision(&serviceInfo, true)
 			return
 		}
 
@@ -301,6 +306,10 @@ func (handler *Mongo_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *Mongo_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return errors.New("not implemented")
 }
 
 func (handler *Mongo_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {

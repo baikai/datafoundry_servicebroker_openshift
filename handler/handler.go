@@ -8,8 +8,15 @@ import (
 	"fmt"
 	"github.com/pivotal-cf/brokerapi"
 	"io"
+	mathrand "math/rand"
 	"os"
+	"strings"
+	"time"
 )
+
+func init() {
+	mathrand.Seed(time.Now().UnixNano())
+}
 
 const (
 	VolumeType_EmptyDir = ""    // DON'T change
@@ -32,6 +39,9 @@ type ServiceInfo struct {
 	//
 	// will be replaced by
 	Volumes []Volume `json:"volumes,omitempty"`
+
+	// for different bs, the meaning is different
+	Miscs map[string]string `json:"miscs,omitempty"`
 }
 
 type Volume struct {
@@ -44,6 +54,7 @@ type Volume struct {
 type PlanInfo struct {
 	Volume_size int `json:"volume_type"`
 	Connections int `json:"connections"`
+	//Customize   map[string]CustomParams `json:"customize"`
 }
 
 type Credentials struct {
@@ -53,10 +64,21 @@ type Credentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
+	Vhost    string `json:"vhost"`
+}
+
+type CustomParams struct {
+	Default float64 `json:"default"`
+	Max     float64 `json:"max"`
+	Price   float64 `json:"price"`
+	Unit    string  `json:"unit"`
+	Step    float64 `json:"step"`
+	Desc    string  `json:"desc"`
 }
 
 type HandlerDriver interface {
 	DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, ServiceInfo, error)
+	DoUpdate(myServiceInfo *ServiceInfo, planInfo PlanInfo, callbackSaveNewInfo func(*ServiceInfo) error, asyncAllowed bool) error
 	DoLastOperation(myServiceInfo *ServiceInfo) (brokerapi.LastOperation, error)
 	DoDeprovision(myServiceInfo *ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error)
 	DoBind(myServiceInfo *ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, Credentials, error)
@@ -89,6 +111,10 @@ func New(name string) (*Handler, error) {
 
 func (handler *Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, ServiceInfo, error) {
 	return handler.driver.DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
+}
+
+func (handler *Handler) DoUpdate(myServiceInfo *ServiceInfo, planInfo PlanInfo, callbackSaveNewInfo func(*ServiceInfo) error, asyncAllowed bool) error {
+	return handler.driver.DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
 func (handler *Handler) DoLastOperation(myServiceInfo *ServiceInfo) (brokerapi.LastOperation, error) {
@@ -144,12 +170,46 @@ func ServiceDomainSuffix(prefixedWithDot bool) string {
 	return svcDomainSuffix
 }
 
+func EndPointSuffix() string {
+	return endpointSuffix
+}
+
 func DnsmasqServer() string {
 	return dnsmasqServer
 }
 
-func EndPointSuffix() string {
-	return endpointSuffix
+func RandomNodeAddress() string {
+	if len(nodeAddresses) == 0 {
+		return ""
+	}
+	return nodeAddresses[mathrand.Intn(len(nodeAddresses))]
+}
+
+func RandomNodeDomain() string {
+	if len(nodeDemains) == 0 {
+		return ""
+	}
+	return nodeDemains[mathrand.Intn(len(nodeDemains))]
+}
+
+func NodeDomain(n int) string {
+	if len(nodeDemains) == 0 {
+		return ""
+	}
+	if n < 0 || n >= len(nodeDemains) {
+		n = 0
+	}
+	return nodeDemains[n]
+}
+
+func ExternalZookeeperServer(n int) string {
+	if len(externalZookeeperServers) == 0 {
+		return ""
+	}
+	if n < 0 || n >= len(externalZookeeperServers) {
+		n = 0
+	}
+	return externalZookeeperServers[n]
 }
 
 func EtcdImage() string {
@@ -178,6 +238,10 @@ func RedisImage() string {
 
 func RedisPhpAdminImage() string {
 	return redisphpadminImage
+}
+
+func Redis32Image() string {
+	return redis32Image
 }
 
 func KafkaImage() string {
@@ -236,13 +300,30 @@ func KafkaVolumeImage() string {
 	return kafkaVolumeImage
 }
 
+func Neo4jVolumeImage() string {
+	return neo4jVolumeImage
+}
+
+func StormExternalImage() string {
+	return stormExternalImage
+}
+
+//func DfExternalIPs() string {
+//	return externalIPs
+//}
+
+
 var theOC *OpenshiftClient
 
 var svcDomainSuffix string
 var endpointSuffix string
 var svcDomainSuffixWithDot string
 
-var dnsmasqServer string
+var dnsmasqServer string // may be useless now.
+
+var nodeAddresses []string
+var nodeDemains []string
+var externalZookeeperServers []string
 
 var etcdImage string
 var etcdVolumeImage string
@@ -250,6 +331,7 @@ var etcdbootImage string
 var zookeeperImage string
 var zookeeperexhibitorImage string
 var redisImage string
+var redis32Image string
 var redisphpadminImage string
 var kafkaImage string
 var stormImage string
@@ -265,6 +347,8 @@ var pyspiderImage string
 var elasticsearchVolumeImage string
 var mongoVolumeImage string
 var kafkaVolumeImage string
+var neo4jVolumeImage string
+var stormExternalImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -279,15 +363,20 @@ func init() {
 		svcDomainSuffix = "svc.cluster.local"
 	}
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
-
+	
+	endpointSuffix = getenv("ENDPOINTSUFFIX")
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
-	endpointSuffix = getenv("ENDPOINTSUFFIX")
+	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
+	nodeDemains = strings.Split(getenv("NODE_DOMAINS"), ",")
+	externalZookeeperServers = strings.Split(getenv("EXTERNALZOOKEEPERSERVERS"), ",")
+
 	etcdImage = getenv("ETCDIMAGE")
 	etcdbootImage = getenv("ETCDBOOTIMAGE")
 	zookeeperImage = getenv("ZOOKEEPERIMAGE")
 	zookeeperexhibitorImage = getenv("ZOOKEEPEREXHIBITORIMAGE")
 	redisImage = getenv("REDISIMAGE")
+	redis32Image = getenv("REDIS32IMAGE")
 	redisphpadminImage = getenv("REDISPHPADMINIMAGE")
 	kafkaImage = getenv("KAFKAIMAGE")
 	stormImage = getenv("STORMIMAGE")
@@ -304,4 +393,6 @@ func init() {
 	elasticsearchVolumeImage = getenv("ELASTICSEARCHVOLUMEIMAGE")
 	mongoVolumeImage = getenv("MONGOVOLUMEIMAGE")
 	kafkaVolumeImage = getenv("KAFKAVOLUMEIMAGE")
+	neo4jVolumeImage = getenv("NEO4JVOLUMEIMAGE")
+	stormExternalImage = getenv("STORMEXTERNALIMAGE")
 }

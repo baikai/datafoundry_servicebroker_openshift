@@ -61,6 +61,10 @@ func (handler *NiFi_freeHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 	return newNiFiHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *NiFi_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newNiFiHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *NiFi_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newNiFiHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -181,6 +185,10 @@ func (handler *NiFi_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInf
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *NiFi_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
 }
 
 func (handler *NiFi_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {

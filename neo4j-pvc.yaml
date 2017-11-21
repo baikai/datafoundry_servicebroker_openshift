@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  labels:
+    servicebroker: sb-instanceid-neo4j
+  name: sb-instanceid-neo4j
+spec:
+  replicas: 1
+  selector:
+    servicebroker: sb-instanceid-neo4j
+  template:
+    metadata:
+      labels:
+        servicebroker: sb-instanceid-neo4j
+    spec:
+      containers:
+      - image: http://neo4j-image-place-holder/neo4j-openshift-orchestration
+        imagePullPolicy: IfNotPresent
+        name: sb-instanceid-neo4j
+        #resources:
+        #  limits:
+        #    cpu: 0.1
+        env:
+          - name: NEO4J_DEFAULT_USER
+            value: user*****
+          - name: NEO4J_DEFAULT_PASSWD
+            value: pass*****
+          - name: NEO4J_AUTH
+            value: neo4jauth
+          # consistent with /var/lib/neo4j
+          - name: HOSTNAME
+            value: neo4j
+        ports:
+        - containerPort: 7474
+        - containerPort: 7473
+        - containerPort: 7687
+        terminationMessagePath: /dev/termination-log
+        volumeMounts:
+        - name: neo4j-volume
+          mountPath: /data
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: neo4j-volume
+        persistentVolumeClaim:
+          claimName: "pvcname*****node"
+---
+#Route for admin
+apiVersion: v1
+kind: Route
+metadata:
+  name: sb-instanceid-neo4j
+  labels:
+    servicebroker: sb-instanceid-neo4j-admin
+spec:
+  host: sb-instanceid-neo4j-admin.endpoint-postfix-place-holder
+  port:
+    targetPort: neo4j-http-port
+  to:
+    kind: Service
+    name: sb-instanceid-neo4j
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    servicebroker: sb-instanceid-neo4j
+  name: sb-instanceid-neo4j
+spec:
+  ports:
+  - port: 7474
+    name: neo4j-http-port
+  - port: 7473
+    name: neo4j-https-port
+  selector:
+    servicebroker: sb-instanceid-neo4j
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    servicebroker: sb-instanceid-neo4j
+  name: sb-instanceid-n4jblt
+spec:
+  type: NodePort
+  ports:
+  - port: 7687
+    name: neo4j-bolt-port
+  selector:
+    servicebroker: sb-instanceid-neo4j

@@ -81,7 +81,7 @@ spec:
         service-broker: sb-instanceid-storm
     spec:
       containers:
-      - name: zookeeper
+      - name: ui
         image: http://storm-image-place-holder/storm-openshift-orchestration
         imagePullPolicy: IfNotPresent
         env:

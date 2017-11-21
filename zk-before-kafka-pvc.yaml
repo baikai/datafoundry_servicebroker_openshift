@@ -186,4 +186,16 @@ spec:
     port: 3888
   selector:
     app: sb-instanceid-zk
----
+
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: sb-instanceid-zk-np
+#spec:
+#  type: NodePort
+#  ports:
+#    - name: client
+#      port: 2181
+#  selector:
+#    app: sb-instanceid-zk

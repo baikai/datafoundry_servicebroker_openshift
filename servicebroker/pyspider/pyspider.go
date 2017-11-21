@@ -61,6 +61,10 @@ func (handler *PySpider_freeHandler) DoLastOperation(myServiceInfo *oshandler.Se
 	return newPySpiderHandler().DoLastOperation(myServiceInfo)
 }
 
+func (handler *PySpider_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newPySpiderHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+}
+
 func (handler *PySpider_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	return newPySpiderHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
@@ -178,6 +182,10 @@ func (handler *PySpider_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *PySpider_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
 }
 
 func (handler *PySpider_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {

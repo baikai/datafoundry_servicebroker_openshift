@@ -224,45 +224,50 @@ func NewOpenshiftREST(oc *OpenshiftClient) *OpenshiftREST {
 	return &OpenshiftREST{oc: oc}
 }
 
-func (osr *OpenshiftREST) doRequest(method, url string, bodyParams interface{}, into interface{}) *OpenshiftREST {
-	if osr.Err != nil {
+func (osr *OpenshiftREST) doRequest(returnIfAlreadyError bool, method, url string, bodyParams interface{}, into interface{}) *OpenshiftREST {
+	if returnIfAlreadyError && osr.Err != nil {
 		return osr
 	}
 
-	var body []byte
-	if bodyParams != nil {
-		body, osr.Err = json.Marshal(bodyParams)
-		if osr.Err != nil {
-			return osr
+	err := func() error {
+		var body []byte
+		if bodyParams != nil {
+			var err error
+			body, err = json.Marshal(bodyParams)
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	//res, osr.Err := oc.request(method, url, body, GeneralRequestTimeout) // non-name error
-	res, err := osr.oc.request(method, url, body, GeneralRequestTimeout)
-	osr.Err = err
-	if osr.Err != nil {
-		return osr
-	}
-	defer res.Body.Close()
+		//res, osr.Err := oc.request(method, url, body, GeneralRequestTimeout) // non-name error
+		res, err := osr.oc.request(method, url, body, GeneralRequestTimeout)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
 
-	var data []byte
-	data, osr.Err = ioutil.ReadAll(res.Body)
-	if osr.Err != nil {
-		return osr
-	}
+		data, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
 
-	//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
+		//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
 
-	if res.StatusCode == 404 {
-		osr.Err = NotFound
-	} else if res.StatusCode < 200 || res.StatusCode >= 400 {
-		osr.Err = errors.New(string(data))
-	} else {
-		if into != nil {
+		if res.StatusCode == 404 {
+			return NotFound
+		} else if res.StatusCode < 200 || res.StatusCode >= 400 {
+			return errors.New(string(data))
+		} else if into != nil {
 			//println("into data = ", string(data), "\n")
 
-			osr.Err = json.Unmarshal(data, into)
+			return json.Unmarshal(data, into)
 		}
+
+		return nil
+	}()
+
+	if osr.Err == nil {
+		osr.Err = err
 	}
 
 	return osr
@@ -299,45 +304,45 @@ func buildUriWithSelector(uri string, selector map[string]string) string {
 
 func (osr *OpenshiftREST) OList(uri string, selector map[string]string, into interface{}) *OpenshiftREST {
 
-	return osr.doRequest("GET", osr.oc.oapiUrl+buildUriWithSelector(uri, selector), nil, into)
+	return osr.doRequest(false, "GET", osr.oc.oapiUrl+buildUriWithSelector(uri, selector), nil, into)
 }
 
 func (osr *OpenshiftREST) OGet(uri string, into interface{}) *OpenshiftREST {
-	return osr.doRequest("GET", osr.oc.oapiUrl+uri, nil, into)
+	return osr.doRequest(false, "GET", osr.oc.oapiUrl+uri, nil, into)
 }
 
 func (osr *OpenshiftREST) ODelete(uri string, into interface{}) *OpenshiftREST {
-	return osr.doRequest("DELETE", osr.oc.oapiUrl+uri, &kapi.DeleteOptions{}, into)
+	return osr.doRequest(false, "DELETE", osr.oc.oapiUrl+uri, &kapi.DeleteOptions{}, into)
 }
 
 func (osr *OpenshiftREST) OPost(uri string, body interface{}, into interface{}) *OpenshiftREST {
-	return osr.doRequest("POST", osr.oc.oapiUrl+uri, body, into)
+	return osr.doRequest(true, "POST", osr.oc.oapiUrl+uri, body, into)
 }
 
 func (osr *OpenshiftREST) OPut(uri string, body interface{}, into interface{}) *OpenshiftREST {
-	return osr.doRequest("PUT", osr.oc.oapiUrl+uri, body, into)
+	return osr.doRequest(true, "PUT", osr.oc.oapiUrl+uri, body, into)
 }
 
 // k
 
 func (osr *OpenshiftREST) KList(uri string, selector map[string]string, into interface{}) *OpenshiftREST {
-	return osr.doRequest("GET", osr.oc.kapiUrl+buildUriWithSelector(uri, selector), nil, into)
+	return osr.doRequest(false, "GET", osr.oc.kapiUrl+buildUriWithSelector(uri, selector), nil, into)
 }
 
 func (osr *OpenshiftREST) KGet(uri string, into interface{}) *OpenshiftREST {
-	return osr.doRequest("GET", osr.oc.kapiUrl+uri, nil, into)
+	return osr.doRequest(false, "GET", osr.oc.kapiUrl+uri, nil, into)
 }
 
 func (osr *OpenshiftREST) KDelete(uri string, into interface{}) *OpenshiftREST {
-	return osr.doRequest("DELETE", osr.oc.kapiUrl+uri, &kapi.DeleteOptions{}, into)
+	return osr.doRequest(false, "DELETE", osr.oc.kapiUrl+uri, &kapi.DeleteOptions{}, into)
 }
 
 func (osr *OpenshiftREST) KPost(uri string, body interface{}, into interface{}) *OpenshiftREST {
-	return osr.doRequest("POST", osr.oc.kapiUrl+uri, body, into)
+	return osr.doRequest(true, "POST", osr.oc.kapiUrl+uri, body, into)
 }
 
 func (osr *OpenshiftREST) KPut(uri string, body interface{}, into interface{}) *OpenshiftREST {
-	return osr.doRequest("PUT", osr.oc.kapiUrl+uri, body, into)
+	return osr.doRequest(true, "PUT", osr.oc.kapiUrl+uri, body, into)
 }
 
 //===============================================================

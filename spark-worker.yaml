@@ -23,7 +23,7 @@ spec:
           command: ["/start-worker"]
           ports:
             - containerPort: 8081
-          resources:
-            requests:
-              cpu: 100m
+          #resources:
+          #  requests:
+          #    cpu: 100m
 

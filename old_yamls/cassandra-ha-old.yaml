@@ -16,9 +16,9 @@ spec:
       containers:
         - command:
             - /run.sh
-          resources:
-            limits:
-              cpu: 0.1
+          #resources:
+          #  limits:
+          #    cpu: 0.1
           env:
             - name: MAX_HEAP_SIZE
               value: 512M

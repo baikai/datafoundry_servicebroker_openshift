@@ -1,4 +1,4 @@
-package rabbitmq_pvc
+package neo4j_pvc
 
 import (
 	"errors"
@@ -37,12 +37,12 @@ import (
 //
 //==============================================================
 
-const RabbitmqServcieBrokerName_Standalone = "RabbitMQ_volumes_standalone"
+const Neo4jServcieBrokerName_Standalone = "Neo4j_volumes_standalone"
 
 func init() {
-	oshandler.Register(RabbitmqServcieBrokerName_Standalone, &Rabbitmq_freeHandler{})
+	oshandler.Register(Neo4jServcieBrokerName_Standalone, &Neo4j_freeHandler{})
 
-	logger = lager.NewLogger(RabbitmqServcieBrokerName_Standalone)
+	logger = lager.NewLogger(Neo4jServcieBrokerName_Standalone)
 	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
@@ -52,30 +52,30 @@ var logger lager.Logger
 //
 //==============================================================
 
-type Rabbitmq_freeHandler struct{}
+type Neo4j_freeHandler struct{}
 
-func (handler *Rabbitmq_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	return newRabbitmqHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
+func (handler *Neo4j_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	return newNeo4jHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
 }
 
-func (handler *Rabbitmq_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-	return newRabbitmqHandler().DoLastOperation(myServiceInfo)
+func (handler *Neo4j_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+	return newNeo4jHandler().DoLastOperation(myServiceInfo)
 }
 
-func (handler *Rabbitmq_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return newRabbitmqHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+func (handler *Neo4j_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newNeo4jHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
-func (handler *Rabbitmq_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
-	return newRabbitmqHandler().DoDeprovision(myServiceInfo, asyncAllowed)
+func (handler *Neo4j_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+	return newNeo4jHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
 
-func (handler *Rabbitmq_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
-	return newRabbitmqHandler().DoBind(myServiceInfo, bindingID, details)
+func (handler *Neo4j_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+	return newNeo4jHandler().DoBind(myServiceInfo, bindingID, details)
 }
 
-func (handler *Rabbitmq_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
-	return newRabbitmqHandler().DoUnbind(myServiceInfo, mycredentials)
+func (handler *Neo4j_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+	return newNeo4jHandler().DoUnbind(myServiceInfo, mycredentials)
 }
 
 //==============================================================
@@ -86,7 +86,7 @@ func (handler *Rabbitmq_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceIn
 //   one peer volume,
 
 func volumeBaseName(instanceId string) string {
-	return "rbbtmq-" + instanceId
+	return "neo-" + instanceId
 }
 
 func peerPvcName0(volumes []oshandler.Volume) string {
@@ -100,14 +100,14 @@ func peerPvcName0(volumes []oshandler.Volume) string {
 //
 //==============================================================
 
-type Rabbitmq_Handler struct {
+type Neo4j_Handler struct {
 }
 
-func newRabbitmqHandler() *Rabbitmq_Handler {
-	return &Rabbitmq_Handler{}
+func newNeo4jHandler() *Neo4j_Handler {
+	return &Neo4j_Handler{}
 }
 
-func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
 	//初始化到openshift的链接
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
@@ -122,8 +122,14 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	rabbitmqUser := oshandler.NewElevenLengthID()
-	rabbitmqPassword := oshandler.GenGUID()
+	neo4jUser := "neo4j"
+	neo4jPassword := oshandler.GenGUID()
+
+	/*
+		finalVolumeSize, err := getVolumeSize(details, planInfo)
+		if err != nil {
+			return serviceSpec, serviceInfo, err
+		}*/
 
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
 	volumes := []oshandler.Volume{
@@ -139,18 +145,18 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
 
-	// master rabbitmq
+	// master neo4j
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	serviceInfo.User = rabbitmqUser
-	serviceInfo.Password = rabbitmqPassword
+	serviceInfo.User = neo4jUser
+	serviceInfo.Password = neo4jPassword //NEO4J_AUTH
 
 	serviceInfo.Volumes = volumes
 
 	//>> may be not optimized
-	var template rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(
+	var template neo4jResources_Master
+	err := loadNeo4jResources_Master(
 		serviceInfo.Url,
 		serviceInfo.User,
 		serviceInfo.Password,
@@ -161,7 +167,7 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	}
 	//<<
 
-	nodePort, err := createRabbitmqResources_NodePort(
+	nodePort, err := createNeo4jResources_NodePort(
 		&template,
 		serviceInfo.Database,
 	)
@@ -186,16 +192,17 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 
 		err = <-result
 		if err != nil {
-			logger.Error("rabbitmq create volume", err)
-			handler.DoDeprovision(&serviceInfo, true)
+			logger.Error("neo4j create volume", err)
+			go func() { kdel(serviceBrokerNamespace, "services", nodePort.servicebolt.Name) }()
+			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
 			return
 		}
 
-		println("createRabbitmqResources_Master ...")
+		println("createNeo4jResources_Master ...")
 
 		// create master res
 
-		output, err := createRabbitmqResources_Master(
+		output, err := createNeo4jResources_Master(
 			serviceInfo.Url,
 			serviceInfo.Database,
 			serviceInfo.User,
@@ -203,10 +210,10 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" rabbitmq createRabbitmqResources_Master error: ", err)
-			logger.Error("rabbitmq createRabbitmqResources_Master error", err)
+			println(" neo4j createNeo4jResources_Master error: ", err)
+			logger.Error("neo4j createNeo4jResources_Master error", err)
 
-			destroyRabbitmqResources_Master(output, serviceBrokerNamespace)
+			destroyNeo4jResources_Master(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
 			return
@@ -222,7 +229,45 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	return serviceSpec, serviceInfo, nil
 }
 
-func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+/*func getVolumeSize(details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo) (finalVolumeSize int, err error) {
+	if planInfo.Customize == nil {
+		finalVolumeSize = planInfo.Volume_size
+	} else if cus, ok := planInfo.Customize[G_VolumeSize]; ok {
+		if details.Parameters == nil {
+			finalVolumeSize = int(cus.Default)
+			return
+		}
+		if _, ok := details.Parameters[G_VolumeSize]; !ok {
+			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] not exist")
+			println(err)
+			return
+		}
+		sSize, ok := details.Parameters[G_VolumeSize].(string)
+		if !ok {
+			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] cannot be converted to string")
+			println(err)
+			return
+		}
+		fSize, e := strconv.ParseFloat(sSize, 64)
+		if e != nil {
+			println("getVolumeSize: input parameter volumeSize :", sSize, e)
+			err = e
+			return
+		}
+		if fSize > cus.Max {
+			finalVolumeSize = int(cus.Default)
+		} else {
+			finalVolumeSize = int(cus.Default + cus.Step*math.Ceil((fSize-cus.Default)/cus.Step))
+		}
+	} else {
+		finalVolumeSize = planInfo.Volume_size
+	}
+
+	return
+}
+*/
+
+func (handler *Neo4j_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 
 	// assume in provisioning
 
@@ -236,7 +281,7 @@ func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 
 	// the job may be finished or interrupted or running in another instance.
 
-	master_res, _ := getRabbitmqResources_Master(
+	master_res, _ := getNeo4jResources_Master(
 		myServiceInfo.Url,
 		myServiceInfo.Database,
 		myServiceInfo.User,
@@ -273,11 +318,37 @@ func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 	}
 }
 
-func (handler *Rabbitmq_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return errors.New("not implemented")
+func (handler *Neo4j_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	go func() {
+		// Update volume
+		volumeBaseName := volumeBaseName(myServiceInfo.Url)
+		result := oshandler.StartExpandPvcVolumnJob(
+			volumeBaseName,
+			myServiceInfo.Database,
+			myServiceInfo.Volumes,
+			planInfo.Volume_size,
+		)
+
+		err := <-result
+		if err != nil {
+			logger.Error("neo4j expand volume error", err)
+			return
+		}
+
+		println("neo4j expand volumens done")
+
+		for i := range myServiceInfo.Volumes {
+			myServiceInfo.Volumes[i].Volume_size = planInfo.Volume_size
+		}
+		err = callbackSaveNewInfo(myServiceInfo)
+		if err != nil {
+			logger.Error("neo4j expand volume succeeded but save info error", err)
+		}
+	}()
+	return nil
 }
 
-func (handler *Rabbitmq_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+func (handler *Neo4j_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		// ...
 		volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
@@ -297,14 +368,14 @@ func (handler *Rabbitmq_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 
 		println("to destroy resources:", myServiceInfo.Url)
 
-		master_res, _ := getRabbitmqResources_Master(
+		master_res, _ := getNeo4jResources_Master(
 			myServiceInfo.Url,
 			myServiceInfo.Database,
 			myServiceInfo.User,
 			myServiceInfo.Password,
 			myServiceInfo.Volumes,
 		)
-		destroyRabbitmqResources_Master(master_res, myServiceInfo.Database)
+		destroyNeo4jResources_Master(master_res, myServiceInfo.Database)
 
 		// ...
 
@@ -317,43 +388,43 @@ func (handler *Rabbitmq_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 }
 
 // please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *rabbitmqResources_Master) oshandler.Credentials {
-	var master_res rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *neo4jResources_Master) oshandler.Credentials {
+	var master_res neo4jResources_Master
+	err := loadNeo4jResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
 	if err != nil {
 		return oshandler.Credentials{}
 	}
 
-	mq_port := oshandler.GetServicePortByName(&master_res.service, "mq")
-	if mq_port == nil {
+	http_port := oshandler.GetServicePortByName(&master_res.service, "neo4j-http-port")
+	if http_port == nil {
 		return oshandler.Credentials{}
 	}
 
-	svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	svcport := strconv.Itoa(mq_port.Port)
+	//host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	//port := strconv.Itoa(http_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
-
-	ndhost := oshandler.RandomNodeAddress()
-	var ndport string = ""
-	if nodePort != nil && len(nodePort.serviceNodePort.Spec.Ports) > 0 {
-		ndport = strconv.Itoa(nodePort.serviceNodePort.Spec.Ports[0].NodePort)
+	host := oshandler.RandomNodeAddress()
+	var port string = ""
+	if nodePort != nil && len(nodePort.servicebolt.Spec.Ports) > 0 {
+		port = strconv.Itoa(nodePort.servicebolt.Spec.Ports[0].NodePort)
 	}
 
 	return oshandler.Credentials{
-		Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, svchost, svcport),
-		Hostname: ndhost,
-		Port:     ndport,
+		Uri:      fmt.Sprintf("bolt://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, host, port),
+		Hostname: host,
+		Port:     port,
 		Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
-		Vhost:    svchost,
+		//Vhost:    master_res.routeAdmin.Spec.Host,
+		Vhost: fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false)),
 	}
 }
 
-func (handler *Rabbitmq_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+func (handler *Neo4j_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	master_res, err := getRabbitmqResources_Master(
+	master_res, err := getNeo4jResources_Master(
 		myServiceInfo.Url,
 		myServiceInfo.Database,
 		myServiceInfo.User,
@@ -364,20 +435,18 @@ func (handler *Rabbitmq_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	mq_port := oshandler.GetServicePortByName(&master_res.service, "mq")
-	if mq_port == nil {
-		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("mq port not found")
+	http_port := oshandler.GetServicePortByName(&master_res.service, "neo4j-http-port")
+	if http_port == nil {
+		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("neo4j-http-port not found")
 	}
 
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(mq_port.Port)
+	port := strconv.Itoa(http_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
 
-	// todo: return NodePort?
-
 	mycredentials := oshandler.Credentials{
-		Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, host, port),
+		Uri:      fmt.Sprintf("http://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, host, port),
 		Hostname: host,
 		Port:     port,
 		Username: myServiceInfo.User,
@@ -389,7 +458,7 @@ func (handler *Rabbitmq_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 	return myBinding, mycredentials, nil
 }
 
-func (handler *Rabbitmq_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+func (handler *Neo4j_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
 	// do nothing
 
 	return nil
@@ -399,32 +468,32 @@ func (handler *Rabbitmq_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, 
 //
 //=======================================================================
 
-var RabbitmqTemplateData_Master []byte = nil
+var Neo4jTemplateData_Master []byte = nil
 
-func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword string, volumes []oshandler.Volume, res *rabbitmqResources_Master) error {
-	if RabbitmqTemplateData_Master == nil {
-		f, err := os.Open("rabbitmq-pvc.yaml")
+func loadNeo4jResources_Master(instanceID, neo4jUser, neo4jPassword string, volumes []oshandler.Volume, res *neo4jResources_Master) error {
+	if Neo4jTemplateData_Master == nil {
+		f, err := os.Open("neo4j-pvc.yaml")
 		if err != nil {
 			return err
 		}
-		RabbitmqTemplateData_Master, err = ioutil.ReadAll(f)
+		Neo4jTemplateData_Master, err = ioutil.ReadAll(f)
 		if err != nil {
 			return err
 		}
-		rabbitmq_image := oshandler.RabbitmqImage()
-		rabbitmq_image = strings.TrimSpace(rabbitmq_image)
-		if len(rabbitmq_image) > 0 {
-			RabbitmqTemplateData_Master = bytes.Replace(
-				RabbitmqTemplateData_Master,
-				[]byte("http://rabbitmq-image-place-holder/rabbitmq-openshift-orchestration"),
-				[]byte(rabbitmq_image),
+		neo4jVolumeImage := oshandler.Neo4jVolumeImage()
+		neo4jVolumeImage = strings.TrimSpace(neo4jVolumeImage)
+		if len(neo4jVolumeImage) > 0 {
+			Neo4jTemplateData_Master = bytes.Replace(
+				Neo4jTemplateData_Master,
+				[]byte("http://neo4j-image-place-holder/neo4j-openshift-orchestration"),
+				[]byte(neo4jVolumeImage),
 				-1)
 		}
 		endpoint_postfix := oshandler.EndPointSuffix()
 		endpoint_postfix = strings.TrimSpace(endpoint_postfix)
 		if len(endpoint_postfix) > 0 {
-			RabbitmqTemplateData_Master = bytes.Replace(
-				RabbitmqTemplateData_Master,
+			Neo4jTemplateData_Master = bytes.Replace(
+				Neo4jTemplateData_Master,
 				[]byte("endpoint-postfix-place-holder"),
 				[]byte(endpoint_postfix),
 				-1)
@@ -434,11 +503,13 @@ func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword str
 	// ...
 	peerPvcName0 := peerPvcName0(volumes)
 
-	yamlTemplates := RabbitmqTemplateData_Master
+	yamlTemplates := Neo4jTemplateData_Master
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(rabbitmqUser), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(rabbitmqPassword), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(neo4jUser), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(neo4jPassword), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("neo4jauth"),
+		[]byte(neo4jUser+"/"+neo4jPassword), -1)
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****node"), []byte(peerPvcName0), -1)
 
@@ -452,27 +523,27 @@ func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword str
 		Decode(&res.routeAdmin).
 		//Decode(&res.routeMQ).
 		Decode(&res.service).
-		Decode(&res.serviceNodePort)
+		Decode(&res.servicebolt)
 
 	return decoder.Err
 }
 
-type rabbitmqResources_Master struct {
+type neo4jResources_Master struct {
 	rc         kapi.ReplicationController
 	routeAdmin routeapi.Route
 	//routeMQ    routeapi.Route
-	service         kapi.Service
-	serviceNodePort kapi.Service
+	service     kapi.Service
+	servicebolt kapi.Service
 }
 
-func createRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUser, rabbitmqPassword string, volumes []oshandler.Volume) (*rabbitmqResources_Master, error) {
-	var input rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
+func createNeo4jResources_Master(instanceId, serviceBrokerNamespace, neo4jUser, neo4jPassword string, volumes []oshandler.Volume) (*neo4jResources_Master, error) {
+	var input neo4jResources_Master
+	err := loadNeo4jResources_Master(instanceId, neo4jUser, neo4jPassword, volumes, &input)
 	if err != nil {
 		return nil, err
 	}
 
-	var output rabbitmqResources_Master
+	var output neo4jResources_Master
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
@@ -483,35 +554,36 @@ func createRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmq
 		OPost(prefix+"/routes", &input.routeAdmin, &output.routeAdmin).
 		//OPost(prefix + "/routes", &input.routeMQ, &output.routeMQ).
 		KPost(prefix+"/services", &input.service, &output.service)
+		//KPost(prefix+"/services", &input.servicebolt, &output.servicebolt)
 
 	if osr.Err != nil {
-		logger.Error("createRabbitmqResources_Master", osr.Err)
+		logger.Error("createNeo4jResources_Master", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func createRabbitmqResources_NodePort(input *rabbitmqResources_Master, serviceBrokerNamespace string) (*rabbitmqResources_Master, error) {
-	var output rabbitmqResources_Master
+func createNeo4jResources_NodePort(input *neo4jResources_Master, serviceBrokerNamespace string) (*neo4jResources_Master, error) {
+	var output neo4jResources_Master
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.KPost(prefix+"/services", &input.serviceNodePort, &output.serviceNodePort)
+	osr.KPost(prefix+"/services", &input.servicebolt, &output.servicebolt)
 
 	if osr.Err != nil {
-		logger.Error("createRabbitmqResources_NodePort", osr.Err)
+		logger.Error("createNeo4jResources_NodePort", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUser, rabbitmqPassword string, volumes []oshandler.Volume) (*rabbitmqResources_Master, error) {
-	var output rabbitmqResources_Master
+func getNeo4jResources_Master(instanceId, serviceBrokerNamespace, neo4jUser, neo4jPassword string, volumes []oshandler.Volume) (*neo4jResources_Master, error) {
+	var output neo4jResources_Master
 
-	var input rabbitmqResources_Master
-	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
+	var input neo4jResources_Master
+	err := loadNeo4jResources_Master(instanceId, neo4jUser, neo4jPassword, volumes, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -524,23 +596,23 @@ func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUse
 		OGet(prefix+"/routes/"+input.routeAdmin.Name, &output.routeAdmin).
 		//OGet(prefix + "/routes/" + input.routeMQ.Name, &output.routeMQ).
 		KGet(prefix+"/services/"+input.service.Name, &output.service).
-		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort)
+		KGet(prefix+"/services/"+input.servicebolt.Name, &output.servicebolt)
 
 	if osr.Err != nil {
-		logger.Error("getRabbitmqResources_Master", osr.Err)
+		logger.Error("getNeo4jResources_Master", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func destroyRabbitmqResources_Master(masterRes *rabbitmqResources_Master, serviceBrokerNamespace string) {
+func destroyNeo4jResources_Master(masterRes *neo4jResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
 	//go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
+	go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicebolt.Name) }()
 }
 
 //===============================================================
@@ -689,11 +761,11 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA rabbitmq rc error", status.Err)
+				logger.Error("watch HA neo4j rc error", status.Err)
 				close(cancel)
 				return
 			} else {
-				//logger.Debug("watch rabbitmq HA rc, status.Info: " + string(status.Info))
+				//logger.Debug("watch neo4j HA rc, status.Info: " + string(status.Info))
 			}
 
 			var wrcs watchReplicationControllerStatus

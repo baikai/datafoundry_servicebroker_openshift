@@ -143,6 +143,7 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 		err = <-result
 		if err != nil {
 			logger.Error("elasticsearch create volume", err)
+			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
 			return
 		}
 
@@ -219,6 +220,10 @@ func (handler *Elasticsearch_handler) DoLastOperation(myServiceInfo *oshandler.S
 			Description: "In progress.",
 		}, nil
 	}
+}
+
+func (handler *Elasticsearch_handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return errors.New("not implemented")
 }
 
 func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
