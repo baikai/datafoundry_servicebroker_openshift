@@ -1,4 +1,4 @@
-package redissingle_pvc
+package rediscluster_pvc
 
 import (
 	"errors"
@@ -13,19 +13,20 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/pivotal-cf/brokerapi"
 	//"crypto/sha1"
 	//"encoding/base64"
-	//"text/template"
 	//"io"
-	"io/ioutil"
+
 	"os"
 	//"sync"
 
 	"github.com/pivotal-golang/lager"
 
+	dcapi "github.com/openshift/origin/deploy/api/v1"
 	//"k8s.io/kubernetes/pkg/util/yaml"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	//routeapi "github.com/openshift/origin/route/api/v1"
@@ -37,12 +38,14 @@ import (
 //
 //==============================================================
 
-const RedisSingleServcieBrokerName_Standalone = "Redis_volumes_single"
+const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster"
+
+const DefaultNumNodes = 6 // 3 masters
 
 func init() {
-	oshandler.Register(RedisSingleServcieBrokerName_Standalone, &RedisSingle_freeHandler{})
+	oshandler.Register(RedisClusterServcieBrokerName_Standalone, &RedisCluster_freeHandler{})
 
-	logger = lager.NewLogger(RedisSingleServcieBrokerName_Standalone)
+	logger = lager.NewLogger(RedisClusterServcieBrokerName_Standalone)
 	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
@@ -52,30 +55,30 @@ var logger lager.Logger
 //
 //==============================================================
 
-type RedisSingle_freeHandler struct{}
+type RedisCluster_freeHandler struct{}
 
-func (handler *RedisSingle_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	return newRedisSingleHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
+func (handler *RedisCluster_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	return newRedisClusterHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
 }
 
-func (handler *RedisSingle_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-	return newRedisSingleHandler().DoLastOperation(myServiceInfo)
+func (handler *RedisCluster_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+	return newRedisClusterHandler().DoLastOperation(myServiceInfo)
 }
 
-func (handler *RedisSingle_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return newRedisSingleHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+func (handler *RedisCluster_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newRedisClusterHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
-func (handler *RedisSingle_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
-	return newRedisSingleHandler().DoDeprovision(myServiceInfo, asyncAllowed)
+func (handler *RedisCluster_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+	return newRedisClusterHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
 
-func (handler *RedisSingle_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
-	return newRedisSingleHandler().DoBind(myServiceInfo, bindingID, details)
+func (handler *RedisCluster_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+	return newRedisClusterHandler().DoBind(myServiceInfo, bindingID, details)
 }
 
-func (handler *RedisSingle_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
-	return newRedisSingleHandler().DoUnbind(myServiceInfo, mycredentials)
+func (handler *RedisCluster_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+	return newRedisClusterHandler().DoUnbind(myServiceInfo, mycredentials)
 }
 
 //==============================================================
@@ -83,28 +86,21 @@ func (handler *RedisSingle_freeHandler) DoUnbind(myServiceInfo *oshandler.Servic
 //==============================================================
 
 func volumeBaseName(instanceId string) string {
-	return "rdscls-" + instanceId
-}
-
-func masterPvcName(volumes []oshandler.Volume) string {
-	if len(volumes) > 0 {
-		return volumes[0].Volume_name
-	}
-	return ""
+	return "rdsclstr-" + instanceId
 }
 
 //==============================================================
 //
 //==============================================================
 
-type RedisSingle_Handler struct {
+type RedisCluster_Handler struct {
 }
 
-func newRedisSingleHandler() *RedisSingle_Handler {
-	return &RedisSingle_Handler{}
+func newRedisClusterHandler() *RedisCluster_Handler {
+	return &RedisCluster_Handler{}
 }
 
-func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
 	//初始化到openshift的链接
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
@@ -123,12 +119,12 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 	redisPassword := oshandler.GenGUID()
 
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
-	volumes := []oshandler.Volume{
-		// one master volume
-		{
+	volumes := make([]oshandler.Volume, DefaultNumNodes)
+	for i := 0; i < DefaultNumNodes; i++ {
+		volumes[i] = oshandler.Volume{
 			Volume_size: planInfo.Volume_size,
-			Volume_name: volumeBaseName + "-0",
-		},
+			Volume_name: volumeBaseName + "-" + strconv.Itoa(i),
+		}
 	}
 
 	println()
@@ -146,24 +142,28 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 	serviceInfo.Volumes = volumes
 
 	//>> may be not optimized
-	var template redisResources_Master
-	err := loadRedisSingleResources_Master(
+	var templates = make([]redisResources_Peer, DefaultNumNodes)
+	err := loadRedisClusterResources_Peers(
 		serviceInfo.Url,
 		serviceInfo.Password,
 		serviceInfo.Volumes,
-		&template)
+		nil, // nonsense for the to-be-created nodeport service
+		templates,
+	)
 	if err != nil {
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 	//<<
 
-	nodePort, err := createRedisSingleResources_NodePort(
-		&template,
+	nodePorts, err := createRedisClusterResources_NodePorts(
+		templates,
 		serviceInfo.Database,
 	)
 	if err != nil {
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
+
+	announceInfos := collectAnnounceInfos(nodePorts)
 
 	// ...
 	go func() {
@@ -182,26 +182,27 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 
 		err = <-result
 		if err != nil {
-			logger.Error("redis single create volume", err)
+			logger.Error("redis cluster create volume", err)
 			handler.DoDeprovision(&serviceInfo, true)
 			return
 		}
 
-		println("createRedisSingleResources_Master ...")
+		println("createRedisClusterResources_Peer ...")
 
 		// create master res
 
-		output, err := createRedisSingleResources_Master(
+		outputs, err := createRedisClusterResources_Peers(
 			serviceInfo.Url,
 			serviceInfo.Database,
 			serviceInfo.Password,
 			serviceInfo.Volumes,
+			announceInfos,
 		)
 		if err != nil {
-			println(" redis createRedisSingleResources_Master error: ", err)
-			logger.Error("redis createRedisSingleResources_Master error", err)
+			println(" redis createRedisClusterResources_Peer error: ", err)
+			logger.Error("redis createRedisClusterResources_Peer error", err)
 
-			destroyRedisSingleResources_Master(output, serviceInfo.Database)
+			destroyRedisClusterResources_Peers(outputs, serviceInfo.Database)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
 			return
@@ -213,13 +214,13 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 	serviceSpec.DashboardURL = ""
 
 	//>>>
-	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, nodePort)
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, announceInfos) //nodePort)
 	//<<<
 
 	return serviceSpec, serviceInfo, nil
 }
 
-func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 
 	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
 	if volumeJob != nil {
@@ -229,7 +230,8 @@ func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.Ser
 		}, nil
 	}
 
-	master_res, err := getRedisSingleResources_Master(
+	master_reses, err := getRedisClusterResources_Peers(
+		len(myServiceInfo.Volumes),
 		myServiceInfo.Url,
 		myServiceInfo.Database,
 		myServiceInfo.Password,
@@ -250,42 +252,38 @@ func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.Ser
 		}, err
 	}
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
-	ok := func(rc *kapi.ReplicationController) bool {
-		println("rc.Name =", rc.Name)
-		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
+	ok := func(dc *dcapi.DeploymentConfig) bool {
+		podCount, err := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
+		if err != nil {
+			fmt.Println("statRunningPodsByLabels err:", err)
 			return false
 		}
-		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
-		println("n =", n)
-		return n >= *rc.Spec.Replicas
+		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
+			return false
+		}
+		n, _ := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
+		return n >= dc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
-
-	if ok(&master_res.rc) {
-		return brokerapi.LastOperation{
-			State:       brokerapi.Succeeded,
-			Description: "Succeeded!",
-		}, nil
-	} else {
-		return brokerapi.LastOperation{
-			State:       brokerapi.InProgress,
-			Description: "In progress.",
-		}, nil
+	for _, res := range master_reses {
+		if !ok(&res.dc) {
+			return brokerapi.LastOperation{
+				State:       brokerapi.InProgress,
+				Description: "In progress.",
+			}, nil
+		}
 	}
+	return brokerapi.LastOperation{
+		State:       brokerapi.Succeeded,
+		Description: "Succeeded!",
+	}, nil
 }
 
-func (handler *RedisSingle_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
 	return errors.New("not implemented")
 }
 
-func (handler *RedisSingle_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		// ...
 		volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
@@ -301,13 +299,14 @@ func (handler *RedisSingle_Handler) DoDeprovision(myServiceInfo *oshandler.Servi
 			}
 		}
 
-		master_res, _ := getRedisSingleResources_Master(
+		master_reses, _ := getRedisClusterResources_Peers(
+			len(myServiceInfo.Volumes),
 			myServiceInfo.Url,
 			myServiceInfo.Database,
 			myServiceInfo.Password,
 			myServiceInfo.Volumes,
 		)
-		destroyRedisSingleResources_Master(master_res, myServiceInfo.Database)
+		destroyRedisClusterResources_Peers(master_reses, myServiceInfo.Database)
 
 		// ...
 
@@ -319,10 +318,11 @@ func (handler *RedisSingle_Handler) DoDeprovision(myServiceInfo *oshandler.Servi
 	return brokerapi.IsAsync(false), nil
 }
 
+/*
 // please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *redisResources_Master) oshandler.Credentials {
-	//var master_res redisResources_Master
-	//err := loadRedisSingleResources_Master(myServiceInfo.Url, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *redisResources_Peer) oshandler.Credentials {
+	//var master_res redisResources_Peer
+	//err := loadRedisClusterResources_Peer(myServiceInfo.Url, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
 	//if err != nil {
 	//	return oshandler.Credentials{}
 	//}
@@ -345,13 +345,27 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *r
 		//Name:     cluser_name,
 	}
 }
+*/
 
-func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, announces []redisAnnounceInfo) oshandler.Credentials {
+
+	for _, announce := range announces {
+		// todo:
+		_ = announce
+	}
+
+	return oshandler.Credentials{
+		Uri:      "",
+		Password: myServiceInfo.Password,
+	}
+}
+
+func (handler *RedisCluster_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	// master_res may has been shutdown normally.
-
-	master_res, err := getRedisSingleResources_Master(
+	master_reses, err := getRedisClusterResources_Peers(
+		len(myServiceInfo.Volumes),
 		myServiceInfo.Url,
 		myServiceInfo.Database,
 		myServiceInfo.Password,
@@ -361,42 +375,14 @@ func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo,
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	/*
-		client_port := &master_res.service.Spec.Ports[0]
-		//if client_port == nil {
-		//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
-		//}
-
-		//cluser_name := "cluster-" + master_res.service.Name
-		svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-		svcport := strconv.Itoa(client_port.Port)
-		//host := master_res.routeMQ.Spec.Host
-		//port := "80"
-
-		ndhost := oshandler.RandomNodeAddress()
-		var ndport string = ""
-		if len(master_res.serviceNodePort.Spec.Ports) > 0 {
-			ndport = strconv.Itoa(master_res.serviceNodePort.Spec.Ports[0].NodePort)
-		}
-
-		mycredentials := oshandler.Credentials{
-			Uri:      fmt.Sprintf("internal address: %s:%s", svchost, svcport),
-			Hostname: ndhost,
-			Port:     ndport,
-			//Username: myServiceInfo.User,
-			Password: myServiceInfo.Password,
-			//Name:     cluser_name,
-		}
-	*/
-
-	mycredentials := getCredentialsOnPrivision(myServiceInfo, master_res)
+	mycredentials := getCredentialsOnPrivision(myServiceInfo, collectAnnounceInfos(master_reses))
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
 
 	return myBinding, mycredentials, nil
 }
 
-func (handler *RedisSingle_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+func (handler *RedisCluster_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
 	// do nothing
 
 	return nil
@@ -406,68 +392,117 @@ func (handler *RedisSingle_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInf
 //
 //=======================================================================
 
-var RedisSingleTemplateData_Master []byte = nil
+type redisAnnounceInfo struct {
+	IP, Port, BusPort string
+}
 
-func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes []oshandler.Volume, res *redisResources_Master) error {
-	if RedisSingleTemplateData_Master == nil {
+func collectAnnounceInfos(nodePorts []*redisResources_Peer) []redisAnnounceInfo {
+	return nil
+}
 
-		f, err := os.Open("redis-single-pvc-master.yaml")
-		if err != nil {
-			return err
-		}
-		RedisSingleTemplateData_Master, err = ioutil.ReadAll(f)
-		if err != nil {
-			return err
-		}
-		redis_image := oshandler.Redis32Image()
-		redis_image = strings.TrimSpace(redis_image)
-		if len(redis_image) > 0 {
-			RedisSingleTemplateData_Master = bytes.Replace(
-				RedisSingleTemplateData_Master,
-				[]byte("http://redis-image-place-holder/redis-openshift-orchestration"),
-				[]byte(redis_image),
-				-1)
-		}
+//=======================================================================
+//
+//=======================================================================
+
+var RedisClusterTemplateData_Peer []byte = nil
+
+var redisClusterYamlTemplate = template.Must(template.ParseFiles("redis-cluster-pvc.yaml"))
+
+func loadRedisClusterResources_Peers(instanceID, redisPassword string, volumes []oshandler.Volume,
+	announces []redisAnnounceInfo, res []redisResources_Peer) error {
+
+	if len(announces) < len(res) {
+		return fmt.Errorf("len(announces) < len(res): %d, %d", len(announces), len(res))
+	}
+	if len(volumes) < len(res) {
+		return fmt.Errorf("len(volumes) < len(res): %d, %d", len(volumes), len(res))
 	}
 
-	// ...
+	for i := range res {
+		err := loadRedisClusterResources_Peer(
+			instanceID, strconv.Itoa(i), redisPassword, volumes[i].Volume_name,
+			announces[i],
+			&res[i],
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	masterPvcName := masterPvcName(volumes)
+func loadRedisClusterResources_Peer(instanceID, peerID, redisPassword, pvcName string,
+	announce redisAnnounceInfo, res *redisResources_Peer) error {
 
-	yamlTemplates := RedisSingleTemplateData_Master
+	var params = map[string]interface{}{
+		"InstanceID":             instanceID,
+		"NodeID":                 peerID,
+		"DataVolumePVC":          pvcName,
+		"ClusterAnnounceIP":      announce.IP,
+		"ClusterAnnouncePort":    announce.Port,
+		"ClusterAnnounceBusPort": announce.BusPort,
+		"RedisImage":             oshandler.RedisClusterImage(),
+		"Password":               redisPassword,
+	}
 
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
-
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****master"), []byte(masterPvcName), -1)
+	var buf bytes.Buffer
+	err := redisClusterYamlTemplate.Execute(&buf, params)
+	if err != nil {
+		return err
+	}
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
 	//println()
 
-	decoder := oshandler.NewYamlDecoder(yamlTemplates)
+	decoder := oshandler.NewYamlDecoder(buf.Bytes())
 	decoder.
 		//Decode(&res.service).
 		Decode(&res.serviceNodePort).
-		Decode(&res.rc)
+		Decode(&res.dc)
 
 	return decoder.Err
 }
 
-type redisResources_Master struct {
+type redisResources_Peer struct {
 	//service         kapi.Service
 	serviceNodePort kapi.Service
-	rc              kapi.ReplicationController
+	dc              dcapi.DeploymentConfig
 }
 
-func createRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPassword string, volumes []oshandler.Volume) (*redisResources_Master, error) {
-	var input redisResources_Master
-	err := loadRedisSingleResources_Master(instanceId, redisPassword, volumes, &input)
+func createRedisClusterResources_Peers(serviceBrokerNamespace string,
+	instanceID, redisPassword string, volumes []oshandler.Volume,
+	announces []redisAnnounceInfo) ([]*redisResources_Peer, error) {
+
+	if len(announces) < len(volumes) {
+		return nil, fmt.Errorf("len(announces) < numberPeers: %d, %d", len(announces), len(volumes))
+	}
+
+	var outputs = make([]*redisResources_Peer, len(volumes))
+	for i := range outputs {
+		o, err := createRedisClusterResources_Peer(serviceBrokerNamespace,
+			instanceID, strconv.Itoa(i), redisPassword, volumes[i].Volume_name,
+			announces[i])
+		if err != nil {
+			return nil, err
+		}
+		outputs[i] = o
+	}
+	return outputs, nil
+}
+
+func createRedisClusterResources_Peer(serviceBrokerNamespace string,
+	instanceID, peerID, redisPassword, pvcName string,
+	announce redisAnnounceInfo) (*redisResources_Peer, error) {
+
+	var input redisResources_Peer
+	err := loadRedisClusterResources_Peer(instanceID, peerID, redisPassword, pvcName,
+		announce, &input)
 	if err != nil {
 		return nil, err
 	}
 
-	var output redisResources_Master
+	var output redisResources_Peer
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
@@ -475,17 +510,29 @@ func createRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redis
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
 		//KPost(prefix+"/services", &input.service, &output.service).
-		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
+		OPost(prefix+"/deploymentconfigs", &input.dc, &output.dc)
 
 	if osr.Err != nil {
-		logger.Error("createRedisSingleResources_Master", osr.Err)
+		logger.Error("createRedisClusterResources_Peer", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func createRedisSingleResources_NodePort(input *redisResources_Master, serviceBrokerNamespace string) (*redisResources_Master, error) {
-	var output redisResources_Master
+func createRedisClusterResources_NodePorts(inputs []redisResources_Peer, serviceBrokerNamespace string) ([]*redisResources_Peer, error) {
+	var outputs = make([]*redisResources_Peer, len(inputs))
+	for i := range inputs {
+		o, err := createRedisClusterResources_NodePort(&inputs[i], serviceBrokerNamespace)
+		if err != nil {
+			return nil, err
+		}
+		outputs[i] = o
+	}
+	return outputs, nil
+}
+
+func createRedisClusterResources_NodePort(input *redisResources_Peer, serviceBrokerNamespace string) (*redisResources_Peer, error) {
+	var output redisResources_Peer
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
@@ -494,17 +541,41 @@ func createRedisSingleResources_NodePort(input *redisResources_Master, serviceBr
 	osr.KPost(prefix+"/services", &input.serviceNodePort, &output.serviceNodePort)
 
 	if osr.Err != nil {
-		logger.Error("createRedisSingleResources_NodePort", osr.Err)
+		logger.Error("createRedisClusterResources_NodePort", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPassword string, volumes []oshandler.Volume) (*redisResources_Master, error) {
-	var output redisResources_Master
+func getRedisClusterResources_Peers(numberPeers int, serviceBrokerNamespace string,
+	instanceID, redisPassword string, volumes []oshandler.Volume) ([]*redisResources_Peer, error) {
 
-	var input redisResources_Master
-	err := loadRedisSingleResources_Master(instanceId, redisPassword, volumes, &input)
+	if len(volumes) < numberPeers {
+		return nil, fmt.Errorf("len(volumes) < numberPeers: %d, %d", len(volumes), numberPeers)
+	}
+
+	var outputs = make([]*redisResources_Peer, numberPeers)
+	for i := range outputs {
+		o, err := getRedisClusterResources_Peer(serviceBrokerNamespace,
+			instanceID, strconv.Itoa(i), redisPassword, volumes[i].Volume_name)
+		if err != nil {
+			return nil, err
+		}
+		outputs[i] = o
+	}
+	return outputs, nil
+}
+
+func getRedisClusterResources_Peer(serviceBrokerNamespace string,
+	instanceID, peerID, redisPassword, pvcName string) (*redisResources_Peer, error) {
+
+	var output redisResources_Peer
+
+	var input redisResources_Peer
+	err := loadRedisClusterResources_Peer(
+		instanceID, peerID, redisPassword, pvcName,
+		redisAnnounceInfo{},
+		&input)
 	if err != nil {
 		return &output, err
 	}
@@ -515,21 +586,26 @@ func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPas
 	osr.
 		//KGet(prefix+"/services/"+input.service.Name, &output.service).
 		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort).
-		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc)
+		OGet(prefix+"/deploymentconfigs/"+input.dc.Name, &output.dc)
 
 	if osr.Err != nil {
-		logger.Error("getRedisSingleResources_Master", osr.Err)
+		logger.Error("getRedisClusterResources_Peer", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func destroyRedisSingleResources_Master(masterRes *redisResources_Master, serviceBrokerNamespace string) {
+func destroyRedisClusterResources_Peers(masterReses []*redisResources_Peer, serviceBrokerNamespace string) {
+	for _, res := range masterReses {
+		destroyRedisClusterResources_Peer(res, serviceBrokerNamespace)
+	}
+}
+
+func destroyRedisClusterResources_Peer(masterRes *redisResources_Peer, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
 }
 
 //===============================================================

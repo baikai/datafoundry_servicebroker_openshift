@@ -6,12 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/pivotal-cf/brokerapi"
 	"io"
 	mathrand "math/rand"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 )
 
 func init() {
@@ -244,6 +245,10 @@ func Redis32Image() string {
 	return redis32Image
 }
 
+func RedisClusterImage() string {
+	return redisClusterImage
+}
+
 func KafkaImage() string {
 	return kafkaImage
 }
@@ -312,7 +317,6 @@ func StormExternalImage() string {
 //	return externalIPs
 //}
 
-
 var theOC *OpenshiftClient
 
 var svcDomainSuffix string
@@ -332,6 +336,7 @@ var zookeeperImage string
 var zookeeperexhibitorImage string
 var redisImage string
 var redis32Image string
+var redisClusterImage string
 var redisphpadminImage string
 var kafkaImage string
 var stormImage string
@@ -363,7 +368,7 @@ func init() {
 		svcDomainSuffix = "svc.cluster.local"
 	}
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
-	
+
 	endpointSuffix = getenv("ENDPOINTSUFFIX")
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
@@ -377,6 +382,7 @@ func init() {
 	zookeeperexhibitorImage = getenv("ZOOKEEPEREXHIBITORIMAGE")
 	redisImage = getenv("REDISIMAGE")
 	redis32Image = getenv("REDIS32IMAGE")
+	redisClusterImage = getenv("REDISCLUSTERIMAGE")
 	redisphpadminImage = getenv("REDISPHPADMINIMAGE")
 	kafkaImage = getenv("KAFKAIMAGE")
 	stormImage = getenv("STORMIMAGE")
