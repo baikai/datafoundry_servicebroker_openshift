@@ -460,11 +460,14 @@ var redisClusterYamlTemplate = template.Must(template.ParseFiles("redis-cluster-
 func loadRedisClusterResources_Peers(instanceID /*, redisPassword*/ string, volumes []oshandler.Volume,
 	announces []redisAnnounceInfo, res []redisResources_Peer) error {
 
+	if announces == nil { // for get, announces is allowed to be nil
+		announces = make([]redisAnnounceInfo, len(res))
+	}
 	if len(announces) < len(res) {
-		return fmt.Errorf("len(announces) < len(res): %d, %d", len(announces), len(res))
+		return fmt.Errorf("loadRedisClusterResources_Peers len(announces) < len(res): %d, %d", len(announces), len(res))
 	}
 	if len(volumes) < len(res) {
-		return fmt.Errorf("len(volumes) < len(res): %d, %d", len(volumes), len(res))
+		return fmt.Errorf("loadRedisClusterResources_Peers len(volumes) < len(res): %d, %d", len(volumes), len(res))
 	}
 
 	for i := range res {
@@ -524,7 +527,7 @@ func createRedisClusterResources_Peers(serviceBrokerNamespace string,
 	announces []redisAnnounceInfo) ([]*redisResources_Peer, error) {
 
 	if len(announces) < len(volumes) {
-		return nil, fmt.Errorf("len(announces) < numberPeers: %d, %d", len(announces), len(volumes))
+		return nil, fmt.Errorf("createRedisClusterResources_Peers len(announces) < numberPeers: %d, %d", len(announces), len(volumes))
 	}
 
 	var outputs = make([]*redisResources_Peer, len(volumes))
@@ -600,7 +603,7 @@ func getRedisClusterResources_Peers(numberPeers int, serviceBrokerNamespace stri
 	instanceID /*, redisPassword*/ string, volumes []oshandler.Volume) ([]*redisResources_Peer, error) {
 
 	if len(volumes) < numberPeers {
-		return nil, fmt.Errorf("len(volumes) < numberPeers: %d, %d", len(volumes), numberPeers)
+		return nil, fmt.Errorf("getRedisClusterResources_Peers len(volumes) < numberPeers: %d, %d", len(volumes), numberPeers)
 	}
 
 	var outputs = make([]*redisResources_Peer, numberPeers)
