@@ -192,8 +192,8 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		// create master res
 
 		outputs, err := createRedisClusterResources_Peers(
-			serviceInfo.Url,
 			serviceInfo.Database,
+			serviceInfo.Url,
 			//serviceInfo.Password,
 			serviceInfo.Volumes,
 			announceInfos,
@@ -209,12 +209,13 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		}
 
 		// run redis-trib.rb: create cluster
-		err = initRedisMasterSlots(serviceInfo.Url, serviceInfo.Database, announceInfos)
+		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, announceInfos)
 		if err != nil {
 			println(" redis initRedisMasterSlots error: ", err)
 			logger.Error("redis initRedisMasterSlots error", err)
 			return
 		}
+		println("redis cluster", serviceInfo.Database, "created.")
 	}()
 
 	// ...
@@ -240,8 +241,8 @@ func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.Se
 
 	master_reses, err := getRedisClusterResources_Peers(
 		len(myServiceInfo.Volumes),
-		myServiceInfo.Url,
 		myServiceInfo.Database,
+		myServiceInfo.Url,
 		//myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
@@ -309,8 +310,8 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 
 		master_reses, _ := getRedisClusterResources_Peers(
 			len(myServiceInfo.Volumes),
-			myServiceInfo.Url,
 			myServiceInfo.Database,
+			myServiceInfo.Url,
 			//myServiceInfo.Password,
 			myServiceInfo.Volumes,
 		)
@@ -374,8 +375,8 @@ func (handler *RedisCluster_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo
 
 	master_reses, err := getRedisClusterResources_Peers(
 		len(myServiceInfo.Volumes),
-		myServiceInfo.Url,
 		myServiceInfo.Database,
+		myServiceInfo.Url,
 		//myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
@@ -513,6 +514,8 @@ func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/, pvcN
 		Decode(&res.serviceNodePort).
 		Decode(&res.dc)
 
+	println(string(buf.Bytes()))
+
 	return decoder.Err
 }
 
@@ -565,7 +568,7 @@ func createRedisClusterResources_Peer(serviceBrokerNamespace string,
 		OPost(prefix+"/deploymentconfigs", &input.dc, &output.dc)
 
 	if osr.Err != nil {
-		logger.Error("createRedisClusterResources_Peer", osr.Err)
+		logger.Error("createRedisClusterResources_Peer error", osr.Err)
 	}
 
 	return &output, osr.Err
