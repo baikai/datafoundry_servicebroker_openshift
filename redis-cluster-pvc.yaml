@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
+    redis-cluster-instance-id: {{ .InstanceID }}
     run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
   name: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
 spec:
@@ -25,6 +26,7 @@ apiVersion: v1
 kind: DeploymentConfig
 metadata:
   labels:
+    redis-cluster-instance-id: {{ .InstanceID }}
     run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
   name: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
 spec:
@@ -44,6 +46,7 @@ spec:
   template:
     metadata:
       labels:
+        redis-cluster-instance-id: {{ .InstanceID }}
         run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
     spec:
       containers:
@@ -57,8 +60,6 @@ spec:
         - '{{ .ClusterAnnouncePort }}'
         - '--cluster-announce-bus-port'
         - '{{ .ClusterAnnounceBusPort }}'
-        - '--requirepass'
-        - '{{ .Password }}'
         image: {{ .RedisImage }}
         imagePullPolicy: Always
         name: redis
