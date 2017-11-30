@@ -9,12 +9,12 @@ spec:
   containers:
   - name: redis-trib
     command:
-    - "redis-trib.rb"
+    - {{ .Command }}
     args:
     {{- range .Arguments }}
     - '{{- . }}'
     {{- end}}
-    image: {{ .RedisTribImage }}
+    image: {{ .Image }}
     imagePullPolicy: IfNotPresent
     resources: {}
     terminationMessagePath: /dev/termination-log

@@ -431,10 +431,10 @@ var redisTribYamlTemplate = template.Must(template.ParseFiles("redis-cluster-tri
 func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string) error {
 
 	var params = map[string]interface{}{
-		"InstanceID":       instanceId,
-		"RedisTribCommand": command,
-		"RedisTribImage":   oshandler.RedisClusterTribImage(),
-		"Arguments":        args,
+		"InstanceID": instanceId,
+		"Image":      oshandler.RedisClusterTribImage(),
+		"Command":    command,
+		"Arguments":  args,
 	}
 
 	var buf bytes.Buffer
@@ -454,12 +454,13 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer) error {
 	cmd := "ruby"
 	args := make([]string, 0, 100)
-	args = append(args, "redis-trib.rb")
+	args = append(args, "/usr/local/bin/redis-trib.rb")
 	args = append(args, "create")
 	//lines = append(lines, "--replicas 1")
 	for _, res := range peers {
+		ip := res.serviceNodePort.Spec.ClusterIP
 		port := strconv.Itoa(res.serviceNodePort.Spec.Ports[0].Port)
-		args = append(args, res.serviceNodePort.Name+":"+port)
+		args = append(args, ip+":"+port)
 	}
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args)
 }
