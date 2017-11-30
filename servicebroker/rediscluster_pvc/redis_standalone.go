@@ -428,7 +428,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string) error {
 	var params = map[string]interface{}{
 		"InstanceID":       instanceId,
 		"RedisTribCommand": command,
-		"RedisTribImage":   oshandler.RedisClusterImage(),
+		"RedisTribImage":   oshandler.RedisClusterTribImage(),
 	}
 
 	var buf bytes.Buffer
