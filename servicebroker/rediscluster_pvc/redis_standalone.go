@@ -214,7 +214,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		}
 
 		// run redis-trib.rb: create cluster
-		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, announceInfos)
+		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs)
 		if err != nil {
 			println(" redis initRedisMasterSlots error: ", err)
 			logger.Error("redis initRedisMasterSlots error", err)
@@ -321,7 +321,7 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 		destroyRedisClusterResources_Peers(master_reses, myServiceInfo.Database)
 
 		//>> ...
-		go func() { kdel(myServiceInfo.Database, "pod", "redis-trib-"+myServiceInfo.Url) }()
+		go func() { kdel(myServiceInfo.Database, "pods", "redis-trib-"+myServiceInfo.Url) }()
 		//<<
 
 		// ...
@@ -450,17 +450,15 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 	return kpost(serviceBrokerNamespace, "pods", &pod, nil)
 }
 
-func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, announces []redisAnnounceInfo) error {
+func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer) error {
+	cmd := "redis-trib.rb"
 	args := make([]string, 0, 100)
 	args = append(args, "create")
 	//lines = append(lines, "--replicas 1")
-	for _, announce := range announces {
-		args = append(args, announce.IP+":"+announce.Port)
+	for _, res := range peers {
+		args = append(args, res.serviceNodePort.Name+":"+strconv.Itoa(res.serviceNodePort.Spec.Ports[0].Port))
 	}
-	for i := len(args); i < cap(args); i++ {
-		args = append(args, "")
-	}
-	return runRedisTrib(serviceBrokerNamespace, instanceId, "redis-trib.rb", args)
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args)
 }
 
 //=======================================================================
