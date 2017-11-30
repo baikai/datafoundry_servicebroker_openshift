@@ -9,7 +9,11 @@ spec:
   containers:
   - name: redis-trib
     command:
-    - "{{ .RedisTribCommand }}"
+    - "redis-trib.rb"
+    args:
+    {{- range .Arguments }}
+    - '{{- . }}'
+    {{- end}}
     image: {{ .RedisTribImage }}
     imagePullPolicy: IfNotPresent
     resources: {}

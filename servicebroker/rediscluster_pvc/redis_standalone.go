@@ -320,6 +320,10 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 		)
 		destroyRedisClusterResources_Peers(master_reses, myServiceInfo.Database)
 
+		//>> ...
+		go func() { kdel(myServiceInfo.Database, "pod", "redis-trib-"+myServiceInfo.Url) }()
+		//<<
+
 		// ...
 
 		fmt.Println("to destroy volumes:", myServiceInfo.Volumes)
@@ -423,12 +427,13 @@ func collectAnnounceInfos(nodePorts []*redisResources_Peer) []redisAnnounceInfo 
 
 var redisTribYamlTemplate = template.Must(template.ParseFiles("redis-cluster-trib.yaml"))
 
-func runRedisTrib(serviceBrokerNamespace, instanceId, command string) error {
+func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string) error {
 
 	var params = map[string]interface{}{
 		"InstanceID":       instanceId,
 		"RedisTribCommand": command,
 		"RedisTribImage":   oshandler.RedisClusterTribImage(),
+		"Arguments":        args,
 	}
 
 	var buf bytes.Buffer
@@ -446,14 +451,16 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string) error {
 }
 
 func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, announces []redisAnnounceInfo) error {
-	lines := make([]string, 0, 100)
-	lines = append(lines, "echo 'yes' | ruby redis-trib.rb create")
+	args := make([]string, 0, 100)
+	args = append(args, "create")
 	//lines = append(lines, "--replicas 1")
 	for _, announce := range announces {
-		lines = append(lines, announce.IP+":"+announce.Port)
+		args = append(args, announce.IP+":"+announce.Port)
 	}
-	command := strings.Join(lines, " ")
-	return runRedisTrib(serviceBrokerNamespace, instanceId, command)
+	for i := len(args); i < cap(args); i++ {
+		args = append(args, "")
+	}
+	return runRedisTrib(serviceBrokerNamespace, instanceId, "redis-trib.rb", args)
 }
 
 //=======================================================================
