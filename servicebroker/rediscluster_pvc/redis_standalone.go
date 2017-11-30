@@ -446,7 +446,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 	var pod kapi.Pod
 	oshandler.NewYamlDecoder(buf.Bytes()).Decode(&pod)
 
-	println(string(buf.Bytes()))
+	//println(string(buf.Bytes()))
 
 	return kpost(serviceBrokerNamespace, "pods", &pod, nil)
 }
@@ -460,6 +460,7 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 	for _, res := range peers {
 		ip := res.serviceNodePort.Spec.ClusterIP
 		port := strconv.Itoa(res.serviceNodePort.Spec.Ports[0].Port)
+		// res.serviceNodePort.Name is not ok, but ip is ok. Don't know why.
 		args = append(args, ip+":"+port)
 	}
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args)
