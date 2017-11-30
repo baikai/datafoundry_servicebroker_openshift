@@ -13,10 +13,6 @@ spec:
     image: {{ .RedisTribImage }}
     imagePullPolicy: IfNotPresent
     resources: {}
-    securityContext:
-      privileged: false
-      seLinuxOptions:
-        level: s0:c11,c5
     terminationMessagePath: /dev/termination-log
     terminationMessagePolicy: File
   dnsPolicy: ClusterFirst

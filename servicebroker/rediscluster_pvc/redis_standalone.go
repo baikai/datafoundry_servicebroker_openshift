@@ -40,7 +40,7 @@ import (
 
 const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster"
 
-const DefaultNumNodes = 6 // 3 masters
+const DefaultNumNodes = 3 // 3 masters
 
 func init() {
 	oshandler.Register(RedisClusterServcieBrokerName_Standalone, &RedisCluster_freeHandler{})
@@ -160,6 +160,11 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		serviceInfo.Database,
 	)
 	if err != nil {
+		peers := make([]*redisResources_Peer, len(templates))
+		for i := range templates {
+			peers[i] = &templates[i]
+		}
+		destroyRedisClusterResources_Peers(peers, serviceInfo.Database)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 
@@ -240,7 +245,6 @@ func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.Se
 	}
 
 	master_reses, err := getRedisClusterResources_Peers(
-		len(myServiceInfo.Volumes),
 		myServiceInfo.Database,
 		myServiceInfo.Url,
 		//myServiceInfo.Password,
@@ -309,7 +313,6 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 		}
 
 		master_reses, _ := getRedisClusterResources_Peers(
-			len(myServiceInfo.Volumes),
 			myServiceInfo.Database,
 			myServiceInfo.Url,
 			//myServiceInfo.Password,
@@ -374,7 +377,6 @@ func (handler *RedisCluster_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo
 	// todo: handle errors
 
 	master_reses, err := getRedisClusterResources_Peers(
-		len(myServiceInfo.Volumes),
 		myServiceInfo.Database,
 		myServiceInfo.Url,
 		//myServiceInfo.Password,
@@ -437,6 +439,8 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string) error {
 
 	var pod kapi.Pod
 	oshandler.NewYamlDecoder(buf.Bytes()).Decode(&pod)
+
+	println(string(buf.Bytes()))
 
 	return kpost(serviceBrokerNamespace, "pods", &pod, nil)
 }
@@ -513,8 +517,6 @@ func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/, pvcN
 		//Decode(&res.service).
 		Decode(&res.serviceNodePort).
 		Decode(&res.dc)
-
-	println(string(buf.Bytes()))
 
 	return decoder.Err
 }
@@ -602,14 +604,10 @@ func createRedisClusterResources_NodePort(input *redisResources_Peer, serviceBro
 	return &output, osr.Err
 }
 
-func getRedisClusterResources_Peers(numberPeers int, serviceBrokerNamespace string,
+func getRedisClusterResources_Peers(serviceBrokerNamespace string,
 	instanceID /*, redisPassword*/ string, volumes []oshandler.Volume) ([]*redisResources_Peer, error) {
 
-	if len(volumes) < numberPeers {
-		return nil, fmt.Errorf("getRedisClusterResources_Peers len(volumes) < numberPeers: %d, %d", len(volumes), numberPeers)
-	}
-
-	var outputs = make([]*redisResources_Peer, numberPeers)
+	var outputs = make([]*redisResources_Peer, len(volumes))
 	for i := range outputs {
 		o, err := getRedisClusterResources_Peer(serviceBrokerNamespace,
 			instanceID, strconv.Itoa(i) /*, redisPassword*/, volumes[i].Volume_name)
