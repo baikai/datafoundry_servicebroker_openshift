@@ -452,8 +452,9 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 }
 
 func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer) error {
-	cmd := "redis-trib.rb"
+	cmd := "ruby"
 	args := make([]string, 0, 100)
+	args = append(args, "redis-trib.rb")
 	args = append(args, "create")
 	//lines = append(lines, "--replicas 1")
 	for _, res := range peers {
