@@ -214,7 +214,8 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		}
 
 		// run redis-trib.rb: create cluster
-		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs)
+		//err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs) // bug: svc in outoupt is void
+		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts)
 		if err != nil {
 			println(" redis initRedisMasterSlots error: ", err)
 			logger.Error("redis initRedisMasterSlots error", err)
@@ -456,7 +457,8 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 	args = append(args, "create")
 	//lines = append(lines, "--replicas 1")
 	for _, res := range peers {
-		args = append(args, res.serviceNodePort.Name+":"+strconv.Itoa(res.serviceNodePort.Spec.Ports[0].Port))
+		port := strconv.Itoa(res.serviceNodePort.Spec.Ports[0].Port)
+		args = append(args, res.serviceNodePort.Name+":"+port)
 	}
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args)
 }
