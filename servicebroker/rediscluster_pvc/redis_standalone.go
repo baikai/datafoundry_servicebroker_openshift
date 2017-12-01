@@ -501,13 +501,15 @@ func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisReso
 			n, _ := statRunningPodsByLabels(dc.Namespace, dc.Spec.Selector)
 			if n < dc.Spec.Replicas {
 				println(dc.Name, " is not ready")
-				break
+				goto CheckAgain
 			}
 
 			println(dc.Name, " is ready")
-
 			// todo: PING redis pod
 		}
+		break
+
+	CheckAgain:
 		time.Sleep(time.Second * 3)
 	}
 	time.Sleep(time.Second)
