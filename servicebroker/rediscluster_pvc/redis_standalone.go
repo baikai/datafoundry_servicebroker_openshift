@@ -224,7 +224,12 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			return
 		}
 
-		// todo: check redis servers status
+		err = waitAllRedisPodsAreReady(nodePorts, outputs)
+		if err != nil {
+			println(" redis waitAllRedisPodsAreReady error: ", err)
+			logger.Error("redis waitAllRedisPodsAreReady error", err)
+			return
+		}
 
 		// run redis-trib.rb: create cluster
 		//err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs) // bug: svc in outoupt is void
@@ -288,6 +293,7 @@ func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.Se
 		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
 			return false
 		}
+		// todo: why call it again?
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
 		return n >= dc.Spec.Replicas
 	}
@@ -477,6 +483,35 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 		args = append(args, ip+":"+port)
 	}
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args)
+}
+
+func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
+	time.Sleep(time.Second)
+	for {
+		println("===== check redis pod status ...")
+		for i, res := range nodeports {
+			svc := res.serviceNodePort
+			osr := oshandler.NewOpenshiftREST(oshandler.OC())
+			osr.KGet("/namespaces/"+svc.Namespace+"/services/"+svc.Name, nil)
+			if osr.Err == oshandler.NotFound {
+				return osr.Err
+			}
+
+			dc := dcs[i].dc
+			n, _ := statRunningPodsByLabels(dc.Namespace, dc.Spec.Selector)
+			if n < dc.Spec.Replicas {
+				println(dc.Name, " is not ready")
+				break
+			}
+
+			println(dc.Name, " is ready")
+
+			// todo: PING redis pod
+		}
+		time.Sleep(time.Second * 3)
+	}
+	time.Sleep(time.Second)
+	return nil
 }
 
 //=======================================================================

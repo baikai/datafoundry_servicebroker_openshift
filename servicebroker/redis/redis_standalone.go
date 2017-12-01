@@ -11,10 +11,11 @@ import (
 	//"net"
 	"bytes"
 	"encoding/json"
-	"github.com/pivotal-cf/brokerapi"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 	//"crypto/sha1"
 	//"encoding/base64"
 	//"text/template"
@@ -182,6 +183,9 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
 		}
+
+		// todo: rc.Labels -> rc.Spec.Selector
+		//       also for other services.
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 		println("n =", n)
 		return n >= *rc.Spec.Replicas
@@ -243,7 +247,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	if err != nil {
 		return oshandler.Credentials{}
 	}
-	
+
 	client_port := &more_res.serviceSentinel.Spec.Ports[0]
 
 	cluser_name := "cluster-" + more_res.serviceSentinel.Name
