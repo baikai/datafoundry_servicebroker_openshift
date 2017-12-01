@@ -106,6 +106,17 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
+	//>> todo: read details.Parameters
+	_ = planInfo.MoreParameters["nodes"]
+	_ = planInfo.ParameterSettings["nodes"]
+	_ = planInfo.MoreParameters["nodeMemory"]
+	_ = planInfo.ParameterSettings["nodeMemory"]
+
+	numPeers := DefaultNumNodes
+	containerMemory := "500M"
+	_ = containerMemory
+	//<<
+
 	//if asyncAllowed == false {
 	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
 	//}
@@ -119,8 +130,8 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	//redisPassword := oshandler.GenGUID() // redis cluster doesn't support password
 
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
-	volumes := make([]oshandler.Volume, DefaultNumNodes)
-	for i := 0; i < DefaultNumNodes; i++ {
+	volumes := make([]oshandler.Volume, numPeers)
+	for i := 0; i < numPeers; i++ {
 		volumes[i] = oshandler.Volume{
 			Volume_size: planInfo.Volume_size,
 			Volume_name: volumeBaseName + "-" + strconv.Itoa(i),
@@ -142,7 +153,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo.Volumes = volumes
 
 	//>> may be not optimized
-	var templates = make([]redisResources_Peer, DefaultNumNodes)
+	var templates = make([]redisResources_Peer, numPeers)
 	err := loadRedisClusterResources_Peers(
 		serviceInfo.Url,
 		//serviceInfo.Password,
@@ -212,6 +223,8 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 			return
 		}
+
+		// todo: check redis servers status
 
 		// run redis-trib.rb: create cluster
 		//err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs) // bug: svc in outoupt is void

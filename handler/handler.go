@@ -19,9 +19,15 @@ func init() {
 	mathrand.Seed(time.Now().UnixNano())
 }
 
+//const (
+//	VolumeType_EmptyDir = ""    // DON'T change
+//	VolumeType_PVC      = "pvc" // DON'T change
+//)
+
+// Some service common parameters.
 const (
-	VolumeType_EmptyDir = ""    // DON'T change
-	VolumeType_PVC      = "pvc" // DON'T change
+	VolumeSize  = "volumeSize"
+	Connections = "connections"
 )
 
 type ServiceInfo struct {
@@ -56,6 +62,9 @@ type PlanInfo struct {
 	Volume_size int `json:"volume_type"`
 	Connections int `json:"connections"`
 	//Customize   map[string]CustomParams `json:"customize"`
+
+	MoreParameters    map[string]interface{}
+	ParameterSettings map[string]CustomParams
 }
 
 type Credentials struct {

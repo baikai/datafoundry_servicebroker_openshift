@@ -78,8 +78,6 @@ type myCredentials struct {
 	Name     string `json:"name,omitempty"`
 }
 
-const G_VolumeSize = "volumeSize"
-
 func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 	/*
 		//free := true
@@ -248,7 +246,7 @@ func (myBroker *myServiceBroker) Provision(
 		return brokerapi.ProvisionedServiceSpec{}, errors.New("Internal Error!!")
 	}
 
-	volumeSize, connections, err := findServicePlanInfo(
+	volumeSize, connections, customization, err := findServicePlanInfo(
 		details.ServiceID, details.PlanID, details.Parameters, false)
 	if err != nil {
 		logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
@@ -258,7 +256,9 @@ func (myBroker *myServiceBroker) Provision(
 	planInfo := handler.PlanInfo{
 		Volume_size: volumeSize,
 		Connections: connections,
-		//Customize:   customization,
+
+		MoreParameters:    details.Parameters,
+		ParameterSettings: customization,
 	}
 
 	//volumeSize, err = getVolumeSize(details, planInfo)
@@ -398,13 +398,12 @@ func (myBroker *myServiceBroker) Update(
 		return false, errors.New(reason)
 	}
 
-	volumeSize, connections, err := findServicePlanInfo(
+	volumeSize, connections, customization, err := findServicePlanInfo(
 		details.ServiceID, details.PlanID, details.Parameters, true)
 	if err != nil {
 		logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
 		return false, errors.New("Internal Error!!")
 	}
-	_ = connections
 
 	if volumeSize == myServiceInfo.Volumes[0].Volume_size {
 		return false, nil
@@ -421,6 +420,10 @@ func (myBroker *myServiceBroker) Update(
 
 	planInfo := handler.PlanInfo{
 		Volume_size: volumeSize,
+		Connections: connections,
+
+		MoreParameters:    details.Parameters,
+		ParameterSettings: customization,
 	}
 
 	callbackSaveNewInfo := func(serviceInfo *handler.ServiceInfo) error {
@@ -790,9 +793,10 @@ func findServicePlanNameInCatalog(service_id, plan_id string) string {
 	}
 	return resp.Node.Value
 }
-func findServicePlanInfo(service_id, plan_id string, parameters map[string]interface{}, errorOnInvalidParameter bool) (volumeSize, connections int, err error) {
+
+func findServicePlanInfo(service_id, plan_id string, parameters map[string]interface{}, errorOnInvalidParameter bool) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
 	vsize, conns, customization, err :=
-		findServicePlanInfoInBullets(service_id, plan_id)
+		findServicePlanInfoInBulletsAndCustomizeSettings(service_id, plan_id)
 	if err != nil {
 		return
 	}
@@ -801,14 +805,14 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	fVolumeSize := float64(vsize)
 
 	// if input parameter also specifies volume size, then use it.
-	if interSize, ok := parameters[G_VolumeSize]; !ok {
+	if interSize, ok := parameters[handler.VolumeSize]; !ok {
 		if errorOnInvalidParameter {
-			err = errors.New(G_VolumeSize + " parameter is not provided.")
+			err = errors.New(handler.VolumeSize + " parameter is not provided.")
 			return
 		}
 	} else {
 		if sSize, ok := interSize.(string); !ok {
-			err = errors.New(G_VolumeSize + " is not string.")
+			err = errors.New(handler.VolumeSize + " is not string.")
 			return
 		} else if fSize, e := strconv.ParseFloat(sSize, 64); e != nil {
 			err = e
@@ -819,7 +823,7 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	}
 
 	// try to validate volume size
-	if cus, ok := customization[G_VolumeSize]; ok {
+	if cus, ok := customization[handler.VolumeSize]; ok {
 		fVolumeSize = cus.Default + cus.Step*math.Ceil((fVolumeSize-cus.Default)/cus.Step)
 		if fVolumeSize > cus.Max {
 			fVolumeSize = cus.Max
@@ -833,7 +837,7 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	return
 }
 
-func findServicePlanInfoInBullets(service_id, plan_id string) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
+func findServicePlanInfoInBulletsAndCustomizeSettings(service_id, plan_id string) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
 	resp, err := etcdget("/servicebroker/" + servcieBrokerName + "/catalog/" + service_id + "/plan/" + plan_id + "/metadata")
 	if err != nil {
 		return
@@ -876,17 +880,17 @@ func getVolumeSize(details brokerapi.ProvisionDetails, planInfo oshandler.PlanIn
 	if planInfo.Customize == nil {
 		//如果没有Customize, finalVolumeSize默认值 planInfo.Volume_size
 		finalVolumeSize = planInfo.Volume_size
-	} else if cus, ok := planInfo.Customize[G_VolumeSize]; ok {
+	} else if cus, ok := planInfo.Customize[handler.VolumeSize]; ok {
 		if details.Parameters == nil {
 			finalVolumeSize = int(cus.Default)
 			return
 		}
-		if _, ok := details.Parameters[G_VolumeSize]; !ok {
+		if _, ok := details.Parameters[handler.VolumeSize]; !ok {
 			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] not exist")
 			println(err)
 			return
 		}
-		sSize, ok := details.Parameters[G_VolumeSize].(string)
+		sSize, ok := details.Parameters[handler.VolumeSize].(string)
 		if !ok {
 			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] cannot be converted to string")
 			println(err)
