@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: ReplicationController
 metadata:
-  name: ocsp
+  name: sb-instanceid-ocsp
 spec:
   replicas: 1
   selector:
-    app: ocsp 
+    app: sb-instanceid-ocsp 
   template:
     metadata:
-      name: ocsp 
+      name: sb-instanceid-ocsp 
       labels:
-        app: ocsp
+        app: sb-instanceid-ocsp
     spec:
       containers:
-      - name: ocsp 
+      - name: sb-instanceid-ocsp 
         image: http://ocsp-image-place-holder/ocsp-openshift-orchestration
         command: ['/bin/bash', '/opt/ocsp_init.sh']
         env:
@@ -41,10 +41,10 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: ocsp-service
+  name: sb-instanceid-ocsp
 spec:
   selector:
-    app: ocsp 
+    app: sb-instanceid-ocsp 
   ports:
   - protocol: TCP
     port: 9527
@@ -52,9 +52,9 @@ spec:
 apiVersion: v1
 kind: Route
 metadata:
-  name: ocsp-route
+  name: sb-instanceid-ocsp
 spec:
   host: sb-instanceid-ocsp-admin.endpoint-postfix-place-holder
   to:
     kind: Service
-    name: ocsp-service       
+    name: sb-instanceid-ocsp    

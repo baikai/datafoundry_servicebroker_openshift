@@ -397,7 +397,7 @@ var OcspTemplateData_Master []byte = nil
 
 func loadOcspResources_Master(instanceID, ocspUser, ocspPassword string, details *brokerapi.ProvisionDetails, res *ocspResources_Master) error {
 	if OcspTemplateData_Master == nil {
-		f, err := os.Open("ocsp-pvc.yaml")
+		f, err := os.Open("ocsp.yaml")
 		if err != nil {
 			return err
 		}
