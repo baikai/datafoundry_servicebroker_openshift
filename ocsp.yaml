@@ -47,6 +47,7 @@ spec:
     app: sb-instanceid-ocsp 
   ports:
   - protocol: TCP
+    name: web
     port: 9527
 ---
 apiVersion: v1
@@ -55,6 +56,8 @@ metadata:
   name: sb-instanceid-ocsp
 spec:
   host: sb-instanceid-ocsp-admin.endpoint-postfix-place-holder
+  port:
+    targetPort: web
   to:
     kind: Service
     name: sb-instanceid-ocsp    

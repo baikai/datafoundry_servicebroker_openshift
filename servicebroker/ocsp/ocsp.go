@@ -333,7 +333,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	}
 
 	port := "80"
-	host := master_res.routeAdmin.Spec.Host
+	host := master_res.route.Spec.Host
 	//var port string
 
 	return oshandler.Credentials{
@@ -451,18 +451,16 @@ func loadOcspResources_Master(instanceID, ocspUser, ocspPassword string, details
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.rc).
-		Decode(&res.routeAdmin).
-		//Decode(&res.routeMQ).
-		Decode(&res.service)
+		Decode(&res.service).
+		Decode(&res.route)
 
 	return decoder.Err
 }
 
 type ocspResources_Master struct {
-	rc         kapi.ReplicationController
-	routeAdmin routeapi.Route
-	//routeMQ    routeapi.Route
+	rc      kapi.ReplicationController
 	service kapi.Service
+	route   routeapi.Route
 }
 
 func createOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, ocspPassword string, details brokerapi.ProvisionDetails) (*ocspResources_Master, error) {
@@ -480,7 +478,7 @@ func createOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, oc
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
 		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc).
-		OPost(prefix+"/routes", &input.routeAdmin, &output.routeAdmin).
+		OPost(prefix+"/routes", &input.route, &output.route).
 		//OPost(prefix + "/routes", &input.routeMQ, &output.routeMQ).
 		KPost(prefix+"/services", &input.service, &output.service)
 
@@ -505,7 +503,7 @@ func getOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, ocspP
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
 		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc).
-		OGet(prefix+"/routes/"+input.routeAdmin.Name, &output.routeAdmin).
+		OGet(prefix+"/routes/"+input.route.Name, &output.route).
 		//OGet(prefix + "/routes/" + input.routeMQ.Name, &output.routeMQ).
 		KGet(prefix+"/services/"+input.service.Name, &output.service)
 
@@ -520,7 +518,7 @@ func destroyOcspResources_Master(masterRes *ocspResources_Master, serviceBrokerN
 	// todo: add to retry queue on fail
 
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
+	go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
 	//go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
 }

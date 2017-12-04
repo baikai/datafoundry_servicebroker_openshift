@@ -6,12 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/pivotal-cf/brokerapi"
 	"io"
 	mathrand "math/rand"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 )
 
 func init() {
@@ -101,8 +102,13 @@ func Register(name string, handler HandlerDriver) {
 	handlers[name] = handler
 }
 
+func ListHandler() {
+	for k, _ := range handlers {
+		fmt.Println(k)
+	}
+}
+
 func New(name string) (*Handler, error) {
-	fmt.Println(handlers)
 	handler, ok := handlers[name]
 	if !ok {
 		return nil, fmt.Errorf("Can't find handler %s", name)
