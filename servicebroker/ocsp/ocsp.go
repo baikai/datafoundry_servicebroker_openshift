@@ -10,10 +10,9 @@ import (
 	//"net/http"
 	"bytes"
 	"encoding/json"
-	"net"
+	//"net"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pivotal-cf/brokerapi"
 	//"crypto/sha1"

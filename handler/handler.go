@@ -102,6 +102,7 @@ func Register(name string, handler HandlerDriver) {
 }
 
 func New(name string) (*Handler, error) {
+	fmt.Println(handlers)
 	handler, ok := handlers[name]
 	if !ok {
 		return nil, fmt.Errorf("Can't find handler %s", name)
