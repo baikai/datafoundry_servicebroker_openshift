@@ -820,6 +820,12 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 		} else {
 			fVolumeSize = math.Floor(fSize + 0.5)
 		}
+
+		// todo: use this instead
+		// fVolumeSize, err = handler.ParseFloat64(interSize)
+		// if err != nil {
+		//	return
+		// }
 	}
 
 	// try to validate volume size

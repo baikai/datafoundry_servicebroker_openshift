@@ -64,6 +64,9 @@ spec:
         imagePullPolicy: Always
         name: redis
         resources: {}
+        resources:
+          limits:
+            memory: "{{ .ContainerMemory }}Mi"
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
