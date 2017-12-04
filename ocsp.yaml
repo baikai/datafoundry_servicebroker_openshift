@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: ocsp
+spec:
+  replicas: 1
+  selector:
+    app: ocsp 
+  template:
+    metadata:
+      name: ocsp 
+      labels:
+        app: ocsp
+    spec:
+      containers:
+      - name: ocsp 
+        image: http://ocsp-image-place-holder/ocsp-openshift-orchestration
+        command: ['/bin/bash', '/opt/ocsp_init.sh']
+        env:
+        - name: OCM 
+          value: "10.1.236.113"
+        - name: OCM_PORT 
+          value: "9090"
+        - name: MYSQL_HOST
+          value: "**MYSQL_HOST**"
+        - name: MYSQL_PORT 
+          value: "**MYSQL_PORT**"
+        - name: MYSQL_DATABASE 
+          value: "**MYSQL_DATABASE**"
+        - name: MYSQL_UNAME 
+          value: "**MYSQL_UNAME**"
+        - name: MYSQL_PWD 
+          value: "**MYSQL_PWD**"
+        - name: HDP_VERSION 
+          value: "2.6.0.3-8"
+        - name: OCSP_USER
+          value: "**OCSP_USER**"
+        - name: CODIS_ADDR 
+          value: "**CODIS_ADDR**"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ocsp-service
+spec:
+  selector:
+    app: ocsp 
+  ports:
+  - protocol: TCP
+    port: 9527
+---
+apiVersion: v1
+kind: Route
+metadata:
+  name: ocsp-route
+spec:
+  host: sb-instanceid-ocsp-admin.endpoint-postfix-place-holder
+  to:
+    kind: Service
+    name: ocsp-service       

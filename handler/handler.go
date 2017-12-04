@@ -308,10 +308,13 @@ func StormExternalImage() string {
 	return stormExternalImage
 }
 
+func OcspImage() string {
+	return ocspImage
+}
+
 //func DfExternalIPs() string {
 //	return externalIPs
 //}
-
 
 var theOC *OpenshiftClient
 
@@ -349,6 +352,7 @@ var mongoVolumeImage string
 var kafkaVolumeImage string
 var neo4jVolumeImage string
 var stormExternalImage string
+var ocspImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -363,7 +367,7 @@ func init() {
 		svcDomainSuffix = "svc.cluster.local"
 	}
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
-	
+
 	endpointSuffix = getenv("ENDPOINTSUFFIX")
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
@@ -395,4 +399,5 @@ func init() {
 	kafkaVolumeImage = getenv("KAFKAVOLUMEIMAGE")
 	neo4jVolumeImage = getenv("NEO4JVOLUMEIMAGE")
 	stormExternalImage = getenv("STORMEXTERNALIMAGE")
+	ocspImage = getenv("OCSPIMAGE")
 }
