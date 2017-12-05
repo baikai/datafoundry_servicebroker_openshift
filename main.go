@@ -278,7 +278,7 @@ func (myBroker *myServiceBroker) Provision(
 	if err != nil {
 		etcdSaveResult <- errors.New("DoProvision Error!")
 		logger.Error("Error do handler for service "+service_name+" plan "+plan_name, err)
-		return brokerapi.ProvisionedServiceSpec{}, errors.New("Internal Error!!")
+		return brokerapi.ProvisionedServiceSpec{}, err ///errors.New("Internal Error!!")
 	}
 
 	//为隐藏属性添加上必要的变量

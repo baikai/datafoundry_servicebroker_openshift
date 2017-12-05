@@ -106,31 +106,38 @@ func (ocspPara *Ocsp_Parameters) GetParaMeters(details *brokerapi.ProvisionDetai
 
 	var ok bool
 	if ocspPara.mysql_host, ok = details.Parameters[G_mysql_host].(string); !ok {
-		err = errors.New("[OCSP] No parameter " + G_mysql_host)
+		err = errors.New("Missing parameters")
+		logger.Error("[OCSP] No parameter "+G_mysql_host, err)
 		return
 	}
 	if ocspPara.mysql_port, ok = details.Parameters[G_mysql_port].(string); !ok {
-		err = errors.New("[OCSP] No parameter " + G_mysql_port)
+		err = errors.New("Missing parameters")
+		logger.Error("[OCSP] No parameter "+G_mysql_port, err)
 		return
 	}
 	if ocspPara.mysql_database, ok = details.Parameters[G_mysql_database].(string); !ok {
-		err = errors.New("[OCSP] No parameter " + G_mysql_database)
+		err = errors.New("Missing parameters")
+		logger.Error("[OCSP] No parameter "+G_mysql_database, err)
 		return
 	}
 	if ocspPara.mysql_user, ok = details.Parameters[G_mysql_user].(string); !ok {
-		err = errors.New("[OCSP] No parameter " + G_mysql_user)
+		err = errors.New("Missing parameters")
+		logger.Error("[OCSP] No parameter "+G_mysql_user, err)
 		return
 	}
 	if ocspPara.mysql_pass, ok = details.Parameters[G_mysql_pass].(string); !ok {
-		err = errors.New("[OCSP] No parameter " + G_mysql_pass)
+		err = errors.New("Missing parameters")
+		logger.Error("[OCSP] No parameter "+G_mysql_pass, err)
 		return
 	}
 	if ocspPara.codis_addr, ok = details.Parameters[G_codis_addr].(string); !ok {
-		err = errors.New("[OCSP] No parameter " + G_codis_addr)
+		err = errors.New("Missing parameters")
+		logger.Error("[OCSP] No parameter "+G_codis_addr, err)
 		return
 	}
 	if ocspPara.ocsp_user, ok = details.Parameters[G_ocsp_user].(string); !ok {
-		err = errors.New("[OCSP] No parameter " + G_ocsp_user)
+		err = errors.New("Missing parameters")
+		logger.Error("[OCSP] No parameter "+G_ocsp_user, err)
 		return
 	}
 
@@ -340,7 +347,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	//var port string
 
 	return oshandler.Credentials{
-		Uri:      fmt.Sprintf("http://%s:%s", host, port),
+		Uri:      fmt.Sprintf("http://%s", host),
 		Hostname: host,
 		Port:     port,
 		Username: myServiceInfo.User,
