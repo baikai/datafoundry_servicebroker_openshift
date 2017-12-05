@@ -201,6 +201,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	//serviceInfo.Password = redisPassword
 
 	serviceInfo.Volumes = volumes
+	serviceInfo.Miscs = map[string]string{}
 	serviceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(numPeers)
 	serviceInfo.Miscs[oshandler.Memory] = strconv.Itoa(containerMemory)
 
