@@ -100,43 +100,43 @@ var (
 
 func (ocspPara *Ocsp_Parameters) GetParaMeters(details *brokerapi.ProvisionDetails) (err error) {
 	if details.Parameters == nil {
-		err = errors.New("[OCSP] No parameters about mysql and codis.")
+		err = brokerapi.ErrMissingParameters
 		return
 	}
 
 	var ok bool
 	if ocspPara.mysql_host, ok = details.Parameters[G_mysql_host].(string); !ok {
-		err = errors.New("Missing parameters")
+		err = brokerapi.ErrMissingParameters
 		logger.Error("[OCSP] No parameter "+G_mysql_host, err)
 		return
 	}
 	if ocspPara.mysql_port, ok = details.Parameters[G_mysql_port].(string); !ok {
-		err = errors.New("Missing parameters")
+		err = brokerapi.ErrMissingParameters
 		logger.Error("[OCSP] No parameter "+G_mysql_port, err)
 		return
 	}
 	if ocspPara.mysql_database, ok = details.Parameters[G_mysql_database].(string); !ok {
-		err = errors.New("Missing parameters")
+		err = brokerapi.ErrMissingParameters
 		logger.Error("[OCSP] No parameter "+G_mysql_database, err)
 		return
 	}
 	if ocspPara.mysql_user, ok = details.Parameters[G_mysql_user].(string); !ok {
-		err = errors.New("Missing parameters")
+		err = brokerapi.ErrMissingParameters
 		logger.Error("[OCSP] No parameter "+G_mysql_user, err)
 		return
 	}
 	if ocspPara.mysql_pass, ok = details.Parameters[G_mysql_pass].(string); !ok {
-		err = errors.New("Missing parameters")
+		err = brokerapi.ErrMissingParameters
 		logger.Error("[OCSP] No parameter "+G_mysql_pass, err)
 		return
 	}
 	if ocspPara.codis_addr, ok = details.Parameters[G_codis_addr].(string); !ok {
-		err = errors.New("Missing parameters")
+		err = brokerapi.ErrMissingParameters
 		logger.Error("[OCSP] No parameter "+G_codis_addr, err)
 		return
 	}
 	if ocspPara.ocsp_user, ok = details.Parameters[G_ocsp_user].(string); !ok {
-		err = errors.New("Missing parameters")
+		err = brokerapi.ErrMissingParameters
 		logger.Error("[OCSP] No parameter "+G_ocsp_user, err)
 		return
 	}
