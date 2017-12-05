@@ -6,12 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/pivotal-cf/brokerapi"
 	"io"
 	mathrand "math/rand"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 )
 
 func init() {
@@ -99,6 +100,12 @@ func Register(name string, handler HandlerDriver) {
 		panic("handler: Register called twice for handler " + name)
 	}
 	handlers[name] = handler
+}
+
+func ListHandler() {
+	for k, _ := range handlers {
+		fmt.Println(k)
+	}
 }
 
 func New(name string) (*Handler, error) {
@@ -308,10 +315,24 @@ func StormExternalImage() string {
 	return stormExternalImage
 }
 
+func OcspImage() string {
+	return ocspImage
+}
+
+func OcspOcm() string {
+	return ocspOcm
+}
+
+func OcspOcmPort() string {
+	return ocspOcmPort
+}
+func OcspHdpVersion() string {
+	return ocspHdpVersion
+}
+
 //func DfExternalIPs() string {
 //	return externalIPs
 //}
-
 
 var theOC *OpenshiftClient
 
@@ -324,6 +345,10 @@ var dnsmasqServer string // may be useless now.
 var nodeAddresses []string
 var nodeDemains []string
 var externalZookeeperServers []string
+
+var ocspOcm string
+var ocspOcmPort string
+var ocspHdpVersion string
 
 var etcdImage string
 var etcdVolumeImage string
@@ -349,6 +374,7 @@ var mongoVolumeImage string
 var kafkaVolumeImage string
 var neo4jVolumeImage string
 var stormExternalImage string
+var ocspImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -363,13 +389,17 @@ func init() {
 		svcDomainSuffix = "svc.cluster.local"
 	}
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
-	
+
 	endpointSuffix = getenv("ENDPOINTSUFFIX")
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
 	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
 	nodeDemains = strings.Split(getenv("NODE_DOMAINS"), ",")
 	externalZookeeperServers = strings.Split(getenv("EXTERNALZOOKEEPERSERVERS"), ",")
+
+	ocspOcm = getenv("OCSP_OCM")
+	ocspOcmPort = getenv("OCSP_OCM_PORT")
+	ocspHdpVersion = getenv("OCSP_HDP_VERSION")
 
 	etcdImage = getenv("ETCDIMAGE")
 	etcdbootImage = getenv("ETCDBOOTIMAGE")
@@ -395,4 +425,5 @@ func init() {
 	kafkaVolumeImage = getenv("KAFKAVOLUMEIMAGE")
 	neo4jVolumeImage = getenv("NEO4JVOLUMEIMAGE")
 	stormExternalImage = getenv("STORMEXTERNALIMAGE")
+	ocspImage = getenv("OCSPIMAGE")
 }

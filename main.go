@@ -31,6 +31,7 @@ import (
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/kafka"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/kettle"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/nifi"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/ocsp"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/pyspider"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/rabbitmq"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/redis"
@@ -277,7 +278,7 @@ func (myBroker *myServiceBroker) Provision(
 	if err != nil {
 		etcdSaveResult <- errors.New("DoProvision Error!")
 		logger.Error("Error do handler for service "+service_name+" plan "+plan_name, err)
-		return brokerapi.ProvisionedServiceSpec{}, errors.New("Internal Error!!")
+		return brokerapi.ProvisionedServiceSpec{}, err ///errors.New("Internal Error!!")
 	}
 
 	//为隐藏属性添加上必要的变量
@@ -998,7 +999,8 @@ func main() {
 		Password: password,
 	}
 
-	fmt.Println("START SERVICE BROKER", servcieBrokerName)
+	fmt.Println("START SERVICE BROKER WITH THE FOLLOWING SERVICES PROVIDED", servcieBrokerName)
+	handler.ListHandler()
 	brokerAPI := brokerapi.New(serviceBroker, logger, brokerCredentials)
 	http.HandleFunc("/bsiinfo", getBsiInfo)
 	http.Handle("/", brokerAPI)

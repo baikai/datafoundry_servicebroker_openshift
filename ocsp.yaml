@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: sb-instanceid-ocsp
+spec:
+  replicas: 1
+  selector:
+    app: sb-instanceid-ocsp 
+  template:
+    metadata:
+      name: sb-instanceid-ocsp 
+      labels:
+        app: sb-instanceid-ocsp
+    spec:
+      containers:
+      - name: sb-instanceid-ocsp 
+        image: http://ocsp-image-place-holder/ocsp-openshift-orchestration
+        command: ['/bin/bash', '/opt/ocsp_init.sh']
+        env:
+        - name: OCM 
+          value: "**OCM**"
+        - name: OCM_PORT 
+          value: "**OCM_PORT**"
+        - name: MYSQL_HOST
+          value: "**MYSQL_HOST**"
+        - name: MYSQL_PORT 
+          value: "**MYSQL_PORT**"
+        - name: MYSQL_DATABASE 
+          value: "**MYSQL_DATABASE**"
+        - name: MYSQL_UNAME 
+          value: "**MYSQL_UNAME**"
+        - name: MYSQL_PWD 
+          value: "**MYSQL_PWD**"
+        - name: HDP_VERSION 
+          value: "**HDP_VERSION**"
+        - name: OCSP_USER
+          value: "**OCSP_USER**"
+        - name: CODIS_ADDR 
+          value: "**CODIS_ADDR**"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: sb-instanceid-ocsp
+spec:
+  selector:
+    app: sb-instanceid-ocsp 
+  ports:
+  - protocol: TCP
+    name: web
+    port: 9527
+---
+apiVersion: v1
+kind: Route
+metadata:
+  name: sb-instanceid-ocsp
+spec:
+  host: sb-instanceid.ocsp.endpoint-postfix-place-holder
+  port:
+    targetPort: web
+  to:
+    kind: Service
+    name: sb-instanceid-ocsp    
