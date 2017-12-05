@@ -264,6 +264,8 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 	wg.Wait()
 	close(errChan)
 
+	println("CreateVolumn done. number erros: ", len(errChan))
+
 	if len(errChan) == 0 {
 		c <- nil
 		return
@@ -391,6 +393,8 @@ func (job *ExpandPvcVolumnJob) run(c chan<- error) {
 	}
 	wg.Wait()
 	close(errChan)
+
+	println("ExpandVolumn done. number erros: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil

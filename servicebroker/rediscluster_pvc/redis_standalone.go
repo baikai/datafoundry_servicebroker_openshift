@@ -380,6 +380,7 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 
 			// wait job to exit
 			for {
+				println("wait CreatePvcVolumnJob done")
 				time.Sleep(7 * time.Second)
 				if nil == oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url)) {
 					break
