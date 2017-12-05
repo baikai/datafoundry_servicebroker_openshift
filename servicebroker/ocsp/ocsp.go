@@ -173,7 +173,10 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 	serviceInfo.User = ocspUser
 	serviceInfo.Password = ocspPassword //NEO4J_AUTH
 
-	//serviceInfo.Volumes = volumes
+	var ocspPara Ocsp_Parameters = Ocsp_Parameters{}
+	if err := ocspPara.GetParaMeters(&details); err != nil {
+		return serviceSpec, serviceInfo, err
+	}
 
 	// ...
 	go func() {
@@ -444,6 +447,10 @@ func loadOcspResources_Master(instanceID, ocspUser, ocspPassword string, details
 		yamlTemplates = bytes.Replace(yamlTemplates, []byte("**CODIS_ADDR**"), []byte(ocspPara.codis_addr), -1)
 	}
 
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("**OCM**"), []byte(oshandler.OcspOcm()), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("**OCM_PORT**"), []byte(oshandler.OcspOcmPort()), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("**HDP_VERSION**"), []byte(oshandler.OcspHdpVersion()), -1)
+
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
 	//println()
@@ -516,7 +523,9 @@ func getOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, ocspP
 
 func destroyOcspResources_Master(masterRes *ocspResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
-
+	if masterRes == nil {
+		return
+	}
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
 	//go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()

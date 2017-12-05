@@ -18,9 +18,9 @@ spec:
         command: ['/bin/bash', '/opt/ocsp_init.sh']
         env:
         - name: OCM 
-          value: "10.1.236.113"
+          value: "**OCM**"
         - name: OCM_PORT 
-          value: "9090"
+          value: "**OCM_PORT**"
         - name: MYSQL_HOST
           value: "**MYSQL_HOST**"
         - name: MYSQL_PORT 
@@ -32,7 +32,7 @@ spec:
         - name: MYSQL_PWD 
           value: "**MYSQL_PWD**"
         - name: HDP_VERSION 
-          value: "2.6.0.3-8"
+          value: "**HDP_VERSION**"
         - name: OCSP_USER
           value: "**OCSP_USER**"
         - name: CODIS_ADDR 
@@ -55,7 +55,7 @@ kind: Route
 metadata:
   name: sb-instanceid-ocsp
 spec:
-  host: sb-instanceid-ocsp-admin.endpoint-postfix-place-holder
+  host: sb-instanceid.ocsp.endpoint-postfix-place-holder
   port:
     targetPort: web
   to:

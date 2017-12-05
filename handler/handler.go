@@ -319,6 +319,17 @@ func OcspImage() string {
 	return ocspImage
 }
 
+func OcspOcm() string {
+	return ocspOcm
+}
+
+func OcspOcmPort() string {
+	return ocspOcmPort
+}
+func OcspHdpVersion() string {
+	return ocspHdpVersion
+}
+
 //func DfExternalIPs() string {
 //	return externalIPs
 //}
@@ -334,6 +345,10 @@ var dnsmasqServer string // may be useless now.
 var nodeAddresses []string
 var nodeDemains []string
 var externalZookeeperServers []string
+
+var ocspOcm string
+var ocspOcmPort string
+var ocspHdpVersion string
 
 var etcdImage string
 var etcdVolumeImage string
@@ -381,6 +396,10 @@ func init() {
 	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
 	nodeDemains = strings.Split(getenv("NODE_DOMAINS"), ",")
 	externalZookeeperServers = strings.Split(getenv("EXTERNALZOOKEEPERSERVERS"), ",")
+
+	ocspOcm = getenv("OCSP_OCM")
+	ocspOcmPort = getenv("OCSP_OCM_PORT")
+	ocspHdpVersion = getenv("OCSP_HDP_VERSION")
 
 	etcdImage = getenv("ETCDIMAGE")
 	etcdbootImage = getenv("ETCDBOOTIMAGE")
