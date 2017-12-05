@@ -160,7 +160,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	//containerMemory := "500M"
 	numPeers, containerMemory, err := retrieveSettingsFromPlanInfo(planInfo)
 	if err != nil {
-		println("retrieveSettingsFromPlanInfo error: ", err.String())
+		println("retrieveSettingsFromPlanInfo error: ", err.Error())
 		//return serviceSpec, oshandler.ServiceInfo{}, err
 		numPeers = DefaultNumNodes
 		containerMemory = 500 // Mi
