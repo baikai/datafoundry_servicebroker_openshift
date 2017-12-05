@@ -94,11 +94,6 @@ func volumeBaseName(instanceId string) string {
 //==============================================================
 
 func retrieveSettingsFromPlanInfo(planInfo oshandler.PlanInfo) (numNodes, nodeMemory int, err error) {
-	fmt.Println("=== planInfo.ParameterSettings[oshandler.Nodes]: ", planInfo.ParameterSettings[oshandler.Nodes])
-	fmt.Println("=== planInfo.ParameterSettings[oshandler.Memory]: ", planInfo.ParameterSettings[oshandler.Memory])
-	fmt.Println("=== planInfo.MoreParameters[oshandler.Nodes]: ", planInfo.MoreParameters[oshandler.Nodes])
-	fmt.Println("=== planInfo.MoreParameters[oshandler.Memory]: ", planInfo.MoreParameters[oshandler.Memory])
-
 	nodesSettings, ok := planInfo.ParameterSettings[oshandler.Nodes]
 	if !ok {
 		err = errors.New(oshandler.Nodes + " settings not found")
@@ -124,7 +119,7 @@ func retrieveSettingsFromPlanInfo(planInfo oshandler.PlanInfo) (numNodes, nodeMe
 		return
 	}
 
-	if float64(nodes) > nodesSettings.Default {
+	if float64(nodes) < nodesSettings.Default {
 		err = fmt.Errorf("too few nodes specfied: %d < %d", nodes, nodesSettings.Default)
 		return
 	}
@@ -134,7 +129,7 @@ func retrieveSettingsFromPlanInfo(planInfo oshandler.PlanInfo) (numNodes, nodeMe
 		return
 	}
 
-	if float64(memory) > memorySettings.Default {
+	if float64(memory) < memorySettings.Default {
 		err = fmt.Errorf("too small memory specfied: %d < %d", memory, memorySettings.Default)
 		return
 	}
@@ -165,7 +160,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	//containerMemory := "500M"
 	numPeers, containerMemory, err := retrieveSettingsFromPlanInfo(planInfo)
 	if err != nil {
-		println("! redis cluster nodes or memory settings not found !")
+		println("retrieveSettingsFromPlanInfo error: ", err.String())
 		//return serviceSpec, oshandler.ServiceInfo{}, err
 		numPeers = DefaultNumNodes
 		containerMemory = 500 // Mi
