@@ -94,6 +94,8 @@ func volumeBaseName(instanceId string) string {
 //==============================================================
 
 func retrieveSettingsFromPlanInfo(planInfo oshandler.PlanInfo) (numNodes, nodeMemory int, err error) {
+	fmt.Println("=== planInfo: ", planInfo)
+
 	nodesSettings, ok := planInfo.ParameterSettings[oshandler.Nodes]
 	if !ok {
 		err = errors.New(oshandler.Nodes + " settings not found")
