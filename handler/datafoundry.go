@@ -251,7 +251,7 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 				// todo: on error
 				//DeleteVolumn(name)
 
-				c <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
+				errChan <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
 				return
 			}
 
@@ -263,6 +263,8 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 	}
 	wg.Wait()
 	close(errChan)
+
+	println("CreateVolumn done. number erros: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil
@@ -391,6 +393,8 @@ func (job *ExpandPvcVolumnJob) run(c chan<- error) {
 	}
 	wg.Wait()
 	close(errChan)
+
+	println("ExpandVolumn done. number erros: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil

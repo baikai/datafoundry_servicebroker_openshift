@@ -9,6 +9,7 @@ import (
 	"io"
 	mathrand "math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,9 +20,21 @@ func init() {
 	mathrand.Seed(time.Now().UnixNano())
 }
 
+//const (
+//	VolumeType_EmptyDir = ""    // DON'T change
+//	VolumeType_PVC      = "pvc" // DON'T change
+//)
+
+// Some service common parameters.
 const (
-	VolumeType_EmptyDir = ""    // DON'T change
-	VolumeType_PVC      = "pvc" // DON'T change
+	// pvc plans
+	VolumeSize = "volumeSize"
+	// ... never used
+	Connections = "connections"
+	// redis cluster, ...
+	Nodes = "nodes"
+	// redis cluster
+	Memory = "memory"
 )
 
 type ServiceInfo struct {
@@ -56,6 +69,9 @@ type PlanInfo struct {
 	Volume_size int `json:"volume_type"`
 	Connections int `json:"connections"`
 	//Customize   map[string]CustomParams `json:"customize"`
+
+	MoreParameters    map[string]interface{}
+	ParameterSettings map[string]CustomParams
 }
 
 type Credentials struct {
@@ -140,6 +156,64 @@ func (handler *Handler) DoUnbind(myServiceInfo *ServiceInfo, mycredentials *Cred
 	return handler.driver.DoUnbind(myServiceInfo, mycredentials)
 }
 
+//=========================================================
+
+func ParseInt64(v interface{}) (int64, error) {
+	str2int64 := func(s string) (int64, error) {
+		return strconv.ParseInt(s, 10, 64)
+	}
+
+	switch v := v.(type) {
+	case int64:
+		return v, nil
+	case int:
+		return int64(v), nil
+	case float32:
+		return int64(v), nil
+	case float64:
+		return int64(v), nil
+	case string:
+		return str2int64(v)
+	default:
+		//return str2int64(fmt.Sprint(v))
+		return 0, fmt.Errorf("invalid v: %v", v)
+	}
+}
+
+func ParseFloat64(v interface{}) (float64, error) {
+	str2float64 := func(s string) (float64, error) {
+		return strconv.ParseFloat(s, 64)
+	}
+
+	switch v := v.(type) {
+	case int64:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case float32:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	case string:
+		return str2float64(v)
+	default:
+		//return str2float64(fmt.Sprint(v))
+		return 0, fmt.Errorf("invalid v: %v", v)
+	}
+}
+
+func ParseString(v interface{}) (string, error) {
+	switch v := v.(type) {
+	case string:
+		return v, nil
+	default:
+		//return fmt.Sprint(v)
+		return "", fmt.Errorf("v is not string: %v", v)
+	}
+}
+
+//=========================================================
+
 func getmd5string(s string) string {
 	h := md5.New()
 	h.Write([]byte(s))
@@ -154,6 +228,8 @@ func GenGUID() string {
 	}
 	return getmd5string(base64.URLEncoding.EncodeToString(b))
 }
+
+//=========================================================
 
 func getenv(env string) string {
 	env_value := os.Getenv(env)
@@ -249,6 +325,14 @@ func RedisPhpAdminImage() string {
 
 func Redis32Image() string {
 	return redis32Image
+}
+
+func RedisClusterImage() string {
+	return redisClusterImage
+}
+
+func RedisClusterTribImage() string {
+	return redisClusterTribImage
 }
 
 func KafkaImage() string {
@@ -357,6 +441,8 @@ var zookeeperImage string
 var zookeeperexhibitorImage string
 var redisImage string
 var redis32Image string
+var redisClusterImage string
+var redisClusterTribImage string
 var redisphpadminImage string
 var kafkaImage string
 var stormImage string
@@ -407,6 +493,8 @@ func init() {
 	zookeeperexhibitorImage = getenv("ZOOKEEPEREXHIBITORIMAGE")
 	redisImage = getenv("REDISIMAGE")
 	redis32Image = getenv("REDIS32IMAGE")
+	redisClusterImage = getenv("REDISCLUSTERIMAGE")
+	redisClusterTribImage = getenv("REDISCLUSTERTRIBIMAGE")
 	redisphpadminImage = getenv("REDISPHPADMINIMAGE")
 	kafkaImage = getenv("KAFKAIMAGE")
 	stormImage = getenv("STORMIMAGE")

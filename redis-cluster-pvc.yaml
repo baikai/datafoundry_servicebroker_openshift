@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    redis-cluster-instance-id: {{ .InstanceID }}
+    run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
+  name: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
+spec:
+  type: NodePort
+  ports:
+  - name: port-1
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  - name: port-2
+    port: 16379
+    protocol: TCP
+    targetPort: 16379
+  selector:
+    run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
+  sessionAffinity: None
+
+---
+
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    redis-cluster-instance-id: {{ .InstanceID }}
+    run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
+  name: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
+spec:
+  replicas: 1
+  selector:
+    run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      labels:
+        redis-cluster-instance-id: {{ .InstanceID }}
+        run: sb-{{ .InstanceID }}-rdsclst-{{ .NodeID }}
+    spec:
+      containers:
+      - command:
+        - redis-server
+        args:
+        - /usr/local/etc/redis.conf
+        - '--cluster-announce-ip'
+        - '{{ .ClusterAnnounceIP }}'
+        - '--cluster-announce-port'
+        - '{{ .ClusterAnnouncePort }}'
+        - '--cluster-announce-bus-port'
+        - '{{ .ClusterAnnounceBusPort }}'
+        image: {{ .RedisImage }}
+        imagePullPolicy: Always
+        name: redis
+        resources: {}
+        resources:
+          limits:
+            memory: "{{ .ContainerMemory }}Mi"
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /data
+          name: data-volume
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: "{{ .DataVolumePVC }}"
+  test: false
+  triggers:
+  - type: ConfigChange
+
+
