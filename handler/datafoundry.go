@@ -251,7 +251,7 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 				// todo: on error
 				//DeleteVolumn(name)
 
-				c <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
+				errChan <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
 				return
 			}
 
