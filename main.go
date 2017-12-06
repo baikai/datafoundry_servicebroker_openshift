@@ -804,7 +804,10 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	// default size is the value in etcd bullets.
 	fVolumeSize := float64(vsize)
 
-	// if input parameter also specifies volume size, then use it.
+	// If input parameter also specifies volume size, then use it.
+	// For Update, volume size must be specified in input parameter.
+	// For Create, volume size is not required in input parameter,
+	// but if it is not specified in input parameter, it must be present in plan.
 	if interSize, ok := parameters[handler.VolumeSize]; !ok {
 		if errorOnInvalidParameter {
 			err = errors.New(handler.VolumeSize + " parameter is not provided.")
