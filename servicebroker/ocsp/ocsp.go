@@ -89,13 +89,13 @@ type Ocsp_Parameters struct {
 }
 
 var (
-	G_mysql_host     = "mysql_host"
-	G_mysql_port     = "mysql_port"
-	G_mysql_database = "mysql_database"
-	G_mysql_user     = "mysql_user"
-	G_mysql_pass     = "mysql_pass"
-	G_codis_addr     = "codis_addr"
-	G_ocsp_user      = "ocsp_user"
+	G_mysql_host     = "ATTR_mysql_host"
+	G_mysql_port     = "ATTR_mysql_port"
+	G_mysql_database = "ATTR_mysql_database"
+	G_mysql_user     = "ATTR_mysql_user"
+	G_mysql_pass     = "ATTR_mysql_pass"
+	G_codis_addr     = "ATTR_codis_addr"
+	G_ocsp_user      = "ATTR_ocsp_user"
 )
 
 func (ocspPara *Ocsp_Parameters) GetParaMeters(details *brokerapi.ProvisionDetails) (err error) {
