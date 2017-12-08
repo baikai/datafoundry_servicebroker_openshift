@@ -645,9 +645,8 @@ func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ strin
 		return err
 	}
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	println("containerMemory=", containerMemory)
+	println(string(buf.Bytes()))
 
 	decoder := oshandler.NewYamlDecoder(buf.Bytes())
 	decoder.
