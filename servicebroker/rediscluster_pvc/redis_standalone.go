@@ -121,7 +121,7 @@ func retrieveNumNodesFromPlanInfo(planInfo oshandler.PlanInfo, defaultNodes int)
 	return
 }
 
-func retrieveNodeMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory float64) (nodeMemory float64, err error) {
+func retrieveNodeMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory int) (nodeMemory int, err error) {
 	memorySettings, ok := planInfo.ParameterSettings[oshandler.Memory]
 	if !ok {
 		err = errors.New(oshandler.Memory + " settings not found")
@@ -129,21 +129,22 @@ func retrieveNodeMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory f
 		return
 	}
 
-	nodeMemory, err = oshandler.ParseFloat64(planInfo.MoreParameters[oshandler.Memory])
+	fMemory, err := oshandler.ParseFloat64(planInfo.MoreParameters[oshandler.Memory])
 	if err != nil {
 		nodeMemory = defaultMemory
 		return
 	}
 
-	if float64(nodeMemory) > memorySettings.Max {
-		err = fmt.Errorf("too large memory specfied: %f > %f", nodeMemory, memorySettings.Max)
+	if float64(fMemory) > memorySettings.Max {
+		err = fmt.Errorf("too large memory specfied: %f > %f", fMemory, memorySettings.Max)
 	}
 
-	if float64(nodeMemory) < memorySettings.Default {
-		err = fmt.Errorf("too small memory specfied: %f < %f", nodeMemory, memorySettings.Default)
+	if float64(fMemory) < memorySettings.Default {
+		err = fmt.Errorf("too small memory specfied: %f < %f", fMemory, memorySettings.Default)
 	}
 
-	nodeMemory = memorySettings.Validate(nodeMemory)
+	fMemory = memorySettings.Validate(fMemory)
+	nodeMemory = int(1000 * fMemory)
 
 	return
 }
@@ -172,12 +173,12 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
 	}
 
-	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 0.5) // Gi
+	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 500) // Mi
 	if err != nil {
 		println("retrieveSettingsFromPlanInfo error: ", err.Error())
 	}
 
-	println("redis cluster nodes. numPeers=", numPeers, ", containerMemory=", containerMemory)
+	println("redis cluster nodes. numPeers=", numPeers, ", containerMemory=", containerMemory, "Mi")
 
 	//if asyncAllowed == false {
 	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
@@ -215,7 +216,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo.Volumes = volumes
 	serviceInfo.Miscs = map[string]string{}
 	serviceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(numPeers)
-	serviceInfo.Miscs[oshandler.Memory] = fmt.Sprintf("%.2f", containerMemory)
+	serviceInfo.Miscs[oshandler.Memory] = strconv.Itoa(containerMemory)
 
 	//>> may be not optimized
 	var templates = make([]redisResources_Peer, numPeers)
@@ -277,7 +278,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			serviceInfo.Database,
 			serviceInfo.Url,
 			//serviceInfo.Password,
-			serviceInfo.Miscs[oshandler.Memory], //containerMemory,
+			containerMemory, // serviceInfo.Miscs[oshandler.Memory],
 			serviceInfo.Volumes,
 			announceInfos,
 		)
@@ -603,15 +604,15 @@ func loadRedisClusterResources_Peers(instanceID /*, redisPassword*/ string, cont
 		return fmt.Errorf("loadRedisClusterResources_Peers len(volumes) < len(res): %d, %d", len(volumes), len(res))
 	}
 
-	//memory, err := strconv.Atoi(containerMemory)
-	//if err != nil {
-	//	return err
-	//}
+	memory, err := strconv.Atoi(containerMemory)
+	if err != nil {
+		return err
+	}
 
 	for i := range res {
 		err := loadRedisClusterResources_Peer(
 			instanceID, strconv.Itoa(i), /*, redisPassword*/
-			containerMemory, //memory,
+			memory,
 			volumes[i].Volume_name,
 			announces[i],
 			&res[i],
@@ -623,7 +624,7 @@ func loadRedisClusterResources_Peers(instanceID /*, redisPassword*/ string, cont
 	return nil
 }
 
-func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ string, containerMemory string, pvcName string,
+func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ string, containerMemory int, pvcName string,
 	announce redisAnnounceInfo, res *redisResources_Peer) error {
 
 	var params = map[string]interface{}{
@@ -634,7 +635,7 @@ func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ strin
 		"ClusterAnnouncePort":    announce.Port,
 		"ClusterAnnounceBusPort": announce.BusPort,
 		"RedisImage":             oshandler.RedisClusterImage(),
-		"ContainerMemory":        containerMemory, // "Gi"
+		"ContainerMemory":        containerMemory, // "Mi"
 		//"Password":               redisPassword,
 	}
 	//
@@ -665,7 +666,7 @@ type redisResources_Peer struct {
 }
 
 func createRedisClusterResources_Peers(serviceBrokerNamespace string,
-	instanceID /*, redisPassword*/ string, memory string, volumes []oshandler.Volume,
+	instanceID /*, redisPassword*/ string, memory int, volumes []oshandler.Volume,
 	announces []redisAnnounceInfo) ([]*redisResources_Peer, error) {
 
 	if len(announces) < len(volumes) {
@@ -688,7 +689,7 @@ func createRedisClusterResources_Peers(serviceBrokerNamespace string,
 }
 
 func createRedisClusterResources_Peer(serviceBrokerNamespace string,
-	instanceID, peerID /*, redisPassword*/ string, memory string, pvcName string,
+	instanceID, peerID /*, redisPassword*/ string, memory int, pvcName string,
 	announce redisAnnounceInfo) (*redisResources_Peer, error) {
 
 	var input redisResources_Peer
@@ -766,7 +767,7 @@ func getRedisClusterResources_Peer(serviceBrokerNamespace string,
 	var input redisResources_Peer
 	err := loadRedisClusterResources_Peer(
 		instanceID, peerID, /*, redisPassword*/
-		"1",                 // Gi memory, the value is nonsense here.
+		100,                 // Gi memory, the value is nonsense here.
 		pvcName,             // the pvc name is nonsense here
 		redisAnnounceInfo{}, //the value is nonsense
 		&input)
