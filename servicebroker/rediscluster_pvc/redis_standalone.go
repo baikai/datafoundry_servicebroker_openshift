@@ -645,8 +645,9 @@ func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ strin
 		return err
 	}
 
-	println("containerMemory=", containerMemory)
-	println(string(buf.Bytes()))
+	//println("containerMemory=", containerMemory)
+	//println(string(buf.Bytes()))
+	// "0.10Gi" will be converted to 107374182400m. Why?
 
 	decoder := oshandler.NewYamlDecoder(buf.Bytes())
 	decoder.
