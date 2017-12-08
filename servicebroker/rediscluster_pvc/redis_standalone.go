@@ -93,49 +93,57 @@ func volumeBaseName(instanceId string) string {
 //
 //==============================================================
 
-func retrieveSettingsFromPlanInfo(planInfo oshandler.PlanInfo) (numNodes, nodeMemory int, err error) {
+func retrieveNumNodesFromPlanInfo(planInfo oshandler.PlanInfo, defaultNodes int) (numNodes int, err error) {
 	nodesSettings, ok := planInfo.ParameterSettings[oshandler.Nodes]
 	if !ok {
 		err = errors.New(oshandler.Nodes + " settings not found")
-		return
-	}
-	memorySettings, ok := planInfo.ParameterSettings[oshandler.Memory]
-	if !ok {
-		err = errors.New(oshandler.Memory + " settings not found")
+		numNodes = defaultNodes
 		return
 	}
 
-	nodes, err := oshandler.ParseInt64(planInfo.MoreParameters[oshandler.Nodes])
+	numNodes, err = oshandler.ParseInt64(planInfo.MoreParameters[oshandler.Nodes])
 	if err != nil {
-		return
-	}
-	memory, err := oshandler.ParseInt64(planInfo.MoreParameters[oshandler.Memory])
-	if err != nil {
+		numNodes = defaultNodes
 		return
 	}
 
 	if float64(nodes) > nodesSettings.Max {
 		err = fmt.Errorf("too many nodes specfied: %d > %d", nodes, nodesSettings.Max)
-		return
 	}
 
 	if float64(nodes) < nodesSettings.Default {
 		err = fmt.Errorf("too few nodes specfied: %d < %d", nodes, nodesSettings.Default)
+	}
+
+	numNodes = int(nodesSettings.Validate(float64(nodes)))
+
+	return
+}
+
+func retrieveNodeMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory float64) (nodeMemory float64, err error) {
+	memorySettings, ok := planInfo.ParameterSettings[oshandler.Memory]
+	if !ok {
+		err = errors.New(oshandler.Memory + " settings not found")
+		nodeMemory = defaultMemory
+		return
+	}
+
+	memory, err := oshandler.ParseInt64(planInfo.MoreParameters[oshandler.Memory])
+	if err != nil {
+		nodeMemory = defaultMemory
 		return
 	}
 
 	if float64(memory) > memorySettings.Max {
 		err = fmt.Errorf("too large memory specfied: %d > %d", memory, memorySettings.Max)
-		return
 	}
 
 	if float64(memory) < memorySettings.Default {
 		err = fmt.Errorf("too small memory specfied: %d < %d", memory, memorySettings.Default)
-		return
 	}
 
-	numNodes = int(nodes)
-	nodeMemory = int(memory)
+	memory = memorySettings.Validate(memory)
+
 	return
 }
 
@@ -157,14 +165,17 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo := oshandler.ServiceInfo{}
 
 	//numPeers := DefaultNumNodes
-	//containerMemory := "500M"
-	numPeers, containerMemory, err := retrieveSettingsFromPlanInfo(planInfo)
+	//containerMemory := "0.5" // GB
+	numPeers, err := retrieveNumNodesFromPlanInfo(planInfo, DefaultNumNodes)
+	if err != nil {
+		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
+	}
+
+	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 0.5) // GB
 	if err != nil {
 		println("retrieveSettingsFromPlanInfo error: ", err.Error())
-		//return serviceSpec, oshandler.ServiceInfo{}, err
-		numPeers = DefaultNumNodes
-		containerMemory = 500 // Mi
 	}
+
 	println("redis cluster nodes. numPeers=", numPeers, ", containerMemory=", containerMemory)
 
 	//if asyncAllowed == false {
@@ -622,7 +633,7 @@ func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ strin
 		"ClusterAnnouncePort":    announce.Port,
 		"ClusterAnnounceBusPort": announce.BusPort,
 		"RedisImage":             oshandler.RedisClusterImage(),
-		"ContainerMemory":        containerMemory, // "Mi"
+		"ContainerMemory":        containerMemory, // "GB"
 		//"Password":               redisPassword,
 	}
 	//

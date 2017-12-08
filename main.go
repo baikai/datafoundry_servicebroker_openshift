@@ -834,6 +834,7 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 
 	// try to validate volume size
 	if cus, ok := customization[handler.VolumeSize]; ok {
+		// todo: use fVolumeSize = cus.Validate(fVolumeSize) instead
 		fVolumeSize = cus.Default + cus.Step*math.Ceil((fVolumeSize-cus.Default)/cus.Step)
 		if fVolumeSize > cus.Max {
 			fVolumeSize = cus.Max

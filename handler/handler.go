@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	mathrand "math/rand"
 	"os"
 	"strconv"
@@ -157,6 +158,20 @@ func (handler *Handler) DoUnbind(myServiceInfo *ServiceInfo, mycredentials *Cred
 }
 
 //=========================================================
+
+func (cus CustomParams) Validate(param float64) float64 {
+	if param < cus.Default {
+		param = cus.Default
+	}
+	if param > cus.Max {
+		param = cus.Default // cus.Max
+	}
+	param = cus.Default + cus.Step*math.Ceil((param-cus.Default)/cus.Step)
+	if param > cus.Max {
+		param = cus.Max
+	}
+	return param
+}
 
 func ParseInt64(v interface{}) (int64, error) {
 	str2int64 := func(s string) (int64, error) {
