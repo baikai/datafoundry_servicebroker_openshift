@@ -109,11 +109,11 @@ func retrieveNumNodesFromPlanInfo(planInfo oshandler.PlanInfo, defaultNodes int)
 	numNodes = int(nodes64)
 
 	if float64(numNodes) > nodesSettings.Max {
-		err = fmt.Errorf("too many nodes specfied: %d > %d", numNodes, nodesSettings.Max)
+		err = fmt.Errorf("too many nodes specfied: %d > %f", numNodes, nodesSettings.Max)
 	}
 
 	if float64(numNodes) < nodesSettings.Default {
-		err = fmt.Errorf("too few nodes specfied: %d < %d", numNodes, nodesSettings.Default)
+		err = fmt.Errorf("too few nodes specfied: %d < %f", numNodes, nodesSettings.Default)
 	}
 
 	numNodes = int(nodesSettings.Validate(float64(numNodes)))
@@ -136,11 +136,11 @@ func retrieveNodeMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory f
 	}
 
 	if float64(nodeMemory) > memorySettings.Max {
-		err = fmt.Errorf("too large memory specfied: %d > %d", nodeMemory, memorySettings.Max)
+		err = fmt.Errorf("too large memory specfied: %f > %f", nodeMemory, memorySettings.Max)
 	}
 
 	if float64(nodeMemory) < memorySettings.Default {
-		err = fmt.Errorf("too small memory specfied: %d < %d", nodeMemory, memorySettings.Default)
+		err = fmt.Errorf("too small memory specfied: %f < %f", nodeMemory, memorySettings.Default)
 	}
 
 	nodeMemory = memorySettings.Validate(nodeMemory)
@@ -215,7 +215,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo.Volumes = volumes
 	serviceInfo.Miscs = map[string]string{}
 	serviceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(numPeers)
-	serviceInfo.Miscs[oshandler.Memory] = fmt.Sprintf("%f", containerMemory)
+	serviceInfo.Miscs[oshandler.Memory] = fmt.Sprintf("%.2f", containerMemory)
 
 	//>> may be not optimized
 	var templates = make([]redisResources_Peer, numPeers)
