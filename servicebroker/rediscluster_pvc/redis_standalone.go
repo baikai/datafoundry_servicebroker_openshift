@@ -166,13 +166,13 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo := oshandler.ServiceInfo{}
 
 	//numPeers := DefaultNumNodes
-	//containerMemory := "0.5" // GB
+	//containerMemory := "0.5" // Gi
 	numPeers, err := retrieveNumNodesFromPlanInfo(planInfo, DefaultNumNodes)
 	if err != nil {
 		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
 	}
 
-	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 0.5) // GB
+	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 0.5) // Gi
 	if err != nil {
 		println("retrieveSettingsFromPlanInfo error: ", err.Error())
 	}
@@ -634,7 +634,7 @@ func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ strin
 		"ClusterAnnouncePort":    announce.Port,
 		"ClusterAnnounceBusPort": announce.BusPort,
 		"RedisImage":             oshandler.RedisClusterImage(),
-		"ContainerMemory":        containerMemory, // "GB"
+		"ContainerMemory":        containerMemory, // "Gi"
 		//"Password":               redisPassword,
 	}
 	//
@@ -766,7 +766,7 @@ func getRedisClusterResources_Peer(serviceBrokerNamespace string,
 	var input redisResources_Peer
 	err := loadRedisClusterResources_Peer(
 		instanceID, peerID, /*, redisPassword*/
-		"1",                 // GB memory, the value is nonsense here.
+		"1",                 // Gi memory, the value is nonsense here.
 		pvcName,             // the pvc name is nonsense here
 		redisAnnounceInfo{}, //the value is nonsense
 		&input)
