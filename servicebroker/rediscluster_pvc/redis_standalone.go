@@ -186,7 +186,8 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceSpec.IsAsync = true
 
 	//instanceIdInTempalte   := instanceID // todo: ok?
-	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
+	//instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
+	instanceIdInTempalte := strings.ToLower(oshandler.NewTenLengthID()) // for openshift 1.2
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 	//redisUser := oshandler.NewElevenLengthID()
