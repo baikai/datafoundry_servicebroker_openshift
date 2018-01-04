@@ -748,16 +748,17 @@ func createRedisClusterResources_NodePort(input *redisResources_Peer, serviceBro
 func getRedisClusterResources_Peers(serviceBrokerNamespace string,
 	instanceID /*, redisPassword*/ string, volumes []oshandler.Volume) ([]*redisResources_Peer, error) {
 
+	var err error
 	var outputs = make([]*redisResources_Peer, len(volumes))
 	for i := range outputs {
-		o, err := getRedisClusterResources_Peer(serviceBrokerNamespace,
+		o, err2 := getRedisClusterResources_Peer(serviceBrokerNamespace,
 			instanceID, strconv.Itoa(i) /*, redisPassword*/, volumes[i].Volume_name)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			err = err2 // not perfect, only the first error is recorded.
 		}
 		outputs[i] = o
 	}
-	return outputs, nil
+	return outputs, err
 }
 
 func getRedisClusterResources_Peer(serviceBrokerNamespace string,
