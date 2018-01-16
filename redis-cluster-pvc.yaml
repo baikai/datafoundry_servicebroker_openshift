@@ -63,7 +63,6 @@ spec:
         image: {{ .RedisImage }}
         imagePullPolicy: Always
         name: redis
-        resources: {}
         resources:
           limits:
             memory: "{{ .ContainerMemory }}Mi"

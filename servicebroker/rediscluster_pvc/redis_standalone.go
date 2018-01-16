@@ -41,6 +41,7 @@ import (
 const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster"
 
 const DefaultNumNodes = 3 // 3 masters
+const DefaultNodeMemory = 500
 
 func init() {
 	oshandler.Register(RedisClusterServcieBrokerName_Standalone, &RedisCluster_freeHandler{})
@@ -175,10 +176,10 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 500) // Mi
 	if err != nil {
-		println("retrieveSettingsFromPlanInfo error: ", err.Error())
+		println("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
 	}
 
-	println("redis cluster nodes. numPeers=", numPeers, ", containerMemory=", containerMemory, "Mi")
+	println("new redis cluster parameters: numPeers=", numPeers, ", containerMemory=", containerMemory, "Mi")
 
 	//if asyncAllowed == false {
 	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")

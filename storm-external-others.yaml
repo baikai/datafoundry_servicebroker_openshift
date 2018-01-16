@@ -4,7 +4,7 @@ kind: ReplicationController
 metadata:
   name: sb-instanceid-ss
 spec:
-  replicas: 2
+  replicas: num-supervisors*****
   selector:
     sb-instanceid-storm: supervisor
   template:
@@ -34,6 +34,11 @@ spec:
           value: "storm-local-hostname*****"
         - name: APACHE_STORM_NIMBUS_SERVICE_PORT
           value: "thrift-port*****"
+        - name: NUM_WORKERS_PER_SUPERVISOR
+          value: "workers-per-supervisor*****"
+        resources:
+          limits:
+            memory: "supervisor-memory*****Mi"
         volumeMounts:
         - name: storm-data
           mountPath: /opt/apache-storm/storm-local
