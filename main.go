@@ -392,12 +392,19 @@ func (myBroker *myServiceBroker) Update(
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
 	}
+	
+	// ...
+	hasVolumes := len(myServiceInfo.Volumes) > 0
 
 	volumeSize, connections, customization, err := findServicePlanInfo(
-		details.ServiceID, details.PlanID, details.Parameters, true)
+		details.ServiceID, details.PlanID, details.Parameters, hasVolumes)
 	if err != nil {
-		logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
-		return false, errors.New("Internal Error!!")
+		//logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
+		//return false, errors.New("Internal Error!!")
+		println("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
+	} else {
+		volumeSize = 0
+		connections = 0
 	}
 	
 	//if len(myServiceInfo.Volumes) == 0 {
@@ -405,7 +412,7 @@ func (myBroker *myServiceBroker) Update(
 	//	logger.Info(reason)
 	//	return false, errors.New(reason)
 	//}
-	if len(myServiceInfo.Volumes) > 0 {
+	if hasVolumes {
 		if volumeSize == myServiceInfo.Volumes[0].Volume_size {
 			return false, nil
 		}
@@ -796,7 +803,7 @@ func findServicePlanNameInCatalog(service_id, plan_id string) string {
 	return resp.Node.Value
 }
 
-func findServicePlanInfo(service_id, plan_id string, parameters map[string]interface{}, errorOnInvalidParameter bool) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
+func findServicePlanInfo(service_id, plan_id string, parameters map[string]interface{}, requireVolumeParameter bool) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
 	vsize, conns, customization, err :=
 		findServicePlanInfoInBulletsAndCustomizeSettings(service_id, plan_id)
 	if err != nil {
@@ -811,7 +818,7 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	// For Create, volume size is not required in input parameter,
 	// but if it is not specified in input parameter, it must be present in plan.
 	if interSize, ok := parameters[handler.VolumeSize]; !ok {
-		if errorOnInvalidParameter {
+		if requireVolumeParameter {
 			err = errors.New(handler.VolumeSize + " parameter is not provided.")
 			return
 		}
