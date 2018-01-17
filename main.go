@@ -393,30 +393,31 @@ func (myBroker *myServiceBroker) Update(
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
 	}
 
-	if len(myServiceInfo.Volumes) == 0 {
-		reason := "can not get volume info from the old plan."
-		logger.Info(reason)
-		return false, errors.New(reason)
-	}
-
 	volumeSize, connections, customization, err := findServicePlanInfo(
 		details.ServiceID, details.PlanID, details.Parameters, true)
 	if err != nil {
 		logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
 		return false, errors.New("Internal Error!!")
 	}
+	
+	//if len(myServiceInfo.Volumes) == 0 {
+	//	reason := "can not get volume info from the old plan."
+	//	logger.Info(reason)
+	//	return false, errors.New(reason)
+	//}
+	if len(myServiceInfo.Volumes) > 0 {
+		if volumeSize == myServiceInfo.Volumes[0].Volume_size {
+			return false, nil
+		}
 
-	if volumeSize == myServiceInfo.Volumes[0].Volume_size {
-		return false, nil
-	}
-
-	if volumeSize < myServiceInfo.Volumes[0].Volume_size {
-		reason := fmt.Sprintf(
-			"new volume size %d must be larger than old sizes %d",
-			volumeSize, myServiceInfo.Volumes[0].Volume_size,
-		)
-		logger.Info(reason)
-		return false, errors.New(reason)
+		if volumeSize < myServiceInfo.Volumes[0].Volume_size {
+			reason := fmt.Sprintf(
+				"new volume size %d must be larger than old sizes %d",
+				volumeSize, myServiceInfo.Volumes[0].Volume_size,
+			)
+			logger.Info(reason)
+			return false, errors.New(reason)
+		}
 	}
 
 	planInfo := handler.PlanInfo{
