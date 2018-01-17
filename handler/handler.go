@@ -414,6 +414,10 @@ func StormExternalImage() string {
 	return stormExternalImage
 }
 
+func DataikuImage() string {
+	return dataikuImage
+}
+
 func OcspImage() string {
 	return ocspImage
 }
@@ -476,6 +480,7 @@ var kafkaVolumeImage string
 var neo4jVolumeImage string
 var stormExternalImage string
 var ocspImage string
+var dataikuImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -529,4 +534,5 @@ func init() {
 	neo4jVolumeImage = getenv("NEO4JVOLUMEIMAGE")
 	stormExternalImage = getenv("STORMEXTERNALIMAGE")
 	ocspImage = getenv("OCSPIMAGE")
+	dataikuImage = getenv("DATAIKUIMAGE")
 }
