@@ -30,6 +30,7 @@ import (
 	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	kutil "k8s.io/kubernetes/pkg/util"
+	kresource "k8s.io/kubernetes/pkg/api/resource"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	//"github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/zookeeper"
@@ -57,10 +58,16 @@ var logger lager.Logger
 
 const (
 	Key_StormLocalHostname = "storm.local.hostname"
+	
+	SupervisorWorksEnvName = "NUM_WORKERS_PER_SUPERVISOR"
 
 	Key_NumSupervisors   = "supervisors"
 	Key_NumWorkers       = "workers"
 	Key_SupervisorMemory = oshandler.Memory // "memory", don't change
+
+	DefaultNumSupervisors          = 2
+	DefaultNumWorkersPerSupervisor = 4
+	DefaultSupervisorMemory        = 500
 )
 
 func RetrieveStormLocalHostname(m map[string]string) string {
@@ -150,7 +157,7 @@ func retrieveNodeMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory i
 		return
 	}
 
-	fMemory, err := oshandler.ParseFloat64(planInfo.MoreParameters[oshandler.Memory])
+	fMemory, err := oshandler.ParseFloat64(planInfo.MoreParameters[Key_SupervisorMemory])
 	if err != nil {
 		nodeMemory = defaultMemory
 		return
@@ -209,6 +216,7 @@ type Storm_Handler struct {
 func newStormHandler() *Storm_Handler {
 	return &Storm_Handler{}
 }
+	
 
 func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
 	//初始化到openshift的链接
@@ -219,19 +227,19 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	//numSuperVisors := 2
 	//numWorkers := 4
 	//supervisorMemory := 500
-	numSupervisors, err := retrieveNumNodesFromPlanInfo(planInfo, 2)
+	numSupervisors, err := retrieveNumNodesFromPlanInfo(planInfo, DefaultNumSupervisors)
 	if err != nil {
 		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
 	}
 
-	supervisorMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 500) // Mi
+	supervisorMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, DefaultSupervisorMemory) // Mi
 	if err != nil {
 		println("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
 	}
 	
-	numWorkersPerSupervisor, err := retrieveNumWorkersPerSupervisorFromPlanInfo(planInfo, 4)
+	numWorkersPerSupervisor, err := retrieveNumWorkersPerSupervisorFromPlanInfo(planInfo, DefaultNumWorkersPerSupervisor)
 	if err != nil {
-		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
+		println("retrieveNumWorkersPerSupervisorFromPlanInfo error: ", err.Error())
 	}
 
 	println("new storm cluster parameters: numSupervisors=", numSupervisors,
@@ -410,6 +418,81 @@ func (handler *Storm_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 }
 
 func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+
+	var oldNumSupervisors, oldSupervisorMemory, oldNumWorkers int
+	
+	{
+		nodes64, err := oshandler.ParseInt64(myServiceInfo.Miscs[Key_NumSupervisors])
+		if err != nil {
+			nodes64 = DefaultNumSupervisors
+		}
+		oldNumSupervisors = int(nodes64)
+		
+		//fMemory, err := oshandler.ParseFloat64(myServiceInfo.Miscs[Key_SupervisorMemory])
+		nMemory, err := oshandler.ParseInt64(myServiceInfo.Miscs[Key_SupervisorMemory])
+		if err != nil {
+			nMemory = DefaultNumWorkersPerSupervisor
+		}
+		oldSupervisorMemory = int(nMemory)
+		
+		workers64, err := oshandler.ParseInt64(myServiceInfo.Miscs[Key_NumWorkers])
+		if err != nil {
+			workers64 = DefaultSupervisorMemory
+		}
+		oldNumWorkers = int(workers64)
+	}
+	
+	numSupervisors, err := retrieveNumNodesFromPlanInfo(planInfo, oldNumSupervisors)
+	if err != nil {
+		println("[DoUpdate] retrieveNumNodesFromPlanInfo error: ", err.Error())
+	}
+
+	supervisorMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, oldSupervisorMemory) // Mi
+	if err != nil {
+		println("[DoUpdate] retrieveNodeMemoryFromPlanInfo error: ", err.Error())
+	}
+	
+	numWorkersPerSupervisor, err := retrieveNumWorkersPerSupervisorFromPlanInfo(planInfo, oldNumWorkers)
+	if err != nil {
+		println("[DoUpdate] retrieveNumWorkersPerSupervisorFromPlanInfo error: ", err.Error())
+	}
+
+	println("[DoUpdate] new storm cluster parameters: numSupervisors=", numSupervisors,
+		 ", supervisorMemory=", supervisorMemory, "Mi",
+		 ", numWorkersPerSupervisor=", numWorkersPerSupervisor)
+	println("[DoUpdate] old storm cluster parameters: oldNumSupervisors=", oldNumSupervisors,
+		 ", oldSupervisorMemory=", oldSupervisorMemory, "Mi",
+		 ", oldNumWorkers=", oldNumWorkers)
+	
+	if // numSupervisors != numWorkersPerSupervisor || numWorkersPerSupervisor != oldNumWorkers || supervisorMemory != oldSupervisorMemory ||
+		true {
+	
+		println("To update storm external instance.")
+		
+		go func () {
+			err := updateStormResources_Superviser(myServiceInfo.Url, myServiceInfo.Database,
+				numSupervisors, numWorkersPerSupervisor, supervisorMemory)
+			if err != nil {
+				println("Failed to update storm external instance. Error:", err.Error())
+				return
+			}
+			
+			println("Storm external instance is updated.")
+			
+			myServiceInfo.Miscs[Key_NumSupervisors] = strconv.Itoa(numSupervisors)
+			myServiceInfo.Miscs[Key_SupervisorMemory] = strconv.Itoa(supervisorMemory)
+			myServiceInfo.Miscs[Key_NumWorkers] = strconv.Itoa(numWorkersPerSupervisor)
+			
+			err = callbackSaveNewInfo(myServiceInfo)
+			if err != nil {
+				logger.Error("Storm external instance is update but save info error", err)
+			}
+		
+		}()
+	} else {
+		println("Storm external instance is not update.")
+	}
+	
 	return nil
 }
 
@@ -1054,6 +1137,117 @@ func destroyStormResources_UiSuperviser(uisuperviserRes *stormResources_UiSuperv
 	go func() { odel(serviceBrokerNamespace, "routes", uisuperviserRes.uiroute.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", uisuperviserRes.uiservice.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", uisuperviserRes.drpcserviceNodePort.Name) }()
+}
+
+
+
+//============= update supervisor
+
+
+func getStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string) (*stormResources_UiSuperviserDrps, error) {
+	var output stormResources_UiSuperviserDrps
+
+	var input stormResources_UiSuperviserDrps
+	err := loadStormResources_UiSuperviser(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
+		2, 4, 500, // the values are non-sense
+		"", 0, &input)
+	if err != nil {
+		return &output, err
+	}
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.
+		KGet(prefix+"/replicationcontrollers/"+input.superviserrc.Name, &output.superviserrc)
+
+	if osr.Err != nil {
+		logger.Error("getStormResources_Superviser", osr.Err)
+	}
+
+	return &output, osr.Err
+}
+
+func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
+	numSuperVisors, numWorkers, supervisorContainerMemory int) error {
+	
+	// 
+	var input stormResources_UiSuperviserDrps
+	err := loadStormResources_UiSuperviser(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
+		2, 4, 500, // the values are non-sense
+		"", 0, &input)
+	if err != nil {
+		logger.Error("updateStormResources_Superviser. load error", err)
+		return err
+	}
+	
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	
+	var middle stormResources_UiSuperviserDrps
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+	osr.
+		KGet(prefix+"/replicationcontrollers/"+input.superviserrc.Name, &middle.superviserrc)
+
+	if osr.Err != nil {
+		logger.Error("updateStormResources_Superviser. get error", osr.Err)
+		return osr.Err
+	}
+	
+	// todo: maybe should check the neccessarity to update ...
+	
+	// update
+	
+	if middle.superviserrc.Spec.Template == nil || len(middle.superviserrc.Spec.Template.Spec.Containers) == 0 {
+		err = errors.New("rc.Template is nil or len(containers) == 0")
+		logger.Error("updateStormResources_Superviser.", err)
+		return err
+	}
+	
+	{
+		// number of supervisors
+		middle.superviserrc.Spec.Replicas = &numSuperVisors
+	}
+	
+	{
+		// number of workers
+		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == SupervisorWorksEnvName {
+				envs[i].Value = strconv.Itoa(numWorkers)
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: SupervisorWorksEnvName, Value: strconv.Itoa(numWorkers)},
+			)
+		}
+	}
+	
+	{
+		// supervisor memory limit
+		q, err := kresource.ParseQuantity(strconv.Itoa(supervisorContainerMemory) + "Mi")
+		if err != nil {
+			logger.Error("updateStormResources_Superviser.", err)
+			return err
+		}
+		
+		middle.superviserrc.Spec.Template.Spec.Containers[0].Resources.Limits[kapi.ResourceMemory] = *q
+	}
+	
+	
+	var output stormResources_UiSuperviserDrps
+	osr.
+		KPut(prefix+"/replicationcontrollers/"+input.superviserrc.Name, &middle.superviserrc, &output.superviserrc)
+	if osr.Err != nil {
+		logger.Error("updateStormResources_Superviser. update error", osr.Err)
+		return osr.Err
+	}
+	
+	return nil
 }
 
 //===============================================================
