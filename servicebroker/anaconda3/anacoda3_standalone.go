@@ -269,23 +269,23 @@ func (handler *Anacoda_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, m
 //
 //=======================================================================
 
-var NiFiTemplateData_Master []byte = nil
+var AnacondaTemplateData_Master []byte = nil
 
 func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string, res *anacodaResources_Master) error {
-	if NiFiTemplateData_Master == nil {
+	if AnacondaTemplateData_Master == nil {
 		f, err := os.Open("anaconda3.yaml")
 		if err != nil {
 			return err
 		}
-		NiFiTemplateData_Master, err = ioutil.ReadAll(f)
+		AnacondaTemplateData_Master, err = ioutil.ReadAll(f)
 		if err != nil {
 			return err
 		}
 		endpoint_postfix := oshandler.EndPointSuffix()
 		endpoint_postfix = strings.TrimSpace(endpoint_postfix)
 		if len(endpoint_postfix) > 0 {
-			NiFiTemplateData_Master = bytes.Replace(
-				NiFiTemplateData_Master,
+			AnacondaTemplateData_Master = bytes.Replace(
+				AnacondaTemplateData_Master,
 				[]byte("endpoint-postfix-place-holder"),
 				[]byte(endpoint_postfix),
 				-1)
@@ -293,8 +293,8 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 		anacoda_image := oshandler.AnacodaImage()
 		anacoda_image = strings.TrimSpace(anacoda_image)
 		if len(anacoda_image) > 0 {
-			NiFiTemplateData_Master = bytes.Replace(
-				NiFiTemplateData_Master,
+			AnacondaTemplateData_Master = bytes.Replace(
+				AnacondaTemplateData_Master,
 				[]byte("http://anaconda3-image-place-holder/anaconda3-openshift-orchestration"),
 				[]byte(anacoda_image),
 				-1)
@@ -303,12 +303,12 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 
 	// ...
 
-	yamlTemplates := NiFiTemplateData_Master
+	yamlTemplates := AnacondaTemplateData_Master
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("sb-token"), []byte(anacodaPassword), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(nifiUser), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(nifiPassword), -1)
+	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(anacondaUser), -1)
+	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(anacondaPassword), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -331,9 +331,9 @@ type anacodaResources_Master struct {
 	service kapi.Service
 }
 
-func createAnacodaResources_Master(instanceId, serviceBrokerNamespace, nifiUser, nifiPassword string) (*anacodaResources_Master, error) {
+func createAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacondaUser, anacondaPassword string) (*anacodaResources_Master, error) {
 	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceId, nifiUser, nifiPassword, &input)
+	err := loadAnacodaResources_Master(instanceId, anacondaUser, anacondaPassword, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -534,11 +534,11 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA nifi rc error", status.Err)
+				logger.Error("watch HA anaconda rc error", status.Err)
 				close(cancel)
 				return
 			} else {
-				//logger.Debug("watch nifi HA rc, status.Info: " + string(status.Info))
+				//logger.Debug("watch anaconda HA rc, status.Info: " + string(status.Info))
 			}
 
 			var wrcs watchReplicationControllerStatus
