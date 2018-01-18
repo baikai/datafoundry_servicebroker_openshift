@@ -541,4 +541,5 @@ func init() {
 	stormExternalImage = getenv("STORMEXTERNALIMAGE")
 	ocspImage = getenv("OCSPIMAGE")
 	dataikuImage = getenv("DATAIKUIMAGE")
+	anacondaImage = getenv("ANACONDAIMAGE")
 }

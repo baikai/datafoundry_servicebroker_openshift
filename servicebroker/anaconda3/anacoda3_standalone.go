@@ -103,7 +103,6 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	anacondaPassword :=  oshandler.GenGUID()
 
 
 	println()
@@ -113,7 +112,8 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	serviceInfo.Password = anacondaPassword
+	serviceInfo.User = ""
+	serviceInfo.Password = oshandler.GenGUID()
 
 	go func() {
 		err := <-etcdSaveResult
@@ -122,7 +122,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		}
 
 		// master
-		output, err := createAnacodaResources_Master(instanceIdInTempalte, serviceBrokerNamespace, "", anacondaPassword)
+		output, err := createAnacodaResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password)
 
 		if err != nil {
 			destroyAnacodaResources_Master(output, serviceBrokerNamespace)
@@ -133,7 +133,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	}()
 
 	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceIdInTempalte, "", anacondaPassword, &input)
+	err := loadAnacodaResources_Master(instanceIdInTempalte,serviceInfo.User, serviceInfo.Password, &input)
 	if err != nil {
 		return serviceSpec, serviceInfo, err
 	}
