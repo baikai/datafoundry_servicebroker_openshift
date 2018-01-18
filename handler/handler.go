@@ -48,6 +48,7 @@ type ServiceInfo struct {
 	User           string `json:"user"`
 	Password       string `json:"password"`
 
+
 	// following fileds
 	//Volume_type    string   `json:"volume_type"` // "" | "pvc"
 	//Volume_size    int      `json:"volume_size"`
@@ -433,6 +434,10 @@ func OcspHdpVersion() string {
 	return ocspHdpVersion
 }
 
+func AnacodaImage() string{
+	return  anacondaImage
+}
+
 //func DfExternalIPs() string {
 //	return externalIPs
 //}
@@ -481,6 +486,7 @@ var neo4jVolumeImage string
 var stormExternalImage string
 var ocspImage string
 var dataikuImage string
+var anacondaImage string
 
 func init() {
 	theOC = newOpenshiftClient(
