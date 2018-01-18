@@ -54,6 +54,7 @@ import (
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/storm_external"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/dataiku"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/rediscluster_pvc"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/anaconda3"
 )
 
 type myServiceBroker struct {

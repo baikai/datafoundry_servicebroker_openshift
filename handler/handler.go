@@ -433,6 +433,10 @@ func OcspHdpVersion() string {
 	return ocspHdpVersion
 }
 
+func AnacodaImage() string{
+	return  anacondaImage
+}
+
 //func DfExternalIPs() string {
 //	return externalIPs
 //}
@@ -481,6 +485,7 @@ var neo4jVolumeImage string
 var stormExternalImage string
 var ocspImage string
 var dataikuImage string
+var anacondaImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -535,4 +540,5 @@ func init() {
 	stormExternalImage = getenv("STORMEXTERNALIMAGE")
 	ocspImage = getenv("OCSPIMAGE")
 	dataikuImage = getenv("DATAIKUIMAGE")
+	anacondaImage = getenv("ANACONDAIMAGE")
 }
