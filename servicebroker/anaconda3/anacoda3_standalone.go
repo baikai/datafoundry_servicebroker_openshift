@@ -36,7 +36,7 @@ import (
 //
 //==============================================================
 
-const AnacodaServcieBrokerName_Standalone = "Anacoda_standalone"
+const AnacodaServcieBrokerName_Standalone = "Anaconda_standalone"
 
 func init() {
 	oshandler.Register(AnacodaServcieBrokerName_Standalone, &Anacoda_freeHandler{})
