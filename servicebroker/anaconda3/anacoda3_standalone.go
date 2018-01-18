@@ -138,7 +138,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		return serviceSpec, serviceInfo, err
 	}
 
-	serviceSpec.DashboardURL = fmt.Sprintf("http://%s/adaconda/", input.route.Spec.Host)
+	serviceSpec.DashboardURL = fmt.Sprintf("http://%s", input.route.Spec.Host)
 
 	//>>>
 	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
