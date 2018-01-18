@@ -3,7 +3,7 @@ kind: ReplicationController #副本控制器RC
 metadata:
   labels:
     servicebroker: sb-instanceid-anaconda3
-  name: sb-instanceid-anaconda3 #RC的名称全局唯一
+  name: sb-instanceid-ancnd3 #RC的名称全局唯一
 spec:
   replicas: 1    #POD副本期待数量
   selector:
@@ -40,7 +40,7 @@ kind: Route
 metadata:
   annotations:
     openshift.io/host.generated: "true"
-  name: sb-instanceid-anaconda3
+  name: sb-instanceid-ancnd3
   labels:
     servicebroker: sb-instanceid-anaconda3
 spec:
@@ -56,7 +56,7 @@ kind: Service  #表明是Kubernetes Service
 metadata:
   labels:
     servicebroker: sb-instanceid-anaconda3
-  name: sb-instanceid-anaconda3 #全局唯一名称
+  name: sb-instanceid-ancnd3  #全局唯一名称
 spec:
   ports:
   - port: 8888
