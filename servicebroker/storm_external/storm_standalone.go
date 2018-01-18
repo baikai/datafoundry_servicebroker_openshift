@@ -1143,31 +1143,6 @@ func destroyStormResources_UiSuperviser(uisuperviserRes *stormResources_UiSuperv
 
 //============= update supervisor
 
-
-func getStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string) (*stormResources_UiSuperviserDrps, error) {
-	var output stormResources_UiSuperviserDrps
-
-	var input stormResources_UiSuperviserDrps
-	err := loadStormResources_UiSuperviser(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
-		2, 4, 500, // the values are non-sense
-		"", 0, &input)
-	if err != nil {
-		return &output, err
-	}
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
-	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.
-		KGet(prefix+"/replicationcontrollers/"+input.superviserrc.Name, &output.superviserrc)
-
-	if osr.Err != nil {
-		logger.Error("getStormResources_Superviser", osr.Err)
-	}
-
-	return &output, osr.Err
-}
-
 func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
 	numSuperVisors, numWorkers, supervisorContainerMemory int) error {
 	
@@ -1201,6 +1176,11 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 		err = errors.New("rc.Template is nil or len(containers) == 0")
 		logger.Error("updateStormResources_Superviser.", err)
 		return err
+	}
+	
+	{
+		// image
+		middle.superviserrc.Spec.Template.Spec.Containers[0].Image = oshandler.StormExternalImage()
 	}
 	
 	{
