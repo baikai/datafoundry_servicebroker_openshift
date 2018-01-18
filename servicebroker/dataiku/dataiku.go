@@ -103,7 +103,7 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	serviceInfo.User = dataikuUser
-	serviceInfo.Password = dataikuUser
+	serviceInfo.Password = dataikuPassword
 
 	go func() {
 		err := <-etcdSaveResult

@@ -14,7 +14,7 @@ spec:
         app: sb-instanceid-dataiku
     spec:
       containers:
-      - image: http://dataiku-image-place-holder/dataiku-openshift-orchestratio
+      - image: http://dataiku-image-place-holder/dataiku-openshift-orchestration
         imagePullPolicy: IfNotPresent
         name: dataiku
         ports:
