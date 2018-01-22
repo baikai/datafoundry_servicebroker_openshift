@@ -1227,7 +1227,12 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 		return osr.Err
 	}
 	
-	return nil
+	//
+	n, err := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.superviserrc.Labels)
+	println("updateStormResources_Superviser:", n, "pods are deleted.")
+	
+	
+	return err
 }
 
 //===============================================================
@@ -1442,4 +1447,36 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	}
 
 	return nrunnings, nil
+}
+
+func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
+
+	println("to delete created pods in", serviceBrokerNamespace)
+	if len(labels) == 0 {
+		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
+	}
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
+
+	pods := kapi.PodList{}
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
+	if osr.Err != nil {
+		return 0, osr.Err
+	}
+
+	ndeleted := 0
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+
+		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+
+		if pod.Status.Phase != kapi.PodSucceeded {
+			ndeleted++
+			kdel(serviceBrokerNamespace, "pods", pod.Name)
+		}
+	}
+
+	return ndeleted, nil
 }
