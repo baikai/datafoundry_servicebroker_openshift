@@ -467,6 +467,8 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		//===========================================================================
 		
+		succeeded := false
+		
 		// create node ports
 		
 		var templates = make([]redisResources_Peer, newNumNodes - oldNumNodes)
@@ -483,38 +485,34 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			}
 		}
 		
+		defer func() {
+			if ! succeeded {
+				peers := make([]*redisResources_Peer, len(templates))
+				for i := range templates {
+					peers[i] = &templates[i]
+				}
+				destroyRedisClusterResources_Peers(peers, namespace)
+			}
+		}()
+		
 		nodePorts, err := createRedisClusterResources_NodePorts(
 			templates,
 			namespace,
 		)
 		if err != nil {
-			peers := make([]*redisResources_Peer, len(templates))
-			for i := range templates {
-				peers[i] = &templates[i]
-			}
-			destroyRedisClusterResources_Peers(peers, namespace)
 			return err
 		}
 
 		println("[DoUpdate] redis cluster. NodePort svcs created done")
 		fmt.Println("[DoUpdate] redis cluster. NodePort svcs created done")
-		
-		// save info (todo: improve the flow)
-		
-		myServiceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(newNumNodes)
-		myServiceInfo.Miscs[oshandler.Memory] = strconv.Itoa(newNodeMemory)
-		myServiceInfo.Volumes = append(myServiceInfo.Volumes, newVolumes...)
-		
-		err = callbackSaveNewInfo(myServiceInfo)
-		if err != nil {
-			logger.Error("redis cluster add nodes succeeded but save info error", err)
-			return err
-		}
-		
-		println("[DoUpdate] redis cluster. updated info saved.")
-		fmt.Println("[DoUpdate] redis cluster. updated info saved.")
 
 		// create new volumes
+		
+		defer func() {
+			if ! succeeded {
+				oshandler.DeleteVolumns(namespace, newVolumes)
+			}
+		}()
 		
 		result := oshandler.StartCreatePvcVolumnJob(
 			volumeBaseName,
@@ -530,6 +528,13 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		// create dc
 		
 		var outputs = make([]*redisResources_Peer, len(newVolumes))
+		
+		defer func() {
+			if ! succeeded {
+				destroyRedisClusterResources_Peers(outputs, namespace)
+			}
+		}()
+		
 		for i, p := range nodePorts {
 			o, err := createRedisClusterResources_Peer(namespace,
 				instanceId, strconv.Itoa(oldNumNodes + i), /*, redisPassword*/
@@ -570,6 +575,24 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			logger.Error("DoUpdate: redis addRedisMasterNodeAndRebalance error", err)
 			return err
 		}
+		
+		// save info (todo: improve the flow)
+		
+		myServiceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(newNumNodes)
+		myServiceInfo.Miscs[oshandler.Memory] = strconv.Itoa(newNodeMemory)
+		myServiceInfo.Volumes = append(myServiceInfo.Volumes, newVolumes...)
+		
+		err = callbackSaveNewInfo(myServiceInfo)
+		if err != nil {
+			logger.Error("redis cluster add nodes succeeded but save info error", err)
+			return err
+		}
+		
+		println("[DoUpdate] redis cluster. updated info saved.")
+		fmt.Println("[DoUpdate] redis cluster. updated info saved.")
+		
+		// ...
+		succeeded = true
 		
 		return nil
 	}()
