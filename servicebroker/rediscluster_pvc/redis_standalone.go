@@ -383,7 +383,181 @@ func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.Se
 }
 
 func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return errors.New("not implemented")
+	// planInfo.Volume_size // volume update is not supported now.
+	
+	namespace := myServiceInfo.Database
+	instanceId := myServiceInfo.Url
+	
+	go func() error {
+		// get old peer 0
+		if len(myServiceInfo.Volumes) == 0 {
+			return errors.New("[DoUpdate] old number of nodes is zero?!")
+		}
+		peer0, err := getRedisClusterResources_Peer(namespace, instanceId,
+				strconv.Itoa(0) /*, redisPassword*/, myServiceInfo.Volumes[0].Volume_name)
+		if err == nil {
+			return err
+		}
+		if myServiceInfo.Volumes[0].Volume_size != planInfo.Volume_size {
+			return errors.New("volume size update is not supported now.")
+		}
+		newVolumeSize := myServiceInfo.Volumes[0].Volume_size // use volume size of old nodes for new nodes
+		hostip := func(p *redisResources_Peer) string {
+			args := p.dc.Spec.Template.Spec.Containers[0].Args
+			for i := range args {
+				if args[i] == "--cluster-announce-ip" {
+					if i+1 < len(args) {
+						return args[i+1]
+					}
+				}
+			}
+			return ""
+		}(peer0)
+		if hostip == "" {
+			return errors.New("cluster-announce-ip is not found in old peer.")
+		}
+		
+		// get new number of nodes
+		oldNumNodes := len(myServiceInfo.Volumes)
+		newNumNodes, err := retrieveNumNodesFromPlanInfo(planInfo, oldNumNodes)
+		if err != nil {
+			return err
+		}
+		if newNumNodes <= oldNumNodes {
+			return errors.New("number of nodes can only be increased.")
+		}
+		
+		// get new node memory
+		nMemory, err := oshandler.ParseInt64(myServiceInfo.Miscs[oshandler.Memory])
+		if err != nil {
+			return err
+		}
+		oldNodeMemory := int(nMemory)
+		newNodeMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, oldNodeMemory) // Mi
+		if err != nil {
+			return err
+		}
+		if newNodeMemory != oldNodeMemory {
+			return errors.New("memory update is not supported now.")
+		}
+		
+		volumeBaseName := volumeBaseName(instanceId)
+		newVolumes := make([]oshandler.Volume, newNumNodes-oldNumNodes)
+		for i := oldNumNodes; i < newNumNodes; i++ {
+			newVolumes[i-oldNumNodes] = oshandler.Volume{
+				Volume_size: newVolumeSize,
+				Volume_name: volumeBaseName + "-" + strconv.Itoa(i),
+			}
+		}
+
+		println("[DoUpdate] new redis cluster parameters: newNumNodes=", newNumNodes, ", newNodeMemory=", newNodeMemory)
+		
+		//===========================================================================
+		
+		// create node ports
+		
+		var templates = make([]redisResources_Peer, newNumNodes - oldNumNodes)
+		for i := range templates {
+			err := loadRedisClusterResources_Peer(
+				instanceId, strconv.Itoa(oldNumNodes + i), /*, redisPassword*/
+				newNodeMemory,
+				newVolumes[i].Volume_name,
+				redisAnnounceInfo{}, // nonsense
+				&templates[i],
+			)
+			if err != nil {
+				return err
+			}
+		}
+		
+		nodePorts, err := createRedisClusterResources_NodePorts(
+			templates,
+			namespace,
+		)
+		if err != nil {
+			peers := make([]*redisResources_Peer, len(templates))
+			for i := range templates {
+				peers[i] = &templates[i]
+			}
+			destroyRedisClusterResources_Peers(peers, namespace)
+			return err
+		}
+
+		println("[DoUpdate] redis cluster. NodePort svcs created done")
+		
+		// save info (todo: improve the flow)
+		
+		myServiceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(newNumNodes)
+		myServiceInfo.Miscs[oshandler.Memory] = strconv.Itoa(newNodeMemory)
+		myServiceInfo.Volumes = append(myServiceInfo.Volumes, newVolumes...)
+		
+		err = callbackSaveNewInfo(myServiceInfo)
+		if err != nil {
+			logger.Error("redis cluster add nodes succeeded but save info error", err)
+			return err
+		}
+		
+		println("[DoUpdate] redis cluster. updated info saved.")
+
+		// create new volumes
+		
+		result := oshandler.StartCreatePvcVolumnJob(
+			volumeBaseName,
+			namespace,
+			newVolumes,
+		)
+		err = <-result
+		if err != nil {
+			logger.Error("DoUpdate: redis cluster create volume", err)
+			return err
+		}
+		
+		// create dc
+		
+		var outputs = make([]*redisResources_Peer, len(newVolumes))
+		for i, p := range nodePorts {
+			o, err := createRedisClusterResources_Peer(namespace,
+				instanceId, strconv.Itoa(oldNumNodes + i), /*, redisPassword*/
+				newNodeMemory,
+				newVolumes[i].Volume_name,
+				redisAnnounceInfo{
+					IP:      hostip,
+					Port:    strconv.Itoa(p.serviceNodePort.Spec.Ports[0].NodePort),
+					BusPort: strconv.Itoa(p.serviceNodePort.Spec.Ports[1].NodePort),
+				})
+			if err != nil {
+				// destroyRedisClusterResources_Peers(newPeers, namespace)
+				return err
+			}
+			outputs[i] = o
+		}
+		
+		println("[DoUpdate] redis cluster. new dcs are created.")
+		
+		err = waitAllRedisPodsAreReady(nodePorts, outputs)
+		if err != nil {
+			println("DoUpdate: redis waitAllRedisPodsAreReady error: ", err)
+			logger.Error("DoUpdate: redis waitAllRedisPodsAreReady error", err)
+			return err
+		}
+		
+		println("[DoUpdate] redis cluster. new pods are running.")
+		
+		// add new nodes to cluster and rebalance
+		
+		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, peer0)
+		if err != nil {
+			println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err)
+			logger.Error("DoUpdate: redis addRedisMasterNodeAndRebalance error", err)
+			return err
+		}
+		
+		println("[DoUpdate] redis cluster. Updated done.")
+		
+		return nil
+	}()
+	
+	return nil
 }
 
 func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -518,13 +692,14 @@ func collectAnnounceInfos(nodePorts []*redisResources_Peer) []redisAnnounceInfo 
 
 var redisTribYamlTemplate = template.Must(template.ParseFiles("redis-cluster-trib.yaml"))
 
-func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string) error {
+func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string) error {
 
 	var params = map[string]interface{}{
-		"InstanceID": instanceId,
-		"Image":      oshandler.RedisClusterTribImage(),
-		"Command":    command,
-		"Arguments":  args,
+		"InstanceID":    instanceId,
+		"Image":         oshandler.RedisClusterTribImage(),
+		"Command":       command,
+		"Arguments":     args,
+		"ScriptContent": customScript,
 	}
 
 	var buf bytes.Buffer
@@ -553,7 +728,25 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 		// res.serviceNodePort.Name is not ok, but ip is ok. Don't know why.
 		args = append(args, ip+":"+port)
 	}
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args)
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "")
+}
+
+func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, peer0 *redisResources_Peer) error {
+	
+	peerAddr := func(peer *redisResources_Peer) string {
+		return peer.serviceNodePort.Spec.ClusterIP + ":" + strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].Port)
+	}
+	
+	existHostPort := " " + peerAddr(peer0) + "\n\n"
+	
+	script := ""
+	for _, peer := range newPeers {
+		script += "ruby /usr/local/bin/redis-trib.rb add-node " + peerAddr(peer) + existHostPort
+	}
+	script += "ruby /usr/local/bin/redis-trib.rb rebalance " + existHostPort
+	
+	cmd := "/usr/local/bin/run-custom-script.sh"
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script)
 }
 
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
@@ -801,7 +994,9 @@ func destroyRedisClusterResources_Peers(masterReses []*redisResources_Peer, serv
 
 func destroyRedisClusterResources_Peer(masterRes *redisResources_Peer, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
-
+	if masterRes == nil {
+		return
+	}
 	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
 }
