@@ -626,7 +626,11 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 		destroyRedisClusterResources_Peers(master_reses, myServiceInfo.Database)
 
 		//>> ...
-		go func() { kdel(myServiceInfo.Database, "pods", "redis-trib-"+myServiceInfo.Url) }()
+		go func() {
+			for i := 0; i < len(myServiceInfo.Volumes); i++ {
+				kdel(myServiceInfo.Database, "pods", "redis-trib-"+myServiceInfo.Url+"-"+strconv.Itoa(i))
+			}
+		}()
 		//<<
 
 		// ...
