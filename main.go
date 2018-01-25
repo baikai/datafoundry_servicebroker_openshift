@@ -403,10 +403,12 @@ func (myBroker *myServiceBroker) Update(
 		//logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
 		//return false, errors.New("Internal Error!!")
 		println("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
-	} else {
-		volumeSize = 0
-		connections = 0
+	//} else {
+	//	volumeSize = 0
+	//	connections = 0
 	}
+
+	println("volumeSize =", volumeSize, ", connections=", connections)
 	
 	//if len(myServiceInfo.Volumes) == 0 {
 	//	reason := "can not get volume info from the old plan."
@@ -414,9 +416,9 @@ func (myBroker *myServiceBroker) Update(
 	//	return false, errors.New(reason)
 	//}
 	if hasVolumes {
-		if volumeSize == myServiceInfo.Volumes[0].Volume_size {
-			return false, nil
-		}
+		//if volumeSize == myServiceInfo.Volumes[0].Volume_size {
+		//	return false, nil
+		//}
 
 		if volumeSize < myServiceInfo.Volumes[0].Volume_size {
 			reason := fmt.Sprintf(
@@ -819,10 +821,10 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	// For Create, volume size is not required in input parameter,
 	// but if it is not specified in input parameter, it must be present in plan.
 	if interSize, ok := parameters[handler.VolumeSize]; !ok {
-		if requireVolumeParameter {
-			err = errors.New(handler.VolumeSize + " parameter is not provided.")
-			return
-		}
+		//if requireVolumeParameter {
+		//	err = errors.New(handler.VolumeSize + " parameter is not provided.")
+		//	return
+		//}
 	} else {
 		if sSize, ok := interSize.(string); !ok {
 			err = errors.New(handler.VolumeSize + " is not string.")
