@@ -568,7 +568,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		// add new nodes to cluster and rebalance
 		
-		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, peer0)
+		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, peer0, oldNumNodes)
 		if err != nil {
 			println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err.Error())
 			fmt.Println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err)
@@ -732,7 +732,7 @@ func collectAnnounceInfos(nodePorts []*redisResources_Peer) []redisAnnounceInfo 
 
 var redisTribYamlTemplate = template.Must(template.ParseFiles("redis-cluster-trib.yaml"))
 
-func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string) error {
+func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string, oldNumNodes int) error {
 
 	var params = map[string]interface{}{
 		"InstanceID":    instanceId,
@@ -740,6 +740,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 		"Command":       command,
 		"Arguments":     args,
 		"ScriptContent": customScript,
+		"OldNumNodes":   fmt.Sprintf("-%d", oldNumNodes),
 	}
 
 	var buf bytes.Buffer
@@ -768,10 +769,10 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 		// res.serviceNodePort.Name is not ok, but ip is ok. Don't know why.
 		args = append(args, ip+":"+port)
 	}
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "")
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", 0)
 }
 
-func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, peer0 *redisResources_Peer) error {
+func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, peer0 *redisResources_Peer, oldNumNodes int) error {
 	
 	peerAddr := func(peer *redisResources_Peer) string {
 		return peer.serviceNodePort.Spec.ClusterIP + ":" + strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].Port)
@@ -786,7 +787,7 @@ func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, n
 	script += "ruby /usr/local/bin/redis-trib.rb rebalance " + existHostPort
 	
 	cmd := "/usr/local/bin/run-custom-script.sh"
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script)
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, oldNumNodes)
 }
 
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
