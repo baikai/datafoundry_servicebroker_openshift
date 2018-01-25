@@ -388,7 +388,12 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 	namespace := myServiceInfo.Database
 	instanceId := myServiceInfo.Url
 	
-	go func() error {
+	println("[DoUpdate] redis cluster ...")
+	go func() (finalError error) {
+		defer func() {
+			println("[DoUpdate] redis cluster done with error:", finalError.Error())
+		}()
+		
 		// get old peer 0
 		if len(myServiceInfo.Volumes) == 0 {
 			return errors.New("[DoUpdate] old number of nodes is zero?!")
