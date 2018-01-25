@@ -391,7 +391,9 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 	println("[DoUpdate] redis cluster ...")
 	go func() (finalError error) {
 		defer func() {
-			println("[DoUpdate] redis cluster done with error:", finalError.Error())
+			if finalError != nil {
+				println("[DoUpdate] redis cluster done with error:", finalError.Error())
+			}
 		}()
 		
 		// get old peer 0
