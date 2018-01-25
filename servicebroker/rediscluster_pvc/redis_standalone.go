@@ -407,7 +407,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		}
 		peer0, err := getRedisClusterResources_Peer(namespace, instanceId,
 				strconv.Itoa(0) /*, redisPassword*/, myServiceInfo.Volumes[0].Volume_name)
-		if err == nil {
+		if err != nil {
 			return err
 		}
 		if myServiceInfo.Volumes[0].Volume_size != planInfo.Volume_size {
@@ -462,6 +462,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			}
 		}
 
+		println("[DoUpdate] new redis cluster parameters: newNumNodes=", newNumNodes, ", newNodeMemory=", newNodeMemory)
 		fmt.Println("[DoUpdate] new redis cluster parameters: newNumNodes=", newNumNodes, ", newNodeMemory=", newNodeMemory)
 		
 		//===========================================================================
@@ -495,6 +496,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			return err
 		}
 
+		println("[DoUpdate] redis cluster. NodePort svcs created done")
 		fmt.Println("[DoUpdate] redis cluster. NodePort svcs created done")
 		
 		// save info (todo: improve the flow)
@@ -509,6 +511,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			return err
 		}
 		
+		println("[DoUpdate] redis cluster. updated info saved.")
 		fmt.Println("[DoUpdate] redis cluster. updated info saved.")
 
 		// create new volumes
@@ -544,21 +547,25 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			outputs[i] = o
 		}
 		
+		println("[DoUpdate] redis cluster. new dcs are created.")
 		fmt.Println("[DoUpdate] redis cluster. new dcs are created.")
 		
 		err = waitAllRedisPodsAreReady(nodePorts, outputs)
 		if err != nil {
+			println("DoUpdate: redis waitAllRedisPodsAreReady error: ", err.Error())
 			fmt.Println("DoUpdate: redis waitAllRedisPodsAreReady error: ", err)
 			logger.Error("DoUpdate: redis waitAllRedisPodsAreReady error", err)
 			return err
 		}
 		
+		println("[DoUpdate] redis cluster. new pods are running.")
 		fmt.Println("[DoUpdate] redis cluster. new pods are running.")
 		
 		// add new nodes to cluster and rebalance
 		
 		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, peer0)
 		if err != nil {
+			println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err.Error())
 			fmt.Println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err)
 			logger.Error("DoUpdate: redis addRedisMasterNodeAndRebalance error", err)
 			return err
