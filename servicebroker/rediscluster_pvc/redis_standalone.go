@@ -784,7 +784,7 @@ func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, n
 	for _, peer := range newPeers {
 		script += "ruby /usr/local/bin/redis-trib.rb add-node " + peerAddr(peer) + existHostPort
 	}
-	script += "ruby /usr/local/bin/redis-trib.rb rebalance " + existHostPort
+	script += "ruby /usr/local/bin/redis-trib.rb rebalance --threshold 1 --use-empty-masters " + existHostPort
 	
 	cmd := "/usr/local/bin/run-custom-script.sh"
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, oldNumNodes)
