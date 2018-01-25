@@ -408,7 +408,7 @@ func (myBroker *myServiceBroker) Update(
 	//	connections = 0
 	}
 
-	fmt.Println("volumeSize =", volumeSize, ", connections=", connections)
+	println("volumeSize =", volumeSize, ", connections=", connections)
 	
 	//if len(myServiceInfo.Volumes) == 0 {
 	//	reason := "can not get volume info from the old plan."
@@ -429,6 +429,8 @@ func (myBroker *myServiceBroker) Update(
 			return false, errors.New(reason)
 		}
 	}
+
+	println("to update plan ...")
 
 	planInfo := handler.PlanInfo{
 		Volume_size: volumeSize,

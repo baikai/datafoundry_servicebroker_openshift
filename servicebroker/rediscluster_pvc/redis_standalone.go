@@ -388,13 +388,16 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 	namespace := myServiceInfo.Database
 	instanceId := myServiceInfo.Url
 	
+	println("[DoUpdate] redis cluster ...")
 	fmt.Println("[DoUpdate] redis cluster ...")
 	go func() (finalError error) {
 		defer func() {
 			if finalError != nil {
+				println("[DoUpdate] redis cluster done with error:", finalError.Error())
 				fmt.Println("[DoUpdate] redis cluster done with error:", finalError.Error())
 			}
 		
+			println("[DoUpdate] redis cluster. Updated exit.")
 			fmt.Println("[DoUpdate] redis cluster. Updated exit.")
 		}()
 		
