@@ -779,7 +779,7 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, peer0 *redisResources_Peer, oldNumNodes int) error {
 	
 	peerAddr := func(peer *redisResources_Peer) string {
-		return peer.serviceNodePort.Spec.ClusterIP + ":" + strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].Port)
+		return peer.serviceNodePort.Spec.ClusterIP + ":" + strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].NodePort)
 	}
 	
 	existHostPort := peerAddr(peer0)
@@ -795,7 +795,7 @@ func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, n
 	
 	cmd := "/usr/local/bin/run-custom-script.sh"
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, oldNumNodes)
-}
+}	
 
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
 	time.Sleep(time.Second)
