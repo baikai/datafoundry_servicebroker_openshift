@@ -761,6 +761,13 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 	return kpost(serviceBrokerNamespace, "pods", &pod, nil)
 }
 
+func getPeerAddr(peer *redisResources_Peer) string {
+	ip := peer.serviceNodePort.Spec.ClusterIP
+	port := strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].Port)
+	// res.serviceNodePort.Name is not ok, but ip is ok. Don't know why.
+	return ip+":"+port
+}
+
 func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer) error {
 	cmd := "ruby"
 	args := make([]string, 0, 100)
@@ -768,29 +775,22 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 	args = append(args, "create")
 	//lines = append(lines, "--replicas 1")
 	for _, res := range peers {
-		ip := res.serviceNodePort.Spec.ClusterIP
-		port := strconv.Itoa(res.serviceNodePort.Spec.Ports[0].Port)
-		// res.serviceNodePort.Name is not ok, but ip is ok. Don't know why.
-		args = append(args, ip+":"+port)
+		args = append(args, getPeerAddr(res))
 	}
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", 0)
 }
 
 func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, peer0 *redisResources_Peer, oldNumNodes int) error {
-	
-	peerAddr := func(peer *redisResources_Peer) string {
-		return peer.serviceNodePort.Spec.ClusterIP + ":" + strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].NodePort)
-	}
-	
-	existHostPort := peerAddr(peer0)
+
+	existHostPort := getPeerAddr(peer0)
 	
 	script := ""
 	for _, peer := range newPeers {
-		script += ">&2 echo add new node: " + peerAddr(peer) + " \n\n"
-		script += "ruby /usr/local/bin/redis-trib.rb add-node " + peerAddr(peer) + " " + existHostPort + "\n\n"
+		script += ">&2 echo add new node: " + getPeerAddr(peer) + " \n\n"
+		script += ">&2 ruby /usr/local/bin/redis-trib.rb add-node " + getPeerAddr(peer) + " " + existHostPort + "\n\n"
 	}
 	script += ">&2 echo rebalance started: " + existHostPort + "... \n\n"
-	script += "ruby /usr/local/bin/redis-trib.rb rebalance --threshold 1 --use-empty-masters " + " " + existHostPort + "\n\n"
+	script += ">&2 ruby /usr/local/bin/redis-trib.rb rebalance --threshold 1 --use-empty-masters " + " " + existHostPort + "\n\n"
 	script += ">&2 echo rebalance done. \n\n"
 	
 	cmd := "/usr/local/bin/run-custom-script.sh"
