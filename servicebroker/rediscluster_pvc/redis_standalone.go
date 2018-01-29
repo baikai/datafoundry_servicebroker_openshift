@@ -405,8 +405,9 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		if len(myServiceInfo.Volumes) == 0 {
 			return errors.New("[DoUpdate] old number of nodes is zero?!")
 		}
-		peer0, err := getRedisClusterResources_Peer(namespace, instanceId,
-				strconv.Itoa(0) /*, redisPassword*/, myServiceInfo.Volumes[0].Volume_name)
+		oldPeers, err := getRedisClusterResources_Peers(namespace, instanceId,
+			/*myServiceInfo.Password,*/ myServiceInfo.Volumes)
+	
 		if err != nil {
 			return err
 		}
@@ -424,7 +425,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 				}
 			}
 			return ""
-		}(peer0)
+		}(oldPeers[0])
 		if hostip == "" {
 			return errors.New("cluster-announce-ip is not found in old peer.")
 		}
@@ -568,7 +569,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		// add new nodes to cluster and rebalance
 		
-		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, peer0, oldNumNodes)
+		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, oldPeers, oldNumNodes)
 		if err != nil {
 			println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err.Error())
 			fmt.Println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err)
@@ -780,18 +781,24 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", 0)
 }
 
-func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, peer0 *redisResources_Peer, oldNumNodes int) error {
+func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, oldPeers []*redisResources_Peer, oldNumNodes int) error {
 
-	existHostPort := getPeerAddr(peer0)
+	var oldPeerAddr string
 	
 	script := ""
-	for _, peer := range newPeers {
-		script += ">&2 echo add new node: " + getPeerAddr(peer) + " \n\n"
-		script += ">&2 ruby /usr/local/bin/redis-trib.rb add-node " + getPeerAddr(peer) + " " + existHostPort + "\n\n"
+	for _, newPeer := range newPeers {
+		newPeerAddr := getPeerAddr(newPeer)
+		for _, oldPeer := range oldPeers {
+			oldPeerAddr = getPeerAddr(oldPeer)
+			script += ">&2 echo ============== add new node: " + newPeerAddr + " for " + oldPeerAddr + " ==============\n\n"
+			script += ">&2 ruby /usr/local/bin/redis-trib.rb add-node " + newPeerAddr + " " + oldPeerAddr + "\n\n"
+		}
 	}
-	script += ">&2 echo rebalance started: " + existHostPort + "... \n\n"
-	script += ">&2 ruby /usr/local/bin/redis-trib.rb rebalance --threshold 1 --use-empty-masters " + " " + existHostPort + "\n\n"
-	script += ">&2 echo rebalance done. \n\n"
+	script += ">&2 echo ============== sleep for awhile ... ==============\n\n"
+	script += "sleep 3s"
+	script += ">&2 echo ============== rebalance started: " + oldPeerAddr + "... ==============\n\n"
+	script += ">&2 ruby /usr/local/bin/redis-trib.rb rebalance --threshold 1 --use-empty-masters " + " " + oldPeerAddr + "\n\n"
+	script += ">&2 echo ============== rebalance done. ==============\n\n"
 	
 	cmd := "/usr/local/bin/run-custom-script.sh"
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, oldNumNodes)
