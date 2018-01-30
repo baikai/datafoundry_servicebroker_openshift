@@ -795,7 +795,7 @@ func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, n
 		}
 	}
 	script += ">&2 echo ============== sleep for awhile ... ==============\n\n"
-	script += "sleep 3s"
+	script += "sleep 3\n\n"
 	script += ">&2 echo ============== rebalance started: " + oldPeerAddr + "... ==============\n\n"
 	script += ">&2 ruby /usr/local/bin/redis-trib.rb rebalance --threshold 1 --use-empty-masters " + " " + oldPeerAddr + "\n\n"
 	script += ">&2 echo ============== rebalance done. ==============\n\n"
