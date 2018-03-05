@@ -36,6 +36,14 @@ spec:
           value: "thrift-port*****"
         - name: NUM_WORKERS_PER_SUPERVISOR
           value: "workers-per-supervisor*****"
+        - name: KRB5_CONF_CONTENT
+          value: "krb5-conf-content*****"
+        - name: KAFKA_CLIENT_KEY_TAB_CONTENT
+          value: "kafka-client-key-tab-content*****"
+        - name: KAFKA_CLIENT_SERVICE_NAME
+          value: "kafka-client-service-name*****"
+        - name: KAFKA_CLIENT_PRINCIPAL
+          value: "kafka-client-principal*****"
         resources:
           limits:
             memory: "supervisor-memory*****Mi"

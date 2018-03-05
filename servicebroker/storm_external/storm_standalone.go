@@ -57,9 +57,18 @@ var logger lager.Logger
 //==============================================================
 
 const (
+	// env names in supervisor rc yaml
+	EnvName_SupervisorWorks          = "NUM_WORKERS_PER_SUPERVISOR"
+	EnvName_Krb5ConfContent          = "KRB5_CONF_CONTENT"
+	EnvName_KafkaClientKeyTabContent = "KAFKA_CLIENT_KEY_TAB_CONTENT"
+	EnvName_KafkaClientServiceName   = "KAFKA_CLIENT_SERVICE_NAME"
+	EnvName_KafkaClientPrincipal     = "KAFKA_CLIENT_PRINCIPAL"
+
+	// ...
+
 	Key_StormLocalHostname = "storm.local.hostname"
 	
-	SupervisorWorksEnvName = "NUM_WORKERS_PER_SUPERVISOR"
+	// API parameters passed from clients
 
 	Key_NumSupervisors   = "supervisors"
 	Key_NumWorkers       = "workers"
@@ -68,6 +77,11 @@ const (
 	DefaultNumSupervisors          = 2
 	DefaultNumWorkersPerSupervisor = 4
 	DefaultSupervisorMemory        = 500
+
+	Key_Krb5ConfContent          = "krb5conf"
+	Key_KafkaClientKeyTabContent = "kafkaclient-keytab"
+	Key_KafkaClientServiceName   = "kafkaclient-service-name"
+	Key_KafaClientPrincipal      = "kafkaclient-principal"
 )
 
 func RetrieveStormLocalHostname(m map[string]string) string {
@@ -224,6 +238,13 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
+	// ...
+	params := planInfo.MoreParameters // same as details.Parameters
+	krb5ConfContent, _ := oshandler.ParseString(params[Key_Krb5ConfContent])
+	kafkaKeyTabContent, _ := oshandler.ParseString(params[Key_KafkaClientKeyTabContent])
+	kafkaServiceName, _ := oshandler.ParseString(params[Key_KafkaClientServiceName])
+	kafkaPrincipal, _ := oshandler.ParseString(params[Key_KafaClientPrincipal])
+
 	//numSuperVisors := 2
 	//numWorkers := 4
 	//supervisorMemory := 500
@@ -273,9 +294,15 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	//serviceInfo.Admin_password = zookeeperPassword
 	serviceInfo.Miscs = map[string]string{
 		Key_StormLocalHostname: oshandler.RandomNodeDomain(),
-		Key_NumSupervisors:     strconv.Itoa(numSupervisors),
-		Key_NumWorkers:         strconv.Itoa(numWorkersPerSupervisor),
-		Key_SupervisorMemory:   strconv.Itoa(supervisorMemory),
+
+		Key_NumSupervisors:   strconv.Itoa(numSupervisors),
+		Key_NumWorkers:       strconv.Itoa(numWorkersPerSupervisor),
+		Key_SupervisorMemory: strconv.Itoa(supervisorMemory),
+
+		Key_Krb5ConfContent:          krb5ConfContent,
+		Key_KafkaClientKeyTabContent: kafkaKeyTabContent,
+		Key_KafkaClientServiceName:   kafkaServiceName,
+		Key_KafaClientPrincipal:      kafkaPrincipal,
 	}
 
 	//>> may be not optimized
@@ -297,9 +324,8 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		serviceInfo.Url,
 		serviceInfo.Database,
 		2, 4, 500, // the values are non-sense
-		"",
-		0,
-		others)
+		"", "", "", "", // the values are non-sense
+		"", 0, others)
 	if err != nil {
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
@@ -350,6 +376,11 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			numSuperVisors:   numSupervisors,
 			numWorkers:       numWorkersPerSupervisor,
 			supervisorMemory: supervisorMemory,
+
+			krb5ConfContent:    krb5ConfContent,
+			kafkaKeyTabContent: kafkaKeyTabContent,
+			kafkaServiceName:   kafkaServiceName,
+			kafkaPrincipal:     kafkaPrincipal,
 		})
 
 	}()
@@ -441,6 +472,25 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 		}
 		oldNumWorkers = int(workers64)
 	}
+
+
+	params := planInfo.MoreParameters // same as details.Parameters
+	krb5ConfContent, err := oshandler.ParseString(params[Key_Krb5ConfContent])
+	if err != nil {
+		krb5ConfContent = myServiceInfo.Miscs[krb5ConfContent]
+	}
+	kafkaKeyTabContent, err := oshandler.ParseString(params[Key_KafkaClientKeyTabContent])
+	if err != nil {
+		kafkaKeyTabContent = myServiceInfo.Miscs[Key_KafkaClientKeyTabContent]
+	}
+	kafkaServiceName, err := oshandler.ParseString(params[Key_KafkaClientServiceName])
+	if err != nil {
+		kafkaServiceName = myServiceInfo.Miscs[Key_KafkaClientServiceName]
+	}
+	kafkaPrincipal, err := oshandler.ParseString(params[Key_KafaClientPrincipal])
+	if err != nil {
+		kafkaPrincipal = myServiceInfo.Miscs[Key_KafaClientPrincipal]
+	}
 	
 	numSupervisors, err := retrieveNumNodesFromPlanInfo(planInfo, oldNumSupervisors)
 	if err != nil {
@@ -471,7 +521,8 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 		
 		go func () {
 			err := updateStormResources_Superviser(myServiceInfo.Url, myServiceInfo.Database,
-				numSupervisors, numWorkersPerSupervisor, supervisorMemory)
+				numSupervisors, numWorkersPerSupervisor, supervisorMemory,
+				krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal)
 			if err != nil {
 				println("Failed to update storm external instance. Error:", err.Error())
 				return
@@ -540,6 +591,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nimbus *sto
 	var uisuperviserdrps_res stormResources_UiSuperviserDrps
 	err := loadStormResources_UiSuperviser(myServiceInfo.Url, myServiceInfo.Database, /*, stormUser, stormPassword*/
 		2, 4, 500, // the values are non-sense
+		"", "", "", "", // the values are non-sense
 		"", 0, &uisuperviserdrps_res)
 	if err != nil {
 		return oshandler.Credentials{}
@@ -676,6 +728,8 @@ type stormOrchestrationJob struct {
 	nimbusNodePort int
 
 	numSuperVisors, numWorkers, supervisorMemory int
+
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string
 }
 
 func (job *stormOrchestrationJob) cancel() {
@@ -750,6 +804,7 @@ func (job *stormOrchestrationJob) run() {
 
 	err = job.createStormResources_UiSuperviserDrpc(job.serviceInfo.Url, job.serviceInfo.Database, //, job.serviceInfo.User, job.serviceInfo.Password)
 		job.numSuperVisors, job.numWorkers, job.supervisorMemory,
+		job.krb5ConfContent, job.kafkaKeyTabContent, job.kafkaServiceName, job.kafkaPrincipal,
 		RetrieveStormLocalHostname(job.serviceInfo.Miscs), job.nimbusNodePort)
 	if err != nil {
 		logger.Error("createStormResources_UiSuperviserDrpc", err)
@@ -827,6 +882,7 @@ var StormTemplateData_UiSuperviser []byte = nil
 
 func loadStormResources_UiSuperviser(instanceID, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
 	numSuperVisors, numWorkers, supervisorContainerMemory int,
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string,
 	stormLocalHostname string, thriftPort int, res *stormResources_UiSuperviserDrps) error {
 	if StormTemplateData_UiSuperviser == nil {
 		f, err := os.Open("storm-external-others.yaml")
@@ -882,6 +938,11 @@ func loadStormResources_UiSuperviser(instanceID, serviceBrokerNamespace /*, stor
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("supervisor-memory*****"), []byte(strconv.Itoa(supervisorContainerMemory)), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("num-supervisors*****"), []byte(strconv.Itoa(numSuperVisors)), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("workers-per-supervisor*****"), []byte(strconv.Itoa(numWorkers)), -1)
+
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("krb5-conf-content*****"), []byte(krb5ConfContent), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("kafka-client-key-tab-content*****"), []byte(kafkaKeyTabContent), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("kafka-client-service-name*****"), []byte(kafkaServiceName), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("kafka-client-principal*****"), []byte(kafkaPrincipal), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -1046,11 +1107,13 @@ func destroyStormResources_Nimbus(nimbusRes *stormResources_Nimbus, serviceBroke
 
 func (job *stormOrchestrationJob) createStormResources_UiSuperviserDrpc(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
 	numSuperVisors, numWorkers, supervisorContainerMemory int,
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string,
 	stormLocalHostname string, thriftPort int) error {
 	var input stormResources_UiSuperviserDrps
 
 	err := loadStormResources_UiSuperviser(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
 		numSuperVisors, numWorkers, supervisorContainerMemory,
+		krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal,
 		stormLocalHostname, thriftPort, &input)
 	if err != nil {
 		//return nil, err
@@ -1105,6 +1168,7 @@ func getStormResources_UiSuperviser(instanceId, serviceBrokerNamespace /*, storm
 	var input stormResources_UiSuperviserDrps
 	err := loadStormResources_UiSuperviser(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
 		2, 4, 500, // the values are non-sense
+		"", "", "", "", // the values are non-sense
 		"", 0, &input)
 	if err != nil {
 		return &output, err
@@ -1144,12 +1208,14 @@ func destroyStormResources_UiSuperviser(uisuperviserRes *stormResources_UiSuperv
 //============= update supervisor
 
 func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
-	numSuperVisors, numWorkers, supervisorContainerMemory int) error {
+	numSuperVisors, numWorkers, supervisorContainerMemory int,
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string) error {
 	
 	// 
 	var input stormResources_UiSuperviserDrps
 	err := loadStormResources_UiSuperviser(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
 		2, 4, 500, // the values are non-sense
+		"", "", "", "", // the values are non-sense
 		"", 0, &input)
 	if err != nil {
 		logger.Error("updateStormResources_Superviser. load error", err)
@@ -1170,7 +1236,7 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 	
 	// todo: maybe should check the neccessarity to update ...
 	
-	// update
+	// update ...
 	
 	if middle.superviserrc.Spec.Template == nil || len(middle.superviserrc.Spec.Template.Spec.Containers) == 0 {
 		err = errors.New("rc.Template is nil or len(containers) == 0")
@@ -1178,37 +1244,13 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 		return err
 	}
 	
+	// image
 	{
-		// image
 		middle.superviserrc.Spec.Template.Spec.Containers[0].Image = oshandler.StormExternalImage()
 	}
 	
+	// supervisor memory limit
 	{
-		// number of supervisors
-		middle.superviserrc.Spec.Replicas = &numSuperVisors
-	}
-	
-	{
-		// number of workers
-		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == SupervisorWorksEnvName {
-				envs[i].Value = strconv.Itoa(numWorkers)
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: SupervisorWorksEnvName, Value: strconv.Itoa(numWorkers)},
-			)
-		}
-	}
-	
-	{
-		// supervisor memory limit
 		q, err := kresource.ParseQuantity(strconv.Itoa(supervisorContainerMemory) + "Mi")
 		if err != nil {
 			logger.Error("updateStormResources_Superviser.", err)
@@ -1218,7 +1260,107 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 		middle.superviserrc.Spec.Template.Spec.Containers[0].Resources.Limits[kapi.ResourceMemory] = *q
 	}
 	
+	// number of supervisors
+	{
+		middle.superviserrc.Spec.Replicas = &numSuperVisors
+	}
 	
+	// number of workers
+	{
+		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_SupervisorWorks {
+				envs[i].Value = strconv.Itoa(numWorkers)
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_SupervisorWorks, Value: strconv.Itoa(numWorkers)},
+			)
+		}
+	}
+	
+	// krb5.conf content
+	{
+		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_Krb5ConfContent {
+				envs[i].Value = krb5ConfContent
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_Krb5ConfContent, Value: krb5ConfContent},
+			)
+		}
+	}
+	
+	// kafka client key tab content
+	{
+		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientKeyTabContent {
+				envs[i].Value = kafkaKeyTabContent
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientKeyTabContent, Value: kafkaKeyTabContent},
+			)
+		}
+	}
+	
+	// kafka client service name
+	{
+		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientServiceName {
+				envs[i].Value = kafkaServiceName
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientServiceName, Value: kafkaServiceName},
+			)
+		}
+	}
+	
+	// kafka client principal
+	{
+		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientPrincipal {
+				envs[i].Value = kafkaPrincipal
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientPrincipal, Value: kafkaPrincipal},
+			)
+		}
+	}
+	
+	//
 	var output stormResources_UiSuperviserDrps
 	osr.
 		KPut(prefix+"/replicationcontrollers/"+input.superviserrc.Name, &middle.superviserrc, &output.superviserrc)
