@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ReplicationController #副本控制器RC
+metadata:
+  labels:
+    servicebroker: sb-instanceid-anaconda3
+  name: sb-instanceid-ancnd3 #RC的名称全局唯一
+spec:
+  replicas: 1    #POD副本期待数量
+  selector:
+    servicebroker: sb-instanceid-anaconda3 #符合目标的pod拥有此标签
+  template:   #根据此模板创建Pod副本（实例）
+    metadata:
+      labels:
+        servicebroker: sb-instanceid-anaconda3 #Pod副本拥有的标签，对应RC的Seletor
+    spec:
+      containers: #Pod内容器的定义部分
+      - args:
+        - -c
+        - /usr/local/bin/start-notebook.sh --port=8888 --allow-root --NotebookApp.token='sb-token'
+          --no-browser
+        command:
+          - /bin/sh
+        image: http://anaconda3-image-place-holder/anaconda3-openshift-orchestration
+        imagePullPolicy: IfNotPresent
+        name: anaconda3 #容器的名称
+        #resources:
+        #  limits:
+        #    cpu: 0.1
+        ports:
+        - containerPort: 8888
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Route
+metadata:
+  annotations:
+    openshift.io/host.generated: "true"
+  name: sb-instanceid-ancnd3
+  labels:
+    servicebroker: sb-instanceid-anaconda3
+spec:
+  host: sb-instanceid-ancnd3.endpoint-postfix-place-holder
+  port:
+    targetPort: 8888
+  to:
+    kind: Service
+    name: sb-instanceid-ancnd3
+---
+apiVersion: v1
+kind: Service  #表明是Kubernetes Service
+metadata:
+  labels:
+    servicebroker: sb-instanceid-anaconda3
+  name: sb-instanceid-ancnd3  #全局唯一名称
+spec:
+  ports:
+  - port: 8888
+    name: web
+  selector:
+    servicebroker: sb-instanceid-anaconda3

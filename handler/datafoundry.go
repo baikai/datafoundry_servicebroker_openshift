@@ -151,6 +151,7 @@ func DeleteVolumns(namespace string, volumes []Volume) <-chan error {
 var pvcVolumnCreatingJobs = map[string]*CreatePvcVolumnJob{}
 var pvcVolumnCreatingJobsMutex sync.Mutex
 
+// todo: change to HasCreatePvcVolumnJob(jobName string) bool
 func GetCreatePvcVolumnJob(jobName string) *CreatePvcVolumnJob {
 	pvcVolumnCreatingJobsMutex.Lock()
 	job := pvcVolumnCreatingJobs[jobName]
@@ -251,7 +252,7 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 				// todo: on error
 				//DeleteVolumn(name)
 
-				c <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
+				errChan <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
 				return
 			}
 
@@ -263,6 +264,8 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 	}
 	wg.Wait()
 	close(errChan)
+
+	println("CreateVolumn done. number erros: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil
@@ -313,6 +316,10 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 // now, when the server instance is terminated, jobs are lost.
 
 // todo: Volumn -> volume
+
+func HasExpandPvcVolumnJob(jobName string) bool {
+	return GetCreatePvcVolumnJob(jobName) != nil
+}
 
 func StartExpandPvcVolumnJob(
 	jobName string,
@@ -391,6 +398,8 @@ func (job *ExpandPvcVolumnJob) run(c chan<- error) {
 	}
 	wg.Wait()
 	close(errChan)
+
+	println("ExpandVolumn done. number erros: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil

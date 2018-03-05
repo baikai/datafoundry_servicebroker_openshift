@@ -501,3 +501,16 @@ func NewThirteenLengthID() string {
 	base32Encoding.Encode(dest, bs)
 	return string(dest[:13])
 }
+
+func NewTenLengthID() string {
+	t := time.Now().UnixNano()
+	t /= 100000 // unit: 0.1ms
+	bs := make([]byte, 8)
+	for i := uint(0); i < 8; i++ {
+		bs[i] = byte((t >> i) & 0xff)
+	}
+
+	dest := make([]byte, 16)
+	base32Encoding.Encode(dest, bs)
+	return string(dest[:10])
+}

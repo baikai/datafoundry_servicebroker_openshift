@@ -1,8 +1,8 @@
 package redissingle_pvc
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	//marathon "github.com/gambol99/go-marathon"
 	//kapi "golang.org/x/build/kubernetes/api"
 	//"golang.org/x/build/kubernetes"
@@ -11,10 +11,11 @@ import (
 	//"net"
 	"bytes"
 	"encoding/json"
-	"github.com/pivotal-cf/brokerapi"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 	//"crypto/sha1"
 	//"encoding/base64"
 	//"text/template"
@@ -80,9 +81,6 @@ func (handler *RedisSingle_freeHandler) DoUnbind(myServiceInfo *oshandler.Servic
 //==============================================================
 //
 //==============================================================
-
-// version 1:
-//   one master volume, two slave volumes,
 
 func volumeBaseName(instanceId string) string {
 	return "rdscls-" + instanceId
@@ -364,31 +362,31 @@ func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo,
 	}
 
 	/*
-	client_port := &master_res.service.Spec.Ports[0]
-	//if client_port == nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
-	//}
+		client_port := &master_res.service.Spec.Ports[0]
+		//if client_port == nil {
+		//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
+		//}
 
-	//cluser_name := "cluster-" + master_res.service.Name
-	svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	svcport := strconv.Itoa(client_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
+		//cluser_name := "cluster-" + master_res.service.Name
+		svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+		svcport := strconv.Itoa(client_port.Port)
+		//host := master_res.routeMQ.Spec.Host
+		//port := "80"
 
-	ndhost := oshandler.RandomNodeAddress()
-	var ndport string = ""
-	if len(master_res.serviceNodePort.Spec.Ports) > 0 {
-		ndport = strconv.Itoa(master_res.serviceNodePort.Spec.Ports[0].NodePort)
-	}
+		ndhost := oshandler.RandomNodeAddress()
+		var ndport string = ""
+		if len(master_res.serviceNodePort.Spec.Ports) > 0 {
+			ndport = strconv.Itoa(master_res.serviceNodePort.Spec.Ports[0].NodePort)
+		}
 
-	mycredentials := oshandler.Credentials{
-		Uri:      fmt.Sprintf("internal address: %s:%s", svchost, svcport),
-		Hostname: ndhost,
-		Port:     ndport,
-		//Username: myServiceInfo.User,
-		Password: myServiceInfo.Password,
-		//Name:     cluser_name,
-	}
+		mycredentials := oshandler.Credentials{
+			Uri:      fmt.Sprintf("internal address: %s:%s", svchost, svcport),
+			Hostname: ndhost,
+			Port:     ndport,
+			//Username: myServiceInfo.User,
+			Password: myServiceInfo.Password,
+			//Name:     cluser_name,
+		}
 	*/
 
 	mycredentials := getCredentialsOnPrivision(myServiceInfo, master_res)

@@ -36,3 +36,4 @@ dev*
 .idea/
 .DS_Store
 
+start.sh

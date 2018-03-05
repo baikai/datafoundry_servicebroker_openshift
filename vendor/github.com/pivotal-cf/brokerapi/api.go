@@ -31,6 +31,7 @@ const instanceMissingErrorKey = "instance-missing"
 const bindingMissingErrorKey = "binding-missing"
 const asyncRequiredKey = "async-required"
 const planChangeNotSupportedKey = "plan-change-not-supported"
+const missingParameters = "missing-parameters"
 const unknownErrorKey = "unknown-error"
 
 const statusUnprocessableEntity = 422
@@ -110,6 +111,11 @@ func provision(serviceBroker ServiceBroker, router httpRouter, logger lager.Logg
 				logger.Error(asyncRequiredKey, err)
 				respond(w, 422, ErrorResponse{
 					Error:       "AsyncRequired",
+					Description: err.Error(),
+				})
+			case ErrMissingParameters:
+				logger.Error(missingParameters, err)
+				respond(w, http.StatusBadRequest, ErrorResponse{
 					Description: err.Error(),
 				})
 			default:
