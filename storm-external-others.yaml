@@ -14,7 +14,7 @@ spec:
         service-broker: sb-instanceid-storm
     spec:
       containers:
-      - name: zookeeper
+      - name: supervisor
         image: http://storm-image-place-holder/storm-openshift-orchestration
         imagePullPolicy: IfNotPresent
         env:
@@ -118,6 +118,14 @@ spec:
           value: "storm-local-hostname*****"
         - name: APACHE_STORM_NIMBUS_SERVICE_PORT
           value: "thrift-port*****"
+        - name: KRB5_CONF_CONTENT
+          value: "krb5-conf-content*****"
+        - name: KAFKA_CLIENT_KEY_TAB_CONTENT
+          value: "kafka-client-key-tab-content*****"
+        - name: KAFKA_CLIENT_SERVICE_NAME
+          value: "kafka-client-service-name*****"
+        - name: KAFKA_CLIENT_PRINCIPAL
+          value: "kafka-client-principal*****"
         volumeMounts:
         - name: storm-data
           mountPath: /opt/apache-storm/storm-local
@@ -156,7 +164,7 @@ spec:
         service-broker: sb-instanceid-storm
     spec:
       containers:
-      - name: zookeeper
+      - name: drpc
         image: http://storm-image-place-holder/storm-openshift-orchestration
         imagePullPolicy: IfNotPresent
         ports:
@@ -178,6 +186,14 @@ spec:
           value: "storm-local-hostname*****"
         - name: APACHE_STORM_NIMBUS_SERVICE_PORT
           value: "thrift-port*****"
+        - name: KRB5_CONF_CONTENT
+          value: "krb5-conf-content*****"
+        - name: KAFKA_CLIENT_KEY_TAB_CONTENT
+          value: "kafka-client-key-tab-content*****"
+        - name: KAFKA_CLIENT_SERVICE_NAME
+          value: "kafka-client-service-name*****"
+        - name: KAFKA_CLIENT_PRINCIPAL
+          value: "kafka-client-principal*****"
         volumeMounts:
         - name: storm-data
           mountPath: /opt/apache-storm/storm-local

@@ -311,8 +311,8 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	err = loadStormResources_Nimbus(
 		serviceInfo.Url,
 		serviceInfo.Database,
-		"",
-		0,
+		"", 0, // non-sense
+		"", "", "", "", // non-sense
 		nimbus)
 	if err != nil {
 		return serviceSpec, oshandler.ServiceInfo{}, err
@@ -473,7 +473,6 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 		oldNumWorkers = int(workers64)
 	}
 
-
 	params := planInfo.MoreParameters // same as details.Parameters
 	krb5ConfContent, err := oshandler.ParseString(params[Key_Krb5ConfContent])
 	if err != nil {
@@ -517,14 +516,31 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 	if // numSupervisors != numWorkersPerSupervisor || numWorkersPerSupervisor != oldNumWorkers || supervisorMemory != oldSupervisorMemory ||
 		true {
 	
+		authInfoChanged := myServiceInfo.Miscs[krb5ConfContent] != krb5ConfContent ||
+			myServiceInfo.Miscs[Key_KafkaClientKeyTabContent] != kafkaKeyTabContent ||
+			myServiceInfo.Miscs[Key_KafkaClientServiceName] != kafkaServiceName ||
+			myServiceInfo.Miscs[Key_KafaClientPrincipal] != kafkaPrincipal
+
 		println("To update storm external instance.")
 		
 		go func () {
+			if authInfoChanged {
+				// ...
+				err := updateStormResources_Nimbus(myServiceInfo.Url, myServiceInfo.Database,
+					krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal,
+					authInfoChanged)
+				if err != nil {
+					println("Failed to update storm external instance (nimbus). Error:", err.Error())
+					return
+				}
+			}
+
 			err := updateStormResources_Superviser(myServiceInfo.Url, myServiceInfo.Database,
 				numSupervisors, numWorkersPerSupervisor, supervisorMemory,
-				krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal)
+				krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal,
+				authInfoChanged)
 			if err != nil {
-				println("Failed to update storm external instance. Error:", err.Error())
+				println("Failed to update storm external instance (other res). Error:", err.Error())
 				return
 			}
 			
@@ -533,6 +549,11 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 			myServiceInfo.Miscs[Key_NumSupervisors] = strconv.Itoa(numSupervisors)
 			myServiceInfo.Miscs[Key_SupervisorMemory] = strconv.Itoa(supervisorMemory)
 			myServiceInfo.Miscs[Key_NumWorkers] = strconv.Itoa(numWorkersPerSupervisor)
+
+			myServiceInfo.Miscs[krb5ConfContent] = krb5ConfContent
+			myServiceInfo.Miscs[Key_KafkaClientKeyTabContent] = kafkaKeyTabContent
+			myServiceInfo.Miscs[Key_KafkaClientServiceName] = kafkaServiceName
+			myServiceInfo.Miscs[Key_KafaClientPrincipal] = kafkaPrincipal
 			
 			err = callbackSaveNewInfo(myServiceInfo)
 			if err != nil {
@@ -748,7 +769,9 @@ func (job *stormOrchestrationJob) run() {
 
 	var err error
 	job.nimbusResources, err = job.createStormResources_Nimbus(job.serviceInfo.Url, job.serviceInfo.Database, // job.serviceInfo.User, job.serviceInfo.Password)
-		RetrieveStormLocalHostname(job.serviceInfo.Miscs), job.nimbusNodePort)
+		RetrieveStormLocalHostname(job.serviceInfo.Miscs), job.nimbusNodePort,
+		job.krb5ConfContent, job.kafkaKeyTabContent, job.kafkaServiceName, job.kafkaPrincipal,
+	)
 	if err != nil {
 		// todo: add job.handler for other service brokers
 		job.stormHandler.DoDeprovision(job.serviceInfo, true)
@@ -817,7 +840,10 @@ func (job *stormOrchestrationJob) run() {
 
 var StormTemplateData_Nimbus []byte = nil
 
-func loadStormResources_Nimbus(instanceID, serviceBrokerNamespace /*, stormUser, stormPassword*/, stormLocalHostname string, thriftPort int, res *stormResources_Nimbus) error {
+func loadStormResources_Nimbus(instanceID, serviceBrokerNamespace /*, stormUser, stormPassword*/,
+	stormLocalHostname string, thriftPort int,
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string,
+	res *stormResources_Nimbus) error {
 	if StormTemplateData_Nimbus == nil {
 		f, err := os.Open("storm-external-nimbus.yaml")
 		if err != nil {
@@ -860,6 +886,11 @@ func loadStormResources_Nimbus(instanceID, serviceBrokerNamespace /*, stormUser,
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("zk-root*****"), []byte(BuildStormZkEntryRoot(instanceID)), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("storm-local-hostname*****"), []byte(stormLocalHostname), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("thrift-port*****"), []byte(strconv.Itoa(thriftPort)), -1)
+
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("krb5-conf-content*****"), []byte(krb5ConfContent), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("kafka-client-key-tab-content*****"), []byte(kafkaKeyTabContent), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("kafka-client-service-name*****"), []byte(kafkaServiceName), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("kafka-client-principal*****"), []byte(kafkaPrincipal), -1)
 
 	//  "externalIPs" : ['Apple', 'Orange', 'Strawberry', 'Mango']
 
@@ -1020,10 +1051,15 @@ func createStormNodePorts(nimbus *stormResources_Nimbus, others *stormResources_
 	return &nimbus_output, &others_output, nil
 }
 
-func (job *stormOrchestrationJob) createStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/, stormLocalHostname string, thriftPort int) (*stormResources_Nimbus, error) {
+func (job *stormOrchestrationJob) createStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/,
+	stormLocalHostname string, thriftPort int,
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string,
+	) (*stormResources_Nimbus, error) {
 	var input stormResources_Nimbus
 	err := loadStormResources_Nimbus(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
-		stormLocalHostname, thriftPort, &input)
+		stormLocalHostname, thriftPort,
+		krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal,
+		&input)
 	if err != nil {
 		return nil, err
 	}
@@ -1077,7 +1113,10 @@ func getStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, 
 	var output stormResources_Nimbus
 
 	var input stormResources_Nimbus
-	err := loadStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/, "", 0, &input)
+	err := loadStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/,
+		"", 0, // non-sense
+		"", "", "", ",", // non-sense
+		&input)
 	if err != nil {
 		return &output, err
 	}
@@ -1207,9 +1246,150 @@ func destroyStormResources_UiSuperviser(uisuperviserRes *stormResources_UiSuperv
 
 //============= update supervisor
 
+func updateStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string,
+	authInfoChanged bool) error {
+	
+	// 
+	var input stormResources_Nimbus
+	err := loadStormResources_Nimbus(instanceId, serviceBrokerNamespace, /*, stormUser, stormPassword*/
+		"", 0, // the values are non-sense
+		"", "", "", "", // the values are non-sense
+		&input)
+	if err != nil {
+		logger.Error("updateStormResources_Nimbus. load error", err)
+		return err
+	}
+	
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	
+	var middle stormResources_Nimbus
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+	osr.
+		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &middle.rc)
+
+	if osr.Err != nil {
+		logger.Error("updateStormResources_Nimbus. get error", osr.Err)
+		return osr.Err
+	}
+	
+	// todo: maybe should check the neccessarity to update ...
+	
+	// update ...
+	
+	if middle.rc.Spec.Template == nil || len(middle.rc.Spec.Template.Spec.Containers) == 0 {
+		err = errors.New("rc.Template is nil or len(containers) == 0")
+		logger.Error("updateStormResources_Nimbus.", err)
+		return err
+	}
+	
+	// image
+	{
+		middle.rc.Spec.Template.Spec.Containers[0].Image = oshandler.StormExternalImage()
+	}
+	
+	// krb5.conf content
+	{
+		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_Krb5ConfContent {
+				envs[i].Value = krb5ConfContent
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_Krb5ConfContent, Value: krb5ConfContent},
+			)
+		}
+	}
+	
+	// kafka client key tab content
+	{
+		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientKeyTabContent {
+				envs[i].Value = kafkaKeyTabContent
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientKeyTabContent, Value: kafkaKeyTabContent},
+			)
+		}
+	}
+	
+	// kafka client service name
+	{
+		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientServiceName {
+				envs[i].Value = kafkaServiceName
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientServiceName, Value: kafkaServiceName},
+			)
+		}
+	}
+	
+	// kafka client principal
+	{
+		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientPrincipal {
+				envs[i].Value = kafkaPrincipal
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientPrincipal, Value: kafkaPrincipal},
+			)
+		}
+	}
+	
+	//
+	var output stormResources_Nimbus
+	osr.
+		KPut(prefix+"/replicationcontrollers/"+input.rc.Name, &middle.rc, &output.rc)
+	if osr.Err != nil {
+		logger.Error("updateStormResources_Nimbus. update error", osr.Err)
+		return osr.Err
+	}
+	
+	// ...
+
+	if authInfoChanged {
+		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.rc.Labels)
+		println("updateStormResources_Nimbus:", n, "pods are deleted.")
+		if err2 != nil {
+			err = err2
+		}
+	}
+
+	return err
+}
+
 func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
 	numSuperVisors, numWorkers, supervisorContainerMemory int,
-	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string) error {
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string,
+	authInfoChanged bool) error {
 	
 	// 
 	var input stormResources_UiSuperviserDrps
@@ -1373,6 +1553,18 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 	n, err := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.superviserrc.Labels)
 	println("updateStormResources_Superviser:", n, "pods are deleted.")
 	
+	if authInfoChanged {
+		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.drpcrc.Labels)
+		println("updateStormResources_drpc:", n, "pods are deleted.")
+		if err == nil && err2 != nil { // not perfect
+			err = err2
+		}
+		n, err2 = deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.uirc.Labels)
+		println("updateStormResources_ui:", n, "pods are deleted.")
+		if err == nil && err2 != nil { // not perfect
+			err = err2
+		}
+	}
 	
 	return err
 }
