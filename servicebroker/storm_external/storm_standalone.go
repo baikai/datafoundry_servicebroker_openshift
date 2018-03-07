@@ -1380,6 +1380,9 @@ func updateStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUse
 		println("updateStormResources_Nimbus:", n, "pods are deleted.")
 		if err2 != nil {
 			err = err2
+		} else {
+			// wait nimbus restarted fully.
+			time.Sleep(time.Second * 10)
 		}
 	}
 
