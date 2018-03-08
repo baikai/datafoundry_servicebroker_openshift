@@ -1246,6 +1246,86 @@ func destroyStormResources_UiSuperviser(uisuperviserRes *stormResources_UiSuperv
 
 //============= update supervisor
 
+func addKerberOsInfoForRC(rc *kapi.ReplicationController,
+	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string ) {
+
+	// krb5.conf content
+	{
+		envs := rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_Krb5ConfContent {
+				envs[i].Value = krb5ConfContent
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_Krb5ConfContent, Value: krb5ConfContent},
+			)
+		}
+	}
+	
+	// kafka client key tab content
+	{
+		envs := rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientKeyTabContent {
+				envs[i].Value = kafkaKeyTabContent
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientKeyTabContent, Value: kafkaKeyTabContent},
+			)
+		}
+	}
+	
+	// kafka client service name
+	{
+		envs := rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientServiceName {
+				envs[i].Value = kafkaServiceName
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientServiceName, Value: kafkaServiceName},
+			)
+		}
+	}
+	
+	// kafka client principal
+	{
+		envs := rc.Spec.Template.Spec.Containers[0].Env
+		found := false
+		for i := range envs {
+			if envs[i].Name == EnvName_KafkaClientPrincipal {
+				envs[i].Value = kafkaPrincipal
+				
+				found = true
+				break
+			}
+		}
+		if !found {
+			rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
+				kapi.EnvVar {Name: EnvName_KafkaClientPrincipal, Value: kafkaPrincipal},
+			)
+		}
+	}
+}
+
 func updateStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string,
 	krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal string,
 	authInfoChanged bool) error {
@@ -1287,81 +1367,11 @@ func updateStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUse
 	{
 		middle.rc.Spec.Template.Spec.Containers[0].Image = oshandler.StormExternalImage()
 	}
-	
-	// krb5.conf content
+
+	// kerberOS
 	{
-		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_Krb5ConfContent {
-				envs[i].Value = krb5ConfContent
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_Krb5ConfContent, Value: krb5ConfContent},
-			)
-		}
-	}
-	
-	// kafka client key tab content
-	{
-		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_KafkaClientKeyTabContent {
-				envs[i].Value = kafkaKeyTabContent
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_KafkaClientKeyTabContent, Value: kafkaKeyTabContent},
-			)
-		}
-	}
-	
-	// kafka client service name
-	{
-		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_KafkaClientServiceName {
-				envs[i].Value = kafkaServiceName
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_KafkaClientServiceName, Value: kafkaServiceName},
-			)
-		}
-	}
-	
-	// kafka client principal
-	{
-		envs := middle.rc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_KafkaClientPrincipal {
-				envs[i].Value = kafkaPrincipal
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.rc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_KafkaClientPrincipal, Value: kafkaPrincipal},
-			)
-		}
+		addKerberOsInfoForRC(&middle.rc,
+			krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal)
 	}
 	
 	//
@@ -1410,7 +1420,9 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 	var middle stormResources_UiSuperviserDrps
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 	osr.
-		KGet(prefix+"/replicationcontrollers/"+input.superviserrc.Name, &middle.superviserrc)
+		KGet(prefix+"/replicationcontrollers/"+input.superviserrc.Name, &middle.superviserrc).
+		KGet(prefix+"/replicationcontrollers/"+input.drpcrc.Name, &middle.drpcrc).
+		KGet(prefix+"/replicationcontrollers/"+input.uirc.Name, &middle.uirc)
 
 	if osr.Err != nil {
 		logger.Error("updateStormResources_Superviser. get error", osr.Err)
@@ -1426,10 +1438,22 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 		logger.Error("updateStormResources_Superviser.", err)
 		return err
 	}
+	if middle.drpcrc.Spec.Template == nil || len(middle.drpcrc.Spec.Template.Spec.Containers) == 0 {
+		err = errors.New("rc.Template is nil or len(containers) == 0")
+		logger.Error("updateStormResources_Superviser, drpc.", err)
+		return err
+	}
+	if middle.uirc.Spec.Template == nil || len(middle.uirc.Spec.Template.Spec.Containers) == 0 {
+		err = errors.New("rc.Template is nil or len(containers) == 0")
+		logger.Error("updateStormResources_Superviser, ui.", err)
+		return err
+	}
 	
 	// image
 	{
 		middle.superviserrc.Spec.Template.Spec.Containers[0].Image = oshandler.StormExternalImage()
+		middle.drpcrc.Spec.Template.Spec.Containers[0].Image = oshandler.StormExternalImage()
+		middle.uirc.Spec.Template.Spec.Containers[0].Image = oshandler.StormExternalImage()
 	}
 	
 	// supervisor memory limit
@@ -1467,80 +1491,14 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 		}
 	}
 	
-	// krb5.conf content
+	// kerberOS
 	{
-		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_Krb5ConfContent {
-				envs[i].Value = krb5ConfContent
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_Krb5ConfContent, Value: krb5ConfContent},
-			)
-		}
-	}
-	
-	// kafka client key tab content
-	{
-		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_KafkaClientKeyTabContent {
-				envs[i].Value = kafkaKeyTabContent
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_KafkaClientKeyTabContent, Value: kafkaKeyTabContent},
-			)
-		}
-	}
-	
-	// kafka client service name
-	{
-		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_KafkaClientServiceName {
-				envs[i].Value = kafkaServiceName
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_KafkaClientServiceName, Value: kafkaServiceName},
-			)
-		}
-	}
-	
-	// kafka client principal
-	{
-		envs := middle.superviserrc.Spec.Template.Spec.Containers[0].Env
-		found := false
-		for i := range envs {
-			if envs[i].Name == EnvName_KafkaClientPrincipal {
-				envs[i].Value = kafkaPrincipal
-				
-				found = true
-				break
-			}
-		}
-		if !found {
-			middle.superviserrc.Spec.Template.Spec.Containers[0].Env = append(envs, 
-				kapi.EnvVar {Name: EnvName_KafkaClientPrincipal, Value: kafkaPrincipal},
-			)
-		}
+		addKerberOsInfoForRC(&middle.superviserrc,
+			krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal)
+		addKerberOsInfoForRC(&middle.drpcrc,
+			krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal)
+		addKerberOsInfoForRC(&middle.uirc,
+			krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal)
 	}
 	
 	//
