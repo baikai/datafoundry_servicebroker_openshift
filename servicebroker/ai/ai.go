@@ -1,72 +1,83 @@
 package ai
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
-	"github.com/pivotal-cf/brokerapi"
-	"strconv"
-	"strings"
-	"time"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 
 	"github.com/pivotal-golang/lager"
 
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 
+	kapiv1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
-
-const CommSrvBrokerName = "ai"
+// SrvBrokerName : service broker name for AI
+const srvBrokerName = "ai"
 
 func init() {
-	oshandler.Register(CommSrvBrokerName, &CommSrvBroker_freeHandler{})
+	oshandler.Register(srvBrokerName, &SrvBrokerFreeHandler{})
 
-	logger = lager.NewLogger(CommSrvBrokerName)
+	logger = lager.NewLogger(srvBrokerName)
 	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
 var logger lager.Logger
 
-type CommSrvBroker_freeHandler struct {}
+// SrvBrokerFreeHandler  free functionality
+type SrvBrokerFreeHandler struct{}
 
-func (handler *CommSrvBroker_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	return newCommSrvBrokerHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
+// DoProvision create service instance per request
+func (handler *SrvBrokerFreeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	return newSrvBrokerHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
 }
 
-func (handler *CommSrvBroker_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-	return newCommSrvBrokerHandler().DoLastOperation(myServiceInfo)
+// DoLastOperation redo last operation against service instance
+func (handler *SrvBrokerFreeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+	return newSrvBrokerHandler().DoLastOperation(myServiceInfo)
 }
 
-func (handler *CommSrvBroker_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return newCommSrvBrokerHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+// DoUpdate update interface for free handler
+func (handler *SrvBrokerFreeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newSrvBrokerHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
-func (handler *CommSrvBroker_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
-	return newCommSrvBrokerHandler().DoDeprovision(myServiceInfo, asyncAllowed)
+// DoDeprovision interface for free handler
+func (handler *SrvBrokerFreeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+	return newSrvBrokerHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
 
-func (handler *CommSrvBroker_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
-	return newCommSrvBrokerHandler().DoBind(myServiceInfo, bindingID, details)
+// DoBind interface for free handler
+func (handler *SrvBrokerFreeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+	return newSrvBrokerHandler().DoBind(myServiceInfo, bindingID, details)
 }
 
-func (handler *CommSrvBroker_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
-	return newCommSrvBrokerHandler().DoUnbind(myServiceInfo, mycredentials)
+// DoUnbind interface for free handler
+func (handler *SrvBrokerFreeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+	return newSrvBrokerHandler().DoUnbind(myServiceInfo, mycredentials)
 }
 
-type CommSrvBroker_Handler struct {
+// SrvBrokerHandler  broker handler
+type SrvBrokerHandler struct {
 }
 
-func newCommSrvBrokerHandler() *CommSrvBroker_Handler {
-	return &CommSrvBroker_Handler{}
+func newSrvBrokerHandler() *SrvBrokerHandler {
+	return &SrvBrokerHandler{}
 }
 
-
-func (handler *CommSrvBroker_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	// initialize link to openshift firstly
+// DoProvision required interface for service broker handler
+func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	// initialize connection to openshift firstly
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
@@ -77,21 +88,24 @@ func (handler *CommSrvBroker_Handler) DoProvision(etcdSaveResult chan error, ins
 	serviceSpec.IsAsync = true
 
 	//instanceIdInTempalte   := instanceID // todo: ok?
-	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
+	instanceIDInTemplate := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 	//srvUser := oshandler.NewElevenLengthID()
 	srvPassword := oshandler.GenGUID()
 
-	serviceInfo.Url = instanceIdInTempalte
+	serviceInfo.Url = instanceIDInTemplate
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	//serviceInfo.User = srvUser
 	serviceInfo.Password = srvPassword
 
 	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
+	println("instanceIDInTemplate = ", instanceIDInTemplate)
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
+
+	logger.Debug("serviceInfo->" + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
+		serviceInfo.Service_name)
 
 	go func() {
 		err := <-etcdSaveResult
@@ -99,7 +113,7 @@ func (handler *CommSrvBroker_Handler) DoProvision(etcdSaveResult chan error, ins
 			return
 		}
 
-		output, err := createInstance(instanceIdInTempalte, serviceBrokerNamespace, srvPassword)
+		output, err := createInstance(instanceIDInTemplate, serviceBrokerNamespace, srvPassword)
 
 		if err != nil {
 			destroySrvResources(output, serviceBrokerNamespace)
@@ -130,7 +144,8 @@ func (handler *CommSrvBroker_Handler) DoProvision(etcdSaveResult chan error, ins
 	return serviceSpec, serviceInfo, nil
 }
 
-func (handler *CommSrvBroker_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+// DoLastOperation interface for service broker handler
+func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 	// try to get state from running job
 	job := getSrvOrchestrationJob(myServiceInfo.Url)
 	if job != nil {
@@ -145,7 +160,7 @@ func (handler *CommSrvBroker_Handler) DoLastOperation(myServiceInfo *oshandler.S
 	// the job may be finished or interrupted or running in another instance.
 
 	//master_res, _ := getRedisResources_Master (myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
-	more_res, _ := getRedisResources_More(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+	moreRes, _ := getAIResourcesMore(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 
 	//ok := func(rc *kapi.ReplicationController) bool {
 	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -165,7 +180,7 @@ func (handler *CommSrvBroker_Handler) DoLastOperation(myServiceInfo *oshandler.S
 
 	//println("num_ok_rcs = ", num_ok_rcs)
 
-	if ok(&more_res.rc) && ok(&more_res.rcSentinel) {
+	if ok(&moreRes.rc) && ok(&moreRes.rcSentinel) {
 		return brokerapi.LastOperation{
 			State:       brokerapi.Succeeded,
 			Description: "Succeeded!",
@@ -178,11 +193,13 @@ func (handler *CommSrvBroker_Handler) DoLastOperation(myServiceInfo *oshandler.S
 	}
 }
 
-func (handler *CommSrvBroker_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+// DoUpdate update operation for service broker handler
+func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
 	return nil
 }
 
-func (handler *CommSrvBroker_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+// DoDeprovision de-provision interface for service broker handler
+func (handler *SrvBrokerHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		job := getSrvOrchestrationJob(myServiceInfo.Url)
 		if job != nil {
@@ -201,11 +218,11 @@ func (handler *CommSrvBroker_Handler) DoDeprovision(myServiceInfo *oshandler.Ser
 
 		println("to destroy resources")
 
-		more_res, _ := getRedisResources_More(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
-		destroyRedisResources_More(more_res, myServiceInfo.Database)
+		moreRes, _ := getAIResourcesMore(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+		destroyAIResourcesMore(moreRes, myServiceInfo.Database)
 
-		master_res, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
-		destroySrvResources(master_res, myServiceInfo.Database)
+		masterRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+		destroySrvResources(masterRes, myServiceInfo.Database)
 	}()
 
 	return brokerapi.IsAsync(false), nil
@@ -213,18 +230,18 @@ func (handler *CommSrvBroker_Handler) DoDeprovision(myServiceInfo *oshandler.Ser
 
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
-	var more_res redisResources_More
-	err := loadRedisResources_More(myServiceInfo.Url, myServiceInfo.Password, &more_res)
+	var moreRes aiResourcesMore
+	err := loadAIResourcesMore(myServiceInfo.Url, myServiceInfo.Password, &moreRes)
 
 	if err != nil {
 		return oshandler.Credentials{}
 	}
-	
-	client_port := &more_res.serviceSentinel.Spec.Ports[0]
 
-	cluser_name := "cluster-" + more_res.serviceSentinel.Name
-	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(client_port.Port)
+	clientPort := &moreRes.serviceSentinel.Spec.Ports[0]
+
+	cluserName := "cluster-" + moreRes.serviceSentinel.Name
+	host := fmt.Sprintf("%s.%s.%s", moreRes.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(clientPort.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
 
@@ -234,28 +251,29 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 		Port:     port,
 		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
-		Name:     cluser_name,
+		Name:     cluserName,
 	}
 }
 
-func (handler *CommSrvBroker_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+// DoBind bind interface for service broker handler
+func (handler *SrvBrokerHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
 	// master_res may has been shutdown normally.
 
-	more_res, err := getRedisResources_More(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+	moreRes, err := getAIResourcesMore(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	client_port := &more_res.serviceSentinel.Spec.Ports[0]
+	clientPort := &moreRes.serviceSentinel.Spec.Ports[0]
 	//if client_port == nil {
 	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
 	//}
 
-	cluser_name := "cluster-" + more_res.serviceSentinel.Name
-	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(client_port.Port)
+	cluserName := "cluster-" + moreRes.serviceSentinel.Name
+	host := fmt.Sprintf("%s.%s.%s", moreRes.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(clientPort.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
 
@@ -265,7 +283,7 @@ func (handler *CommSrvBroker_Handler) DoBind(myServiceInfo *oshandler.ServiceInf
 		Port:     port,
 		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
-		Name:     cluser_name,
+		Name:     cluserName,
 	}
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
@@ -273,7 +291,8 @@ func (handler *CommSrvBroker_Handler) DoBind(myServiceInfo *oshandler.ServiceInf
 	return myBinding, mycredentials, nil
 }
 
-func (handler *CommSrvBroker_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+// DoUnbind unbind interface for service broker handler
+func (handler *SrvBrokerHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
 	// do nothing
 
 	return nil
@@ -286,9 +305,9 @@ func (handler *CommSrvBroker_Handler) DoUnbind(myServiceInfo *oshandler.ServiceI
 var srvOrchestrationJobs = map[string]*srvOrchestrationJob{}
 var srvOrchestrationJobsMutex sync.Mutex
 
-func getSrvOrchestrationJob(instanceId string) *srvOrchestrationJob {
+func getSrvOrchestrationJob(instanceID string) *srvOrchestrationJob {
 	srvOrchestrationJobsMutex.Lock()
-	job := srvOrchestrationJobs[instanceId]
+	job := srvOrchestrationJobs[instanceID]
 	srvOrchestrationJobsMutex.Unlock()
 
 	return job
@@ -320,7 +339,7 @@ type srvOrchestrationJob struct {
 	serviceInfo *oshandler.ServiceInfo
 
 	masterResources *srvResources
-	moreResources   *redisResources_More
+	moreResources   *aiResourcesMore
 }
 
 func (job *srvOrchestrationJob) cancel() {
@@ -371,14 +390,15 @@ func (job *srvOrchestrationJob) run() {
 
 	// create more resources
 
-	job.createRedisResources_More(serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
+	job.createRedisResourcesMore(serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
 }
 
 //=======================================================================
 //
 //=======================================================================
 
-var SrvTemplateData []byte = nil
+// SrvTemplateData template data for service broker
+var SrvTemplateData []byte
 
 func loadSrvResources(instanceID, srvPassword string, res *srvResources) error {
 	if SrvTemplateData == nil {
@@ -391,13 +411,13 @@ func loadSrvResources(instanceID, srvPassword string, res *srvResources) error {
 			return err
 		}
 
-		srv_image := oshandler.RedisImage()
-		srv_image = strings.TrimSpace(srv_image)
-		if len(srv_image) > 0 {
+		srvImage := oshandler.RedisImage()
+		srvImage = strings.TrimSpace(srvImage)
+		if len(srvImage) > 0 {
 			SrvTemplateData = bytes.Replace(
 				SrvTemplateData,
 				[]byte("http://redis-image-place-holder/redis-openshift-orchestration"),
-				[]byte(srv_image),
+				[]byte(srvImage),
 				-1)
 		}
 	}
@@ -419,32 +439,33 @@ func loadSrvResources(instanceID, srvPassword string, res *srvResources) error {
 	return decoder.Err
 }
 
-var RedisTemplateData_More []byte = nil
+// AITemplateDataMore additional template data for AI
+var AITemplateDataMore []byte
 
-func loadRedisResources_More(instanceID, redisPassword string, res *redisResources_More) error {
-	if RedisTemplateData_More == nil {
+func loadAIResourcesMore(instanceID, redisPassword string, res *aiResourcesMore) error {
+	if AITemplateDataMore == nil {
 		f, err := os.Open("redis-more.yaml")
 		if err != nil {
 			return err
 		}
-		RedisTemplateData_More, err = ioutil.ReadAll(f)
+		AITemplateDataMore, err = ioutil.ReadAll(f)
 		if err != nil {
 			return err
 		}
-		redis_image := oshandler.RedisImage()
-		redis_image = strings.TrimSpace(redis_image)
-		if len(redis_image) > 0 {
-			RedisTemplateData_More = bytes.Replace(
-				RedisTemplateData_More,
+		aiImage := oshandler.RedisImage()
+		aiImage = strings.TrimSpace(aiImage)
+		if len(aiImage) > 0 {
+			AITemplateDataMore = bytes.Replace(
+				AITemplateDataMore,
 				[]byte("http://redis-image-place-holder/redis-openshift-orchestration"),
-				[]byte(redis_image),
+				[]byte(aiImage),
 				-1)
 		}
 	}
 
 	// ...
 
-	yamlTemplates := RedisTemplateData_More
+	yamlTemplates := AITemplateDataMore
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
@@ -465,17 +486,18 @@ func loadRedisResources_More(instanceID, redisPassword string, res *redisResourc
 type srvResources struct {
 	//pod      kapi.Pod
 	rc kapi.ReplicationController
+	de kapiv1beta1.Deployment
 }
 
-type redisResources_More struct {
+type aiResourcesMore struct {
 	serviceSentinel kapi.Service
 	rc              kapi.ReplicationController
 	rcSentinel      kapi.ReplicationController
 }
 
-func createInstance(instanceId, serviceBrokerNamespace, srvPassword string) (*srvResources, error) {
+func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*srvResources, error) {
 	var input srvResources
-	err := loadSrvResources(instanceId, srvPassword, &input)
+	err := loadSrvResources(instanceID, srvPassword, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -497,11 +519,11 @@ func createInstance(instanceId, serviceBrokerNamespace, srvPassword string) (*sr
 	return &output, osr.Err
 }
 
-func getSrvResources(instanceId, serviceBrokerNamespace, srvPassword string) (*srvResources, error) {
+func getSrvResources(instanceID, serviceBrokerNamespace, srvPassword string) (*srvResources, error) {
 	var output srvResources
 
 	var input srvResources
-	err := loadSrvResources(instanceId, srvPassword, &input)
+	err := loadSrvResources(instanceID, srvPassword, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -524,17 +546,17 @@ func destroySrvResources(srvRes *srvResources, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
 	//go func() {kdel (serviceBrokerNamespace, "pods", masterRes.pod.Name)}()
-	go func() { kdel_rc(serviceBrokerNamespace, &srvRes.rc) }()
+	go func() { kdelRc(serviceBrokerNamespace, &srvRes.rc) }()
 }
 
-func (job *srvOrchestrationJob) createRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword string) error {
-	var input redisResources_More
-	err := loadRedisResources_More(instanceId, redisPassword, &input)
+func (job *srvOrchestrationJob) createRedisResourcesMore(instanceID, serviceBrokerNamespace, redisPassword string) error {
+	var input aiResourcesMore
+	err := loadAIResourcesMore(instanceID, redisPassword, &input)
 	if err != nil {
 		return err
 	}
 
-	var output redisResources_More
+	var output aiResourcesMore
 
 	/*
 		osr := oshandler.NewOpenshiftREST(oshandler.OC())
@@ -566,11 +588,11 @@ func (job *srvOrchestrationJob) createRedisResources_More(instanceId, serviceBro
 	return nil
 }
 
-func getRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword string) (*redisResources_More, error) {
-	var output redisResources_More
+func getAIResourcesMore(instanceID, serviceBrokerNamespace, redisPassword string) (*aiResourcesMore, error) {
+	var output aiResourcesMore
 
-	var input redisResources_More
-	err := loadRedisResources_More(instanceId, redisPassword, &input)
+	var input aiResourcesMore
+	err := loadAIResourcesMore(instanceID, redisPassword, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -590,12 +612,12 @@ func getRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword st
 	return &output, osr.Err
 }
 
-func destroyRedisResources_More(moreRes *redisResources_More, serviceBrokerNamespace string) {
+func destroyAIResourcesMore(moreRes *aiResourcesMore, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
 	go func() { kdel(serviceBrokerNamespace, "services", moreRes.serviceSentinel.Name) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rc) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rcSentinel) }()
+	go func() { kdelRc(serviceBrokerNamespace, &moreRes.rc) }()
+	go func() { kdelRc(serviceBrokerNamespace, &moreRes.rcSentinel) }()
 }
 
 //===============================================================
@@ -710,7 +732,7 @@ RETRY:
 	return nil
 }
 
-func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
+func kdelRc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
 	if rc == nil || rc.Name == "" {
@@ -747,9 +769,10 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 				logger.Error("watch HA redis rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch redis HA rc, status.Info: " + string(status.Info))
 			}
+			//else {
+			//logger.Debug("watch redis HA rc, status.Info: " + string(status.Info))
+			//}
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
