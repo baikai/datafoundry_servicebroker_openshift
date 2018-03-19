@@ -1,0 +1,109 @@
+# headless service for node discovery
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:
+    app: es-cluster
+  name: es-cluster
+spec:
+  selector:
+    app: es-node
+  ports:
+  - name: transport
+    port: 9300
+  clusterIP: None
+
+---
+# service for accessing from outside cluster 
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:
+    app: es-client
+  name: es-client
+spec:
+  selector:
+    app: es-node
+  ports:
+  - name: http
+    port: 9200
+  type: NodePort
+
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: es
+  labels:
+    app: es-node
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: es-node
+  serviceName: "es-cluster"
+  template:
+    metadata:
+      labels:
+        app: es-node
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      containers:
+      - name: elasticsearch
+        image: http://docker-registry-default.ai-dev.asiainfo.com/brokers/elasticsearch:6.2.2
+        imagePullPolicy: Always
+        env:
+        - name: CLUSTER_NAME
+          value: es-test
+        - name: NODES_NUM
+          value: "3"
+        ports:
+        - containerPort: 9200
+          protocol: TCP
+          name: http
+        - containerPort: 9300
+          protocol: TCP
+          name: transport
+        volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: es-data
+            - mountPath: /usr/share/elasticsearch/logs
+              name: es-logs
+            - mountPath: /etc/stinfo/
+              name: stinfo
+      volumes:
+        - name: stinfo
+          downwardAPI:
+            items:
+              - path: "annotations"
+                fieldRef:
+                 fieldPath: metadata.annotations
+              - path: "labels"
+                fieldRef:
+                  fieldPath: metadata.labels
+  volumeClaimTemplates:
+  - metadata:
+      name: es-data
+      annotations:
+          volume.beta.kubernetes.io/storage-class: gluster-dyn
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      persistentVolumeReclaimPolicy: delete
+      resources:
+        requests:
+          storage: 1Gi
+  - metadata:
+      name: es-logs
+      annotations:
+        volume.beta.kubernetes.io/storage-class: gluster-dyn
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      persistentVolumeReclaimPolicy: delete
+      resources:
+        requests:
+          storage: 1Gi

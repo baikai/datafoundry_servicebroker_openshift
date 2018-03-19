@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
+	v1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+
 	"github.com/pivotal-cf/brokerapi"
 
 	"github.com/pivotal-golang/lager"
 
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-
-	kapiv1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
@@ -475,8 +475,7 @@ func loadAIResourcesMore(instanceID, redisPassword string, res *aiResourcesMore)
 	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
-	decoder.
-		Decode(&res.serviceSentinel).
+	decoder.Decode(&res.serviceSentinel).
 		Decode(&res.rc).
 		Decode(&res.rcSentinel)
 
@@ -484,15 +483,13 @@ func loadAIResourcesMore(instanceID, redisPassword string, res *aiResourcesMore)
 }
 
 type srvResources struct {
-	//pod      kapi.Pod
-	rc kapi.ReplicationController
-	de kapiv1beta1.Deployment
+	//rc  kapi.ReplicationController
+	deploy v1beta1.Deployment
 }
 
 type aiResourcesMore struct {
 	serviceSentinel kapi.Service
 	rc              kapi.ReplicationController
-	rcSentinel      kapi.ReplicationController
 }
 
 func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*srvResources, error) {

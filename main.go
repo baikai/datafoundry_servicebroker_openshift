@@ -50,11 +50,14 @@ import (
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/storm_pvc"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/zookeeper_pvc"
 
-	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/redissingle_pvc"
-	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/storm_external"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/anaconda3"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/dataiku"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/rediscluster_pvc"
-	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/anaconda3"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/redissingle_pvc"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/storm_external"
+
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/ai"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/elasticsearch"
 )
 
 type myServiceBroker struct {
@@ -393,7 +396,7 @@ func (myBroker *myServiceBroker) Update(
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
 	}
-	
+
 	// ...
 	hasVolumes := len(myServiceInfo.Volumes) > 0
 
@@ -403,13 +406,13 @@ func (myBroker *myServiceBroker) Update(
 		//logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
 		//return false, errors.New("Internal Error!!")
 		println("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
-	//} else {
-	//	volumeSize = 0
-	//	connections = 0
+		//} else {
+		//	volumeSize = 0
+		//	connections = 0
 	}
 
 	println("volumeSize =", volumeSize, ", connections=", connections)
-	
+
 	//if len(myServiceInfo.Volumes) == 0 {
 	//	reason := "can not get volume info from the old plan."
 	//	logger.Info(reason)

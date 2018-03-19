@@ -68,6 +68,9 @@ type OpenshiftClient struct {
 	oapiUrl string
 	kapiUrl string
 
+	// url for v1beta1 api
+	kapiV1B1Url string
+
 	namespace string
 	username  string
 	password  string
@@ -93,8 +96,9 @@ func newOpenshiftClient(host, username, password, defaultNamespace string) *Open
 	oc := &OpenshiftClient{
 		host: host,
 		//authUrl: host + "/oauth/authorize?response_type=token&client_id=openshift-challenging-client",
-		oapiUrl: host + "/oapi/v1",
-		kapiUrl: host + "/api/v1",
+		oapiUrl:     host + "/oapi/v1",
+		kapiUrl:     host + "/api/v1",
+		kapiV1B1Url: host + "/apis/apps/v1beta1",
 
 		namespace: defaultNamespace,
 		username:  username,
@@ -343,6 +347,26 @@ func (osr *OpenshiftREST) KPost(uri string, body interface{}, into interface{}) 
 
 func (osr *OpenshiftREST) KPut(uri string, body interface{}, into interface{}) *OpenshiftREST {
 	return osr.doRequest(true, "PUT", osr.oc.kapiUrl+uri, body, into)
+}
+
+// Kv1b1Get --- api for retrieving information according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Get(uri string, into interface{}) *OpenshiftREST {
+	return osr.doRequest(false, "GET", osr.oc.kapiV1B1Url+uri, nil, into)
+}
+
+// Kv1b1Delete --- api for delete objects according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Delete(uri string, into interface{}) *OpenshiftREST {
+	return osr.doRequest(false, "DELETE", osr.oc.kapiV1B1Url+uri, &kapi.DeleteOptions{}, into)
+}
+
+// Kv1b1Post --- api for create objects according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Post(uri string, body interface{}, into interface{}) *OpenshiftREST {
+	return osr.doRequest(true, "POST", osr.oc.kapiV1B1Url+uri, body, into)
+}
+
+// Kv1b1Put --- api for scale objects according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Put(uri string, body interface{}, into interface{}) *OpenshiftREST {
+	return osr.doRequest(true, "PUT", osr.oc.kapiV1B1Url+uri, body, into)
 }
 
 //===============================================================

@@ -4,72 +4,80 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/pivotal-cf/brokerapi"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 
 	"github.com/pivotal-golang/lager"
 
-	dcapi "github.com/openshift/origin/deploy/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
+	kapiv1 "k8s.io/kubernetes/pkg/api/v1"
 
-	"errors"
+	kapiv1b1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
-	"strconv"
 )
 
-//==============================================================
-//
-//==============================================================
-
-const ESCluster_ServiceBrokerName = "Elasticsearch_Cluster"
+// SrvBrokerName : service broker name for AI
+const srvBrokerName = "escluster"
 
 func init() {
-	oshandler.Register(EtcdServcieBrokerName_Volume_Standalone, &Elasticsearch_handler{})
+	oshandler.Register(srvBrokerName, &SrvBrokerFreeHandler{})
 
-	logger = lager.NewLogger(EtcdServcieBrokerName_Volume_Standalone)
+	logger = lager.NewLogger(srvBrokerName)
 	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
 var logger lager.Logger
 
-func volumeBaseName(instanceId string) string {
-	return "elasticsearch-" + instanceId
+// SrvBrokerFreeHandler  free functionality
+type SrvBrokerFreeHandler struct{}
+
+// DoProvision create service instance per request
+func (handler *SrvBrokerFreeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	return newSrvBrokerHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
 }
 
-func peerPvcName0(volumes []oshandler.Volume) string {
-	if len(volumes) > 0 {
-		return volumes[0].Volume_name
-	}
-	return ""
+// DoLastOperation redo last operation against service instance
+func (handler *SrvBrokerFreeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+	return newSrvBrokerHandler().DoLastOperation(myServiceInfo)
 }
 
-func peerPvcName1(volumes []oshandler.Volume) string {
-	if len(volumes) > 1 {
-		return volumes[1].Volume_name
-	}
-	return ""
+// DoUpdate update interface for free handler
+func (handler *SrvBrokerFreeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newSrvBrokerHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
-func peerPvcName2(volumes []oshandler.Volume) string {
-	if len(volumes) > 2 {
-		return volumes[2].Volume_name
-	}
-	return ""
+// DoDeprovision interface for free handler
+func (handler *SrvBrokerFreeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+	return newSrvBrokerHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
 
-//==============================================================
-//
-//==============================================================
+// DoBind interface for free handler
+func (handler *SrvBrokerFreeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+	return newSrvBrokerHandler().DoBind(myServiceInfo, bindingID, details)
+}
 
-//const ServiceBrokerNamespace = "default" // use oshandler.OC().Namespace instead
+// DoUnbind interface for free handler
+func (handler *SrvBrokerFreeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+	return newSrvBrokerHandler().DoUnbind(myServiceInfo, mycredentials)
+}
 
-type Elasticsearch_handler struct{}
+// SrvBrokerHandler  broker handler
+type SrvBrokerHandler struct {
+}
 
-func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	//初始化到openshift的链接
+func newSrvBrokerHandler() *SrvBrokerHandler {
+	return &SrvBrokerHandler{}
+}
+
+// DoProvision required interface for service broker handler
+func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	// initialize connection to openshift firstly
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
@@ -79,81 +87,51 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 	//}
 	serviceSpec.IsAsync = true
 
-	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
+	//instanceIdInTempalte   := instanceID // todo: ok?
+	instanceIDInTemplate := strings.ToLower(oshandler.NewThirteenLengthID())
+	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
+	//srvUser := oshandler.NewElevenLengthID()
+	srvPassword := oshandler.GenGUID()
 
-	volumeBaseName := volumeBaseName(instanceIdInTempalte)
-	volumes := []oshandler.Volume{
-		// one master volume
-		{
-			Volume_size: planInfo.Volume_size,
-			Volume_name: volumeBaseName + "-0",
-		},
-		// two slave volumes
-		{
-			Volume_size: planInfo.Volume_size,
-			Volume_name: volumeBaseName + "-1",
-		},
-		{
-			Volume_size: planInfo.Volume_size,
-			Volume_name: volumeBaseName + "-2",
-		},
-	}
+	serviceInfo.Url = instanceIDInTemplate
+	serviceInfo.Database = serviceBrokerNamespace // may be not needed
+	//serviceInfo.User = srvUser
+	serviceInfo.Password = srvPassword
 
 	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
+	println("instanceIDInTemplate = ", instanceIDInTemplate)
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
 
-	// boot etcd
-
-	serviceInfo.Url = instanceIdInTempalte
-	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-
-	serviceInfo.Volumes = volumes
+	logger.Debug("serviceInfo->" + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
+		serviceInfo.Service_name)
 
 	go func() {
-
 		err := <-etcdSaveResult
 		if err != nil {
 			return
 		}
 
-		// create volume
-
-		result := oshandler.StartCreatePvcVolumnJob(
-			volumeBaseName,
-			serviceInfo.Database,
-			serviceInfo.Volumes,
-		)
-
-		err = <-result
-		if err != nil {
-			logger.Error("elasticsearch create volume", err)
-			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
-			return
-		}
-
-		println("create Elasticsearch Resources ...")
-
-		// todo: consider if DoDeprovision is called now, ...
-
-		// create master res
-
-		output, err := createESResources_HA(
-			instanceIdInTempalte, serviceBrokerNamespace, volumes)
+		output, err := createInstance(instanceIDInTemplate, serviceBrokerNamespace, srvPassword)
 
 		if err != nil {
-			println("etcd createESResources_HA error: ", err)
-			logger.Error("etcd createESResources_HA error", err)
-
-			destroyESResources_HA(output, serviceBrokerNamespace)
-			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
+			destroySrvResources(output, serviceBrokerNamespace)
 
 			return
 		}
 
-		println("create etcd Resources done")
+		// todo: maybe it is better to create a new job
+
+		// todo: improve watch. Pod may be already running before watching!
+		startSrvOrchestrationJob(&srvOrchestrationJob{
+			cancelled:  false,
+			cancelChan: make(chan struct{}),
+
+			serviceInfo:     &serviceInfo,
+			masterResources: output,
+			moreResources:   nil,
+		})
 
 	}()
 
@@ -166,37 +144,43 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 	return serviceSpec, serviceInfo, nil
 }
 
-func (handler *Elasticsearch_handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-
-	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
-	if volumeJob != nil {
+// DoLastOperation interface for service broker handler
+func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+	// try to get state from running job
+	job := getSrvOrchestrationJob(myServiceInfo.Url)
+	if job != nil {
 		return brokerapi.LastOperation{
 			State:       brokerapi.InProgress,
-			Description: "in progress.",
+			Description: "In progress .",
 		}, nil
 	}
 
-	// only check the statuses of 3 ReplicationControllers. The etcd pods may be not running well.
-	ok := func(dc *dcapi.DeploymentConfig) bool {
-		podCount, err := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
-		if err != nil {
-			fmt.Println("statRunningPodsByLabels err:", err)
-			return false
-		}
-		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
-			return false
-		}
-		n, _ := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
-		return n >= dc.Spec.Replicas
-	}
+	// assume in provisioning
 
-	ha_res, _ := getESResources_HA(
-		myServiceInfo.Url, myServiceInfo.Database,
-		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
+	// the job may be finished or interrupted or running in another instance.
+
+	//master_res, _ := getRedisResources_Master (myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+	moreRes, _ := getAIResourcesMore(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+
+	//ok := func(rc *kapi.ReplicationController) bool {
+	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
+	//		return false
+	//	}
+	//	return true
+	//}
+	ok := func(rc *kapiv1.ReplicationController) bool {
+		println("rc.Name =", rc.Name)
+		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
+			return false
+		}
+		n, _ := startRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
+		println("n =", n)
+		return n >= *rc.Spec.Replicas
+	}
 
 	//println("num_ok_rcs = ", num_ok_rcs)
 
-	if ok(&ha_res.dc1) && ok(&ha_res.dc2) && ok(&ha_res.dc3) {
+	if ok(&moreRes.rc) && ok(&moreRes.rcSentinel) {
 		return brokerapi.LastOperation{
 			State:       brokerapi.Succeeded,
 			Description: "Succeeded!",
@@ -209,44 +193,36 @@ func (handler *Elasticsearch_handler) DoLastOperation(myServiceInfo *oshandler.S
 	}
 }
 
-func (handler *Elasticsearch_handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return errors.New("not implemented")
+// DoUpdate update operation for service broker handler
+func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return nil
 }
 
-func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
-
+// DoDeprovision de-provision interface for service broker handler
+func (handler *SrvBrokerHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
-		// ...
-		volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
-		if volumeJob != nil {
-			volumeJob.Cancel()
+		job := getSrvOrchestrationJob(myServiceInfo.Url)
+		if job != nil {
+			job.cancel()
 
 			// wait job to exit
 			for {
 				time.Sleep(7 * time.Second)
-				if nil == oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url)) {
+				if nil == getSrvOrchestrationJob(myServiceInfo.Url) {
 					break
 				}
 			}
 		}
 
-		println("to destroy master resources")
+		// ...
 
-		ha_res, _ := getESResources_HA(
-			myServiceInfo.Url, myServiceInfo.Database,
-			myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
-		// under current frame, it is not a good idea to return here
-		//if err != nil {
-		//	return brokerapi.IsAsync(false), err
-		//}
-		destroyESResources_HA(ha_res, myServiceInfo.Database)
-		println("destroy master resources done")
+		println("to destroy resources")
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		moreRes, _ := getAIResourcesMore(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+		destroyAIResourcesMore(moreRes, myServiceInfo.Database)
 
-		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
-		println("to destroy volumes done")
-
+		masterRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+		destroySrvResources(masterRes, myServiceInfo.Database)
 	}()
 
 	return brokerapi.IsAsync(false), nil
@@ -254,44 +230,60 @@ func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.Ser
 
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
-	var ha_res esResources_HA
-	err := loadESResources_HA(myServiceInfo.Url, myServiceInfo.Volumes, &ha_res)
+	var moreRes aiResourcesMore
+	err := loadAIResourcesMore(myServiceInfo.Url, myServiceInfo.Password, &moreRes)
+
 	if err != nil {
 		return oshandler.Credentials{}
 	}
 
-	es_host, es_port, err := ha_res.ServiceHostPort(myServiceInfo.Database)
-	if err != nil {
-		return oshandler.Credentials{}
-	}
-	es_uri := fmt.Sprintf("http://%s:%s", es_host, es_port)
+	clientPort := &moreRes.serviceSentinel.Spec.Ports[0]
+
+	cluserName := "cluster-" + moreRes.serviceSentinel.Name
+	host := fmt.Sprintf("%s.%s.%s", moreRes.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(clientPort.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
 
 	return oshandler.Credentials{
-		Uri:      es_uri,
-		Hostname: es_host,
-		Port:     es_port,
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		//Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+		Name:     cluserName,
 	}
 }
 
-func (handler *Elasticsearch_handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+// DoBind bind interface for service broker handler
+func (handler *SrvBrokerHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+	// todo: handle errors
 
-	ha_res, err := getESResources_HA(
-		myServiceInfo.Url, myServiceInfo.Database,
-		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
+	// master_res may has been shutdown normally.
+
+	moreRes, err := getAIResourcesMore(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	es_host, es_port, err := ha_res.ServiceHostPort(myServiceInfo.Database)
-	if err != nil {
-		return brokerapi.Binding{}, oshandler.Credentials{}, err
-	}
-	es_uri := fmt.Sprintf("http://%s:%s", es_host, es_port)
+	clientPort := &moreRes.serviceSentinel.Spec.Ports[0]
+	//if client_port == nil {
+	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
+	//}
+
+	cluserName := "cluster-" + moreRes.serviceSentinel.Name
+	host := fmt.Sprintf("%s.%s.%s", moreRes.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(clientPort.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
 
 	mycredentials := oshandler.Credentials{
-		Uri:      es_uri,
-		Hostname: es_host,
-		Port:     es_port,
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		//Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+		Name:     cluserName,
 	}
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
@@ -299,133 +291,301 @@ func (handler *Elasticsearch_handler) DoBind(myServiceInfo *oshandler.ServiceInf
 	return myBinding, mycredentials, nil
 }
 
-func (handler *Elasticsearch_handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+// DoUnbind unbind interface for service broker handler
+func (handler *SrvBrokerHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+	// do nothing
 
 	return nil
 }
 
-//===============================================================
+//=======================================================================
 //
-//===============================================================
+//=======================================================================
 
-var ESTemplateData_HA []byte = nil
+var srvOrchestrationJobs = map[string]*srvOrchestrationJob{}
+var srvOrchestrationJobsMutex sync.Mutex
 
-func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esResources_HA) error {
-	if ESTemplateData_HA == nil {
-		f, err := os.Open("elasticsearch-pvc.yaml")
-		if err != nil {
-			return err
-		}
-		ESTemplateData_HA, err = ioutil.ReadAll(f)
-		if err != nil {
-			return err
+func getSrvOrchestrationJob(instanceID string) *srvOrchestrationJob {
+	srvOrchestrationJobsMutex.Lock()
+	job := srvOrchestrationJobs[instanceID]
+	srvOrchestrationJobsMutex.Unlock()
+
+	return job
+}
+
+func startSrvOrchestrationJob(job *srvOrchestrationJob) {
+	srvOrchestrationJobsMutex.Lock()
+	defer srvOrchestrationJobsMutex.Unlock()
+
+	if srvOrchestrationJobs[job.serviceInfo.Url] == nil {
+		srvOrchestrationJobs[job.serviceInfo.Url] = job
+		go func() {
+			job.run()
+
+			srvOrchestrationJobsMutex.Lock()
+			delete(srvOrchestrationJobs, job.serviceInfo.Url)
+			srvOrchestrationJobsMutex.Unlock()
+		}()
+	}
+}
+
+type srvOrchestrationJob struct {
+	//instanceId string // use serviceInfo.
+
+	cancelled   bool
+	cancelChan  chan struct{}
+	cancelMetex sync.Mutex
+
+	serviceInfo *oshandler.ServiceInfo
+
+	masterResources *srvResources
+	moreResources   *aiResourcesMore
+}
+
+func (job *srvOrchestrationJob) cancel() {
+	job.cancelMetex.Lock()
+	defer job.cancelMetex.Unlock()
+
+	if !job.cancelled {
+		job.cancelled = true
+		close(job.cancelChan)
+	}
+}
+
+type watchPodStatus struct {
+	// The type of watch update contained in the message
+	Type string `json:"type"`
+	// Pod details
+	Object kapi.Pod `json:"object"`
+}
+
+func (job *srvOrchestrationJob) run() {
+	serviceInfo := job.serviceInfo
+	//pod := job.masterResources.pod
+	rc := &job.masterResources.rc
+
+	for {
+		if job.cancelled {
+			return
 		}
 
-		ES_image := oshandler.ElasticsearchVolumeImage()
-		ES_image = strings.TrimSpace(ES_image)
-		if len(ES_image) > 0 {
-			ESTemplateData_HA = bytes.Replace(
-				ESTemplateData_HA,
-				[]byte("http://elasticsearch-image-place-holder/elasticsearch-openshift-orchestration"),
-				[]byte(ES_image),
-				-1)
+		n, _ := startRunningPodsByLabels(serviceInfo.Database, rc.Labels)
+
+		println("n = ", n, ", *job.masterResources.rc.Spec.Replicas = ", *rc.Spec.Replicas)
+
+		if n < *rc.Spec.Replicas {
+			time.Sleep(10 * time.Second)
+		} else {
+			break
 		}
-		//endpoint_postfix := oshandler.EndPointSuffix()
-		//endpoint_postfix = strings.TrimSpace(endpoint_postfix)
-		//if len(endpoint_postfix) > 0 {
-		//	EtcdTemplateData_HA = bytes.Replace(
-		//		EtcdTemplateData_HA,
-		//		[]byte("endpoint-postfix-place-holder"),
-		//		[]byte(endpoint_postfix),
-		//		-1)
-		//}
 	}
 
-	peerPvcName0 := peerPvcName0(volumes)
-	peerPvcName1 := peerPvcName1(volumes)
-	peerPvcName2 := peerPvcName2(volumes)
+	println("instance is running now")
 
-	yamlTemplates := ESTemplateData_HA
+	time.Sleep(5 * time.Second)
+
+	if job.cancelled {
+		return
+	}
+
+	// create more resources
+
+	job.createRedisResourcesMore(serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
+}
+
+//=======================================================================
+//
+//=======================================================================
+
+// SrvTemplateData template data for service broker
+var SrvTemplateData []byte
+
+func loadSrvResources(instanceID, srvPassword string, res *srvResources) error {
+	if SrvTemplateData == nil {
+		f, err := os.Open("es-cluster.yaml")
+		if err != nil {
+			return err
+		}
+		SrvTemplateData, err = ioutil.ReadAll(f)
+		if err != nil {
+			return err
+		}
+
+		srvImage := oshandler.EsclusterImage()
+		srvImage = strings.TrimSpace(srvImage)
+		if len(srvImage) > 0 {
+			SrvTemplateData = bytes.Replace(
+				SrvTemplateData,
+				[]byte("http://docker-registry/es-cluster-image")
+				),
+				[]byte(srvImage),
+				-1)
+		}
+	}
+
+	yamlTemplates := SrvTemplateData
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
+	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(srvPassword), -1)
 
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace0"), []byte(peerPvcName0), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace1"), []byte(peerPvcName1), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace2"), []byte(peerPvcName2), -1)
+	logger.Debug("loadSrvResources(), yaml templates info->" + string(yamlTemplates))
 
-	//println("========= HA yamlTemplates ===========")
+	decoder := oshandler.NewYamlDecoder(yamlTemplates)
+	decoder.Decode(&res.sts)
+
+	return decoder.Err
+}
+
+// AITemplateDataMore additional template data for AI
+var AITemplateDataMore []byte
+
+func loadAIResourcesMore(instanceID, redisPassword string, res *aiResourcesMore) error {
+	if AITemplateDataMore == nil {
+		f, err := os.Open("redis-more.yaml")
+		if err != nil {
+			return err
+		}
+		AITemplateDataMore, err = ioutil.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		aiImage := oshandler.RedisImage()
+		aiImage = strings.TrimSpace(aiImage)
+		if len(aiImage) > 0 {
+			AITemplateDataMore = bytes.Replace(
+				AITemplateDataMore,
+				[]byte("http://redis-image-place-holder/redis-openshift-orchestration"),
+				[]byte(aiImage),
+				-1)
+		}
+	}
+
+	// ...
+
+	yamlTemplates := AITemplateDataMore
+
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
+
+	//println("========= More yamlTemplates ===========")
 	//println(string(yamlTemplates))
 	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
-	decoder.
-		Decode(&res.dc1).
-		Decode(&res.dc2).
-		Decode(&res.dc3).
-		Decode(&res.svc1).
-		Decode(&res.svc2).
-		Decode(&res.svc3).
-		Decode(&res.svc)
+	decoder.Decode(&res.serviceSentinel).
+		Decode(&res.rc).
+		Decode(&res.rcSentinel)
+
 	return decoder.Err
 }
 
-type esResources_HA struct {
-	dc1 dcapi.DeploymentConfig
-	dc2 dcapi.DeploymentConfig
-	dc3 dcapi.DeploymentConfig
-
-	svc1 kapi.Service
-	svc2 kapi.Service
-	svc3 kapi.Service
-	svc  kapi.Service
+type srvResources struct {
+	sts kapiv1b1.StatefulSet
 }
 
-func (esResources_HA *esResources_HA) ServiceHostPort(serviceBrokerNamespace string) (string, string, error) {
-
-	client_port := oshandler.GetServicePortByName(&esResources_HA.svc, "port-9200")
-	if client_port == nil {
-		return "", "", errors.New("client port not found")
-	}
-
-	host := fmt.Sprintf("%s.%s.%s", esResources_HA.svc.Name, serviceBrokerNamespace, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(client_port.Port)
-
-	return host, port, nil
+type aiResourcesMore struct {
+	serviceClient  kapiv1.Service
+	serviceCluster kapiv1.Service
 }
 
-func createESResources_HA(instanceId, serviceBrokerNamespace string, volumes []oshandler.Volume) (*esResources_HA, error) {
-	var input esResources_HA
-	err := loadESResources_HA(instanceId, volumes, &input)
+func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*srvResources, error) {
+	var input srvResources
+	err := loadSrvResources(instanceID, srvPassword, &input)
 	if err != nil {
 		return nil, err
 	}
 
-	var output esResources_HA
+	var output srvResources
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	// here, not use job.post
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.Kv1b1Post(prefix+"/statefulset", &input.sts, &output.sts)
+
+	if osr.Err != nil {
+		msg = "createInstance(), create statefulset " + instanceID + " failed with error->"
+		logger.Error(msg, osr.Err)
+	}
+	else {
+		logger.Debug("createInstance(), create statefulset succeed->", output)
+	}
+
+	return &output, osr.Err
+}
+
+func getSrvResources(instanceID, serviceBrokerNamespace, srvPassword string) (*srvResources, error) {
+	var output srvResources
+
+	var input srvResources
+	err := loadSrvResources(instanceID, srvPassword, &input)
+	if err != nil {
+		return &output, err
+	}
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.
-		OPost(prefix+"/deploymentconfigs", &input.dc1, &output.dc1).
-		OPost(prefix+"/deploymentconfigs", &input.dc2, &output.dc2).
-		OPost(prefix+"/deploymentconfigs", &input.dc3, &output.dc3).
-		KPost(prefix+"/services", &input.svc1, &output.svc1).
-		KPost(prefix+"/services", &input.svc2, &output.svc2).
-		KPost(prefix+"/services", &input.svc3, &output.svc3).
-		KPost(prefix+"/services", &input.svc, &output.svc)
+	osr.Kv1b1Get(prefix+"/statefulset/"+input.sts.Name, &output.sts)
 
 	if osr.Err != nil {
-		logger.Error("createESResources_HA", osr.Err)
+		logger.Error("getSrvResources", osr.Err)
 	}
 
-	return &output, nil
+	return &output, osr.Err
 }
 
-func getESResources_HA(instanceId, serviceBrokerNamespace, rootPassword, user, password string, volumes []oshandler.Volume) (*esResources_HA, error) {
-	var output esResources_HA
+func destroySrvResources(srvRes *srvResources, serviceBrokerNamespace string) {
+	// todo: add to retry queue on fail
 
-	var input esResources_HA
-	err := loadESResources_HA(instanceId, volumes, &input)
+	//go func() {kdel (serviceBrokerNamespace, "pods", masterRes.pod.Name)}()
+	go func() { kdelSts(serviceBrokerNamespace, &srvRes.sts) }()
+}
+
+func (job *srvOrchestrationJob) createRedisResourcesMore(instanceID, serviceBrokerNamespace, redisPassword string) error {
+	var input aiResourcesMore
+	err := loadAIResourcesMore(instanceID, redisPassword, &input)
+	if err != nil {
+		return err
+	}
+
+	var output aiResourcesMore
+
+	/*
+		osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+		// here, not use job.post
+		prefix := "/namespaces/" + serviceBrokerNamespace
+		osr.
+			KPost(prefix + "/services", &input.serviceSentinel, &output.serviceSentinel).
+			KPost(prefix + "/replicationcontrollers", &input.rc, &output.rc).
+			KPost(prefix + "/replicationcontrollers", &input.rcSentinel, &output.rcSentinel)
+
+		if osr.Err != nil {
+			logger.Error("createRedisResources_More", osr.Err)
+		}
+	*/
+
+	go func() {
+		if err := job.kpost(serviceBrokerNamespace, "services", &input.serviceSentinel, &output.serviceSentinel); err != nil {
+			return
+		}
+		if err := job.kpost(serviceBrokerNamespace, "replicationcontrollers", &input.rc, &output.rc); err != nil {
+			return
+		}
+		if err := job.kpost(serviceBrokerNamespace, "replicationcontrollers", &input.rcSentinel, &output.rcSentinel); err != nil {
+			return
+		}
+	}()
+
+	return nil
+}
+
+func getAIResourcesMore(instanceID, serviceBrokerNamespace, redisPassword string) (*aiResourcesMore, error) {
+	var output aiResourcesMore
+
+	var input aiResourcesMore
+	err := loadAIResourcesMore(instanceID, redisPassword, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -434,59 +594,38 @@ func getESResources_HA(instanceId, serviceBrokerNamespace, rootPassword, user, p
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		OGet(prefix+"/deploymentconfigs/"+input.dc1.Name, &output.dc1).
-		OGet(prefix+"/deploymentconfigs/"+input.dc2.Name, &output.dc2).
-		OGet(prefix+"/deploymentconfigs/"+input.dc3.Name, &output.dc3).
-		KGet(prefix+"/services/"+input.svc1.Name, &output.svc1).
-		KGet(prefix+"/services/"+input.svc2.Name, &output.svc2).
-		KGet(prefix+"/services/"+input.svc3.Name, &output.svc3).
-		KGet(prefix+"/services/"+input.svc.Name, &output.svc)
+		KGet(prefix+"/services/"+input.serviceSentinel.Name, &output.serviceSentinel).
+		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc).
+		KGet(prefix+"/replicationcontrollers/"+input.rcSentinel.Name, &output.rcSentinel)
 
 	if osr.Err != nil {
-		logger.Error("getEtcdResources_HA", osr.Err)
+		logger.Error("getRedisResources_More", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func destroyESResources_HA(haRes *esResources_HA, serviceBrokerNamespace string) {
+func destroyAIResourcesMore(moreRes *aiResourcesMore, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc1.Name) }()
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc2.Name) }()
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc3.Name) }()
-
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc1.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc2.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc3.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc.Name) }()
-
-	rcs, _ := statRunningRCByLabels(serviceBrokerNamespace, haRes.dc1.Labels)
-	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
-	}
-
-	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, haRes.dc2.Labels)
-	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
-	}
-
-	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, haRes.dc3.Labels)
-	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
-	}
+	go func() { kdel(serviceBrokerNamespace, "services", moreRes.serviceSentinel.Name) }()
+	go func() { kdelRc(serviceBrokerNamespace, &moreRes.rc) }()
+	go func() { kdelRc(serviceBrokerNamespace, &moreRes.rcSentinel) }()
 }
 
 //===============================================================
 //
 //===============================================================
 
-func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
+func (job *srvOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
 	println("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
 RETRY:
+	if job.cancelled {
+		return nil
+	}
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPost(uri, body, into)
 	if osr.Err == nil {
@@ -505,12 +644,15 @@ RETRY:
 	return nil
 }
 
-func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
+func (job *srvOrchestrationJob) opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
 	println("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
 RETRY:
+	if job.cancelled {
+		return nil
+	}
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).OPost(uri, body, into)
 	if osr.Err == nil {
@@ -583,34 +725,30 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
-func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
+func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 	// looks pods will be auto deleted when rc is deleted.
 
-	if rc == nil || rc.Name == "" {
+	if sts == nil || sts.Name == "" {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	println("to delete statefulset ", sts.Name)
 
-	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
+	logger.Debug("kdelSts(), to delete statefulset " + sts.Name)
 
-	// modfiy rc replicas to 0
+	uri := "/namespaces/" + serviceBrokerNamespace + "/statefulset/" + sts.Name
+
+	// scale down to 0 firstly
 
 	zero := 0
-	rc.Spec.Replicas = &zero
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
+	sts.Spec.Replicas = &zero
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, sts, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("kdelSts(), scale down statefulset to 0", osr.Err)
 		return
 	}
 
-	// start watching rc status
+	// start watching stateful status
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
@@ -623,16 +761,17 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA etcd rc error", status.Err)
+				logger.Error("watch HA redis rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch etcd HA rc, status.Info: " + string(status.Info))
 			}
+			//else {
+			//logger.Debug("watch redis HA rc, status.Info: " + string(status.Info))
+			//}
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse boot HA rc status", err)
+				logger.Error("parse master HA rc status", err)
 				close(cancel)
 				return
 			}
@@ -644,7 +783,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 		// ...
 
-		kdel(serviceBrokerNamespace, "replicationcontrollers", rc.Name)
+		kdel(serviceBrokerNamespace, "statefulset", sts.Name)
 	}()
 
 	return
@@ -657,7 +796,7 @@ type watchReplicationControllerStatus struct {
 	Object kapi.ReplicationController `json:"object"`
 }
 
-func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
+func startRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
 	println("to list pods in", serviceBrokerNamespace)
 
@@ -675,7 +814,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase)
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++
@@ -684,29 +823,3 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 	return nrunnings, nil
 }
-
-func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]string) ([]kapi.ReplicationController, error) {
-	println("to list RC in", serviceBrokerNamespace)
-
-	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers"
-
-	rcs := kapi.ReplicationControllerList{}
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &rcs)
-	if osr.Err != nil {
-		fmt.Println("get rc list err:", osr.Err)
-		return nil, osr.Err
-	}
-
-	rcNames := make([]string, 0)
-	for _, rc := range rcs.Items {
-		rcNames = append(rcNames, rc.Name)
-
-	}
-
-	fmt.Println("-------->rcnames:", rcNames)
-	return rcs.Items, nil
-}
-
-// todo:
-//   use etcd clientv3 instead, which is able to close a client.
