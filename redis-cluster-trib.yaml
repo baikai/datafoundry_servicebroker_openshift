@@ -4,7 +4,7 @@ metadata:
   labels:
     redis-cluster-instance-id: {{ .InstanceID }}
     redis-trib: {{ .InstanceID }}
-  name: redis-trib-{{ .InstanceID }}{{ .OldNumNodes }}
+  name: redis-trib-{{ .InstanceID }}{{ .OldNumMasters }}{{ .OldNumReplicas }}
 spec:
   containers:
   - name: redis-trib
