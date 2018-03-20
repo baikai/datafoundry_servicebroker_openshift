@@ -78,10 +78,10 @@ const (
 	DefaultNumWorkersPerSupervisor = 4
 	DefaultSupervisorMemory        = 500
 
-	Key_Krb5ConfContent          = "krb5conf"
-	Key_KafkaClientKeyTabContent = "kafkaclient-keytab"
-	Key_KafkaClientServiceName   = "kafkaclient-service-name"
-	Key_KafaClientPrincipal      = "kafkaclient-principal"
+	Key_Krb5ConfContent          = "ATTR_krb5conf"
+	Key_KafkaClientKeyTabContent = "ATTR_kafkaclient-keytab"
+	Key_KafkaClientServiceName   = "ATTR_kafkaclient-service-name"
+	Key_KafaClientPrincipal      = "ATTR_kafkaclient-principal"
 )
 
 func RetrieveStormLocalHostname(m map[string]string) string {
