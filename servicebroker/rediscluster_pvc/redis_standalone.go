@@ -212,7 +212,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		println("retrieveNumReplicasFromPlanInfo error: ", err.Error())
 	}
 
-	println("new redis cluster parameters: numMasters=", numMasters, ", containerMemory=", containerMemory, "Mi")
+	println("new redis cluster parameters: numMasters=", numMasters, ", numReplicas=", numReplicas, ", containerMemory=", containerMemory, "Mi")
 
 	//if asyncAllowed == false {
 	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
@@ -341,7 +341,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 		// run redis-trib.rb: create cluster
 		//err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs) // bug: svc in outoupt is void
-		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numReplicas)
+		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numMasters, numReplicas)
 		if err != nil {
 			println(" redis initRedisMasterSlots error: ", err)
 			logger.Error("redis initRedisMasterSlots error", err)
@@ -478,8 +478,8 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		if err != nil {
 			return err
 		}
-		if newNumMasters <= int(oldNumMasters) {
-			return errors.New("number of masters can only be increased.")
+		if newNumMasters < int(oldNumMasters) {
+			return errors.New("number of masters can not decrease.")
 		}
 		
 		// get new node memory
@@ -505,12 +505,12 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 				oldNumReplicas = 0
 			}
 		}
-		newNumReplicas, err := retrieveNumNodesFromPlanInfo(planInfo, int(oldNumReplicas))
+		newNumReplicas, err := retrieveNumReplicasFromPlanInfo(planInfo, int(oldNumReplicas))
 		if err != nil {
 			return err
 		}
-		if newNumReplicas <= int(oldNumReplicas) {
-			return errors.New("number of replicas can only be increased.")
+		if newNumReplicas < int(oldNumReplicas) {
+			return errors.New("number of replicas can not decrease.")
 		}
 		
 		// ...
@@ -535,6 +535,10 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		//===========================================================================
 		
 		succeeded := false
+		
+		// delete old trib pod
+		
+		deleteRedisTribPod(namespace, instanceId, int(oldNumMasters), int(oldNumReplicas))
 		
 		// create node ports
 		
@@ -634,7 +638,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		fmt.Println("[DoUpdate] redis cluster. new pods are running.")
 		
 		// add new nodes to cluster and rebalance
-		
+
 		err = addRedisNewPeersAndRebalance(namespace, instanceId,
 			nodePorts, oldPeers,
 			int(oldNumMasters), newNumMasters, int(oldNumReplicas), newNumReplicas)
@@ -649,6 +653,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		myServiceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(newNumMasters)
 		myServiceInfo.Miscs[oshandler.Memory] = strconv.Itoa(newNodeMemory)
+		myServiceInfo.Miscs[oshandler.Replicas] = strconv.Itoa(newNumReplicas)
 		myServiceInfo.Volumes = append(myServiceInfo.Volumes, newVolumes...)
 		
 		err = callbackSaveNewInfo(myServiceInfo)
@@ -694,10 +699,17 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 		)
 		destroyRedisClusterResources_Peers(master_reses, myServiceInfo.Database)
 
+		// delete redis trib pods
 		//>> ...
 		go func() {
-			for i := 0; i < len(myServiceInfo.Volumes); i++ {
-				kdel(myServiceInfo.Database, "pods", "redis-trib-"+myServiceInfo.Url+"-"+strconv.Itoa(i))
+			for i := 1; i < len(myServiceInfo.Volumes); i++ {
+				for j := 0; j < len(myServiceInfo.Volumes); j++ {
+					if i * (j+1) <= len(myServiceInfo.Volumes) {
+						deleteRedisTribPod(myServiceInfo.Database, myServiceInfo.Url, i, j)
+					}
+				}
+				
+				kdel(myServiceInfo.Database, "pods", "redis-trib-"+myServiceInfo.Url+"-"+strconv.Itoa(i)) // for compatibility
 			}
 		}()
 		//<<
@@ -803,6 +815,14 @@ func collectAnnounceInfos(nodePorts []*redisResources_Peer) []redisAnnounceInfo 
 	return announces
 }
 
+func redisTribPodNameSuffix(numMasters, numReplias int) string {
+	return fmt.Sprintf("-%d-%d", numMasters, numReplias)
+}
+
+func deleteRedisTribPod(serviceBrokerNamespace, instanceId string, numMasters, numReplias int) {
+	kdel(serviceBrokerNamespace, "pods", "redis-trib-"+instanceId+redisTribPodNameSuffix(numMasters, numReplias))
+}
+
 var redisTribYamlTemplate = template.Must(template.ParseFiles("redis-cluster-trib.yaml"))
 
 func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string, oldNumMasters, oldNumReplicas int) error {
@@ -813,8 +833,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 		"Command":        command,
 		"Arguments":      args,
 		"ScriptContent":  customScript,
-		"OldNumMasters":  fmt.Sprintf("-%d", oldNumMasters),
-		"OldNumReplicas": fmt.Sprintf("-%d", oldNumReplicas),
+		"PodNameSuffix":  redisTribPodNameSuffix(oldNumMasters, oldNumReplicas),
 	}
 
 	var buf bytes.Buffer
@@ -826,7 +845,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 	var pod kapi.Pod
 	oshandler.NewYamlDecoder(buf.Bytes()).Decode(&pod)
 
-	//println(string(buf.Bytes()))
+	println(string(buf.Bytes()))
 
 	return kpost(serviceBrokerNamespace, "pods", &pod, nil)
 }
@@ -838,7 +857,7 @@ func getPeerAddr(peer *redisResources_Peer) string {
 	return ip+":"+port
 }
 
-func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numReplicas int) error {
+func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numMasters, numReplicas int) error {
 	cmd := "ruby"
 	args := make([]string, 0, 100)
 	args = append(args, "/usr/local/bin/redis-trib.rb")
@@ -850,7 +869,7 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 	for _, res := range peers {
 		args = append(args, getPeerAddr(res))
 	}
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", 0, 0)
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", numMasters, numReplicas)
 }
 
 func addRedisNewPeersAndRebalance(serviceBrokerNamespace, instanceId string,
@@ -893,7 +912,7 @@ func addRedisNewPeersAndRebalance(serviceBrokerNamespace, instanceId string,
 	script += ">&2 echo ============== rebalance done. ==============\n\n"
 	
 	cmd := "/usr/local/bin/run-custom-script.sh"
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, oldNumMasters, oldNumReplicas)
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, newNumMasters, newNumReplicas)
 }	
 
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
