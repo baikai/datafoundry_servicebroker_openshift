@@ -494,7 +494,6 @@ var anacondaImage string
 
 // added by Jared
 var esclusterImage string
-var aiImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -552,5 +551,4 @@ func init() {
 	anacondaImage = getenv("ANACONDAIMAGE")
 
 	esclusterImage = getenv("ESCLUSTERIMAGE")
-	aiImage = getenv("AIIMAGE")
 }
