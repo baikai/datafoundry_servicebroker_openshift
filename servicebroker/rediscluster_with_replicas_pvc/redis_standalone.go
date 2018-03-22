@@ -1,4 +1,4 @@
-package rediscluster_pvc
+package rediscluster_with_replicas_pvc
 
 import (
 	"errors"
@@ -38,7 +38,7 @@ import (
 //
 //==============================================================
 
-const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster"
+const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster_with_replicas"
 
 const DefaultNumNodes = 3 // 3 masters
 const DefaultNodeMemory = 500
