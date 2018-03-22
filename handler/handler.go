@@ -34,8 +34,10 @@ const (
 	Connections = "connections"
 	// redis cluster, ...
 	Nodes = "nodes"
-	// redis cluster
+	// redis cluster, storem external, ...
 	Memory = "memory"
+	// redis cluster, ...
+	Replicas = "replicas"
 )
 
 type ServiceInfo struct {

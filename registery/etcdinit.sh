@@ -165,7 +165,12 @@ $ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04
 $ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/94bcf092-74e7-49b1-add6-314fb2c7bdfb/description "Redis Cluster With Volumes on Openshift"
 $ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/94bcf092-74e7-49b1-add6-314fb2c7bdfb/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"nodes":{"default":3,"max":5,"price":100000000,"unit":"nodes","step":1,"desc":"Redis集群node数量"},"memory":{"default":0.1,"max":2,"price":10000000,"unit":"GB","step":0.1,"desc":"Redis集群节点内存设置"},"volumeSize":{"default":1,"max":10,"price":10000000,"unit":"GB","step":1,"desc":"Redis挂卷大小设置"}}}'
 $ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/94bcf092-74e7-49b1-add6-314fb2c7bdfb/free true
-
+###创建套餐5 (4.0+ cluster with replicas)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/67117486-934f-4f94-bd2d-179ec6e309b4
+$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/67117486-934f-4f94-bd2d-179ec6e309b4/name "volumes_cluster_with_replicas"
+$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/67117486-934f-4f94-bd2d-179ec6e309b4/description "Redis Cluster With Volumes on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/67117486-934f-4f94-bd2d-179ec6e309b4/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"nodes":{"default":3,"max":5,"price":100000000,"unit":"nodes","step":1,"desc":"Redis集群node数量"},"replicas":{"default":0,"max":3,"price":100000000,"unit":"replicas","step":1,"desc":"Redis集群replicas/node数量"},"memory":{"default":0.1,"max":2,"price":10000000,"unit":"GB","step":0.1,"desc":"Redis集群节点内存设置"},"volumeSize":{"default":1,"max":10,"price":10000000,"unit":"GB","step":1,"desc":"Redis挂卷大小设置"}}}'
+$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/67117486-934f-4f94-bd2d-179ec6e309b4/free true
 
 
 
