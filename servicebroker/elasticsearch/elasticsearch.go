@@ -22,13 +22,13 @@ import (
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
-// SrvBrokerName : service broker name for AI
-const srvBrokerName = "escluster"
+// EsClusterServiceBrokerName : broker name should be service name + '_' + plan name
+const EsClusterServiceBrokerName = "EsCluster_vol"
 
 func init() {
-	oshandler.Register(srvBrokerName, &SrvBrokerFreeHandler{})
+	oshandler.Register(EsClusterServiceBrokerName, &SrvBrokerFreeHandler{})
 
-	logger = lager.NewLogger(srvBrokerName)
+	logger = lager.NewLogger(EsClusterServiceBrokerName)
 	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
@@ -104,7 +104,7 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
 
-	logger.Debug("serviceInfo->" + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
+	logger.Debug("serviceInfo:" + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
 		serviceInfo.Service_name)
 
 	go func() {
@@ -237,11 +237,13 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 
 	clientPort := &stsRes.srvClient.Spec.Ports[0]
 
-	cluserName := "cluster-" + stsRes.sts.Name
+	clusterName := "cluster-" + stsRes.sts.Name
 	host := fmt.Sprintf("%s.%s.%s", stsRes.sts.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(clientPort.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
+
+	logger.Debug("getCredentialsOnProvision(), load yaml templates successfully." + string(clientPort.Port) + "," + clusterName + "," + host + "," + port)
 
 	return oshandler.Credentials{
 		Uri:      "",
@@ -249,7 +251,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 		Port:     port,
 		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
-		Name:     cluserName,
+		Name:     clusterName,
 	}
 }
 
@@ -374,7 +376,7 @@ func (job *srvOrchestrationJob) run() {
 		if n < *sts.Spec.Replicas {
 			time.Sleep(10 * time.Second)
 		} else {
-			logger.Debug("srvOrchestrationJob->run(), " + string(n) + " pods are running now.")
+			logger.Debug("srvOrchestrationJob.run(), " + string(n) + " pods are running now.")
 			break
 		}
 	}
@@ -387,7 +389,7 @@ func (job *srvOrchestrationJob) run() {
 		return
 	}
 
-	logger.Debug("srvOrchestrationJob->run(), pods are running now")
+	logger.Debug("srvOrchestrationJob.run(), pods are running now")
 
 	// create services here
 	job.createEsServices(serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
@@ -424,13 +426,19 @@ func loadSrvResources(instanceID, srvPassword string, res *esResources) error {
 
 	yamlTemplates := EsTemplateData
 
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(srvPassword), -1)
+	logger.Debug("loadSrvResources(), instanceID passed in " + instanceID)
 
-	logger.Debug("loadSrvResources(), yaml templates info->" + string(yamlTemplates))
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
+
+	logger.Debug("loadSrvResources(), yaml templates, " + string(yamlTemplates))
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
-	decoder.Decode(&res.sts).Decode(&res.srvClient).Decode(&res.srvCluster)
+
+	decoder.Decode(&res.srvCluster).Decode(&res.srvClient).Decode(&res.sts)
+
+	if decoder.Err != nil {
+		logger.Debug("loadSrvResources(), decode yaml template failed with error " + decoder.Err.Error())
+	}
 
 	return decoder.Err
 }
@@ -450,6 +458,8 @@ func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*es
 		return nil, err
 	}
 
+	logger.Debug("createInstance(), load yaml templates succeed")
+
 	var output esResources
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
@@ -459,10 +469,10 @@ func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*es
 	osr.Kv1b1Post(prefix+"/statefulset", &input.sts, &output.sts)
 
 	if osr.Err != nil {
-		msg := "createInstance(), create statefulset " + instanceID + " failed with error->"
+		msg := "createInstance(), create statefulset " + instanceID + " failed with error "
 		logger.Error(msg, osr.Err)
 	} else {
-		logger.Debug("createInstance(), create statefulset succeed->" + output.sts.Name)
+		logger.Debug("createInstance(), create statefulset succeed, name is " + output.sts.Name)
 	}
 
 	return &output, osr.Err

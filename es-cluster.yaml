@@ -37,7 +37,7 @@ spec:
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
-  name: es
+  name: es-instanceid
   labels:
     app: es-node
 spec:
@@ -55,7 +55,7 @@ spec:
     spec:
       containers:
       - name: elasticsearch
-        image: http://docker-registry-default.ai-dev.asiainfo.com/brokers/elasticsearch:6.2.2
+        image: http://docker-registry/es-cluster-image
         imagePullPolicy: Always
         env:
         - name: CLUSTER_NAME
@@ -100,7 +100,7 @@ spec:
   - metadata:
       name: es-logs
       annotations:
-        volume.beta.kubernetes.io/storage-class: gluster-dyn
+          volume.beta.kubernetes.io/storage-class: gluster-dyn
     spec:
       accessModes: [ "ReadWriteMany" ]
       persistentVolumeReclaimPolicy: delete
