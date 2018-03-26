@@ -5,11 +5,11 @@ metadata:
   annotations:
     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
   labels:
-    app: es-cluster
-  name: es-cluster
+    app: es-cluster-instanceid
+  name: es-cluster-instanceid
 spec:
   selector:
-    app: es-node
+    app: es-node-instanceid
   ports:
   - name: transport
     port: 9300
@@ -23,11 +23,11 @@ metadata:
   annotations:
     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
   labels:
-    app: es-client
-  name: es-client
+    app: es-client-instanceid
+  name: es-client-instanceid
 spec:
   selector:
-    app: es-node
+    app: es-node-instanceid
   ports:
   - name: http
     port: 9200
@@ -39,17 +39,17 @@ kind: StatefulSet
 metadata:
   name: es-instanceid
   labels:
-    app: es-node
+    app: es-node-instanceid
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: es-node
+      app: es-node-instanceid
   serviceName: "es-cluster"
   template:
     metadata:
       labels:
-        app: es-node
+        app: es-node-instanceid
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:

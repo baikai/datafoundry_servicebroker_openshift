@@ -88,6 +88,7 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	serviceSpec.IsAsync = true
 
 	//instanceIdInTempalte   := instanceID // todo: ok?
+	logger.Debug("DoProvision(), instanceID is " + instanceID)
 	instanceIDInTemplate := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
@@ -104,7 +105,7 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
 
-	logger.Debug("serviceInfo:" + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
+	logger.Debug("DoProvision(), serviceInfo:" + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
 		serviceInfo.Service_name)
 
 	go func() {
@@ -243,7 +244,8 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
 
-	logger.Debug("getCredentialsOnProvision(), load yaml templates successfully." + string(clientPort.Port) + "," + clusterName + "," + host + "," + port)
+	logger.Debug("getCredentialsOnProvision(), load yaml templates successfully, " +
+		string(clientPort.Port) + "," + clusterName + "," + host + "," + port)
 
 	return oshandler.Credentials{
 		Uri:      "",
@@ -371,12 +373,13 @@ func (job *srvOrchestrationJob) run() {
 
 		n, _ := startRunningPodsByLabels(serviceInfo.Database, sts.Labels)
 
-		println("n = ", n, ", *job.clusterRes.sts.Spec.Replicas = ", *sts.Spec.Replicas)
+		logger.Debug("srvOrchestrationJob.run(), statefulset.spec.Replicas=" +
+			string(int(*sts.Spec.Replicas)) + ", pods already running is " + string(int(n)))
 
 		if n < *sts.Spec.Replicas {
 			time.Sleep(10 * time.Second)
 		} else {
-			logger.Debug("srvOrchestrationJob.run(), " + string(n) + " pods are running now.")
+			logger.Debug("srvOrchestrationJob.run(), " + string(int(n)) + " pods are running now.")
 			break
 		}
 	}
@@ -466,10 +469,10 @@ func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*es
 
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.Kv1b1Post(prefix+"/statefulset", &input.sts, &output.sts)
+	osr.Kv1b1Post(prefix+"/statefulsets", &input.sts, &output.sts)
 
 	if osr.Err != nil {
-		msg := "createInstance(), create statefulset " + instanceID + " failed with error "
+		msg := "createInstance(), create statefulset " + instanceID + " failed with error " + osr.Err.Error()
 		logger.Error(msg, osr.Err)
 	} else {
 		logger.Debug("createInstance(), create statefulset succeed, name is " + output.sts.Name)
@@ -490,7 +493,7 @@ func getEsResources(instanceID, serviceBrokerNamespace, srvPassword string) (*es
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.Kv1b1Get(prefix+"/statefulset/"+input.sts.Name, &output.sts)
+	osr.Kv1b1Get(prefix+"/statefulsets/"+input.sts.Name, &output.sts)
 
 	if osr.Err != nil {
 		logger.Error("getSrvResources", osr.Err)
@@ -506,17 +509,32 @@ func destroyEsResources(srvRes *esResources, serviceBrokerNamespace string) {
 	go func() { kdelSts(serviceBrokerNamespace, &srvRes.sts) }()
 }
 
-func (job *srvOrchestrationJob) createEsServices(instanceID, serviceBrokerNamespace, redisPassword string) error {
+func (job *srvOrchestrationJob) createEsServices(instanceID, serviceBrokerNamespace, srvPassword string) error {
+
+	var input esResources
+	err := loadSrvResources(instanceID, srvPassword, &input)
+	if err != nil {
+		return err
+	}
 
 	var output esResources
 
+	logger.Debug("createEsServices(), prepare to create services for es-cluster " + instanceID)
+
+	/* It's a little wired that job took nothing and need to reload resources again
+
+	logger.Debug("createEsServices(), " + job.clusterRes.srvCluster.Name + "," +
+		job.clusterRes.srvCluster.Kind + "," + job.clusterRes.srvCluster.Labels["app"] + "," +
+		string(job.clusterRes.srvCluster.Spec.Type))
+	*/
+
 	go func() {
-		if err := job.kpost(serviceBrokerNamespace, "services", &job.clusterRes.srvClient, &output.srvClient); err != nil {
-			logger.Debug("createEsServices(), create client service failed with " + err.Error())
+		if err := job.kpost(serviceBrokerNamespace, "services", &input.srvCluster, &output.srvCluster); err != nil {
+			logger.Debug("createEsServices(), create cluster service failed with " + err.Error())
 			return
 		}
-		if err := job.kpost(serviceBrokerNamespace, "services", &job.clusterRes.srvCluster, &output.srvCluster); err != nil {
-			logger.Debug("createEsServices(), create cluster service failed with " + err.Error())
+		if err := job.kpost(serviceBrokerNamespace, "services", &input.srvClient, &output.srvClient); err != nil {
+			logger.Debug("createEsServices(), create client service failed with " + err.Error())
 			return
 		}
 	}()
@@ -542,7 +560,7 @@ func getSrvResources(instanceID, serviceBrokerNamespace, redisPassword string) (
 		Kv1b1Get(prefix+"/statefulsets/"+input.sts.Name, &output.sts)
 
 	if osr.Err != nil {
-		logger.Error("getRedisResources_More", osr.Err)
+		logger.Error("getSrvResources(), retrieving resources failed, ", osr.Err)
 	}
 
 	return &output, osr.Err
@@ -679,7 +697,7 @@ func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 
 	logger.Debug("kdelSts(), to delete statefulset " + sts.Name)
 
-	uri := "/namespaces/" + serviceBrokerNamespace + "/statefulset/" + sts.Name
+	uri := "/namespaces/" + serviceBrokerNamespace + "/statefulsets/" + sts.Name
 
 	// scale down to 0 firstly
 
@@ -741,7 +759,7 @@ type watchReplicationControllerStatus struct {
 
 func startRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int32, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Debug("startRunningPodsByLabels(), list pods in " + serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -749,6 +767,7 @@ func startRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]s
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
 	if osr.Err != nil {
+		logger.Error("startRunningPodsByLabels(), list pods failed with err "+osr.Err.Error(), osr.Err)
 		return 0, osr.Err
 	}
 
@@ -763,6 +782,8 @@ func startRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]s
 			nrunnings++
 		}
 	}
+
+	logger.Debug("startRunningPodsByLabels(), pods already running is " + string(nrunnings))
 
 	return nrunnings, nil
 }
