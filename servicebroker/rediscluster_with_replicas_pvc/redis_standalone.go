@@ -42,7 +42,9 @@ const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster_with_rep
 
 const DefaultNumNodes = 3 // 3 masters
 const DefaultNodeMemory = 500
-const DefaultNumReplicas = 0 // zero slaves per master
+const DefaultNumReplicas = 1 // zero slaves per master
+
+const Key_EnableAuth = "ATTR_enable_auth"
 
 func init() {
 	oshandler.Register(RedisClusterServcieBrokerName_Standalone, &RedisCluster_freeHandler{})
@@ -196,7 +198,14 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
+	
+	// ...
+	params := planInfo.MoreParameters // same as details.Parameters
+	enableAuthParam, _ := oshandler.ParseString(params[Key_EnableAuth])
+	enableAuthParam = strings.ToLower(enableAuthParam)
+	enableAuth := enableAuthParam == "1" || enableAuthParam == "yes" || enableAuthParam == "true"
 
+	// ...
 	numMasters, err := retrieveNumNodesFromPlanInfo(planInfo, DefaultNumNodes)
 	if err != nil {
 		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
@@ -225,7 +234,10 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 	//redisUser := oshandler.NewElevenLengthID()
-	//redisPassword := oshandler.GenGUID() // redis cluster doesn't support password
+	var redisPassword string
+	if enableAuth {
+		redisPassword = oshandler.GenGUID() // redis cluster doesn't support password officially
+	}
 
 	numNodePeers := numMasters * (numReplicas + 1)
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
@@ -341,7 +353,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 		// run redis-trib.rb: create cluster
 		//err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs) // bug: svc in outoupt is void
-		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numMasters, numReplicas)
+		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numMasters, numReplicas, redisPassword)
 		if err != nil {
 			println(" redis initRedisMasterSlots error: ", err)
 			logger.Error("redis initRedisMasterSlots error", err)
@@ -425,6 +437,13 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 	
 	namespace := myServiceInfo.Database
 	instanceId := myServiceInfo.Url
+	
+	params := planInfo.MoreParameters
+	enableAuthParam, _ := oshandler.ParseString(params[Key_EnableAuth])
+	enableAuth := enableAuthParam == "1" || enableAuthParam == "yes" || enableAuthParam == "true"
+	if myServiceInfo.Password == "" && enableAuth {
+		return errors.New("auth must be enabled on creating")
+	}
 	
 	println("[DoUpdate] redis cluster ...")
 	fmt.Println("[DoUpdate] redis cluster ...")
@@ -762,8 +781,8 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, announces [
 	}
 
 	return oshandler.Credentials{
-		Uri: strings.Join(infos, ", "),
-		//Password: myServiceInfo.Password,
+		Uri:      strings.Join(infos, ", "),
+		Password: myServiceInfo.Password,
 	}
 }
 
@@ -857,11 +876,18 @@ func getPeerAddr(peer *redisResources_Peer) string {
 	return ip+":"+port
 }
 
-func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numMasters, numReplicas int) error {
+func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numMasters, numReplicas int, password string) error {
 	cmd := "ruby"
 	args := make([]string, 0, 100)
-	args = append(args, "/usr/local/bin/redis-trib.rb")
-	args = append(args, "create")
+	if password != "" {
+		args = append(args, "/usr/local/bin/redis-trib-2.rb")
+		args = append(args, "create")
+		args = append(args, "--password")
+		args = append(args, password)
+	} else {
+		args = append(args, "/usr/local/bin/redis-trib.rb")
+		args = append(args, "create")
+	}
 	if numReplicas > 0 {
 		args = append(args, "--replicas")
 		args = append(args, strconv.Itoa(numReplicas))
