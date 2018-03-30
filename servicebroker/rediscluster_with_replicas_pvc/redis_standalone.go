@@ -1016,17 +1016,17 @@ func loadRedisClusterResources_Peer(instanceID, peerID, redisPassword string, co
 
 	args := make([]string, 0, 100)
 	args = append(args, "/usr/local/etc/redis.conf")
-	args = append(args, "'--cluster-announce-ip'")
-	args = append(args, fmt.Sprintf("'%s'", announce.IP))
-	args = append(args, "'--cluster-announce-port'")
-	args = append(args, fmt.Sprintf("'%s'", announce.Port))
-	args = append(args, "'--cluster-announce-bus-port'")
-	args = append(args, fmt.Sprintf("'%s'", announce.BusPort))
+	args = append(args, "--cluster-announce-ip")
+	args = append(args, announce.IP)
+	args = append(args, "--cluster-announce-port")
+	args = append(args, announce.Port)
+	args = append(args, "--cluster-announce-bus-port")
+	args = append(args, announce.BusPort)
 	if redisPassword != "" {
-		args = append(args, "'--masterauth'")
-		args = append(args, fmt.Sprintf("'%s'", redisPassword))
-		args = append(args, "'--requirepass'")
-		args = append(args, fmt.Sprintf("'%s'", redisPassword))
+		args = append(args, "--masterauth")
+		args = append(args, redisPassword)
+		args = append(args, "--requirepass")
+		args = append(args, redisPassword)
 	}
 	
 	var params = map[string]interface{}{
