@@ -271,7 +271,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	var templates = make([]redisResources_Peer, numNodePeers)
 	err = loadRedisClusterResources_Peers(
 		serviceInfo.Url,
-		//serviceInfo.Password,
+		serviceInfo.Password,
 		serviceInfo.Miscs[oshandler.Memory],
 		serviceInfo.Volumes,
 		nil, // nonsense for the to-be-created nodeport service
@@ -329,7 +329,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		outputs, err := createRedisClusterResources_Peers(
 			serviceInfo.Database,
 			serviceInfo.Url,
-			//serviceInfo.Password,
+			serviceInfo.Password,
 			containerMemory, // serviceInfo.Miscs[oshandler.Memory],
 			serviceInfo.Volumes,
 			announceInfos,
@@ -386,7 +386,7 @@ func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.Se
 	master_reses, err := getRedisClusterResources_Peers(
 		myServiceInfo.Database,
 		myServiceInfo.Url,
-		//myServiceInfo.Password,
+		myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
 	//if err == oshandler.NotFound {
@@ -444,7 +444,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 	if myServiceInfo.Password == "" && enableAuth {
 		return errors.New("auth must be enabled on creating")
 	}
-	
+
 	println("[DoUpdate] redis cluster ...")
 	fmt.Println("[DoUpdate] redis cluster ...")
 	go func() (finalError error) {
@@ -463,7 +463,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			return errors.New("[DoUpdate] old number of nodes is zero?!")
 		}
 		oldPeers, err := getRedisClusterResources_Peers(namespace, instanceId,
-			/*myServiceInfo.Password,*/ myServiceInfo.Volumes)
+			myServiceInfo.Password, myServiceInfo.Volumes)
 	
 		if err != nil {
 			return err
@@ -564,7 +564,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		var templates = make([]redisResources_Peer, newNumNodePeers - int(oldNumNodePeers))
 		for i := range templates {
 			err := loadRedisClusterResources_Peer(
-				instanceId, strconv.Itoa(int(oldNumNodePeers) + i), /*, redisPassword*/
+				instanceId, strconv.Itoa(int(oldNumNodePeers) + i), myServiceInfo.Password,
 				newNodeMemory,
 				newVolumes[i].Volume_name,
 				redisAnnounceInfo{}, // nonsense
@@ -627,7 +627,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		for i, p := range nodePorts {
 			o, err := createRedisClusterResources_Peer(namespace,
-				instanceId, strconv.Itoa(int(oldNumNodePeers) + i), /*, redisPassword*/
+				instanceId, strconv.Itoa(int(oldNumNodePeers) + i), myServiceInfo.Password,
 				newNodeMemory,
 				newVolumes[i].Volume_name,
 				redisAnnounceInfo{
@@ -713,7 +713,7 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 		master_reses, _ := getRedisClusterResources_Peers(
 			myServiceInfo.Database,
 			myServiceInfo.Url,
-			//myServiceInfo.Password,
+			myServiceInfo.Password,
 			myServiceInfo.Volumes,
 		)
 		destroyRedisClusterResources_Peers(master_reses, myServiceInfo.Database)
@@ -792,7 +792,7 @@ func (handler *RedisCluster_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo
 	master_reses, err := getRedisClusterResources_Peers(
 		myServiceInfo.Database,
 		myServiceInfo.Url,
-		//myServiceInfo.Password,
+		myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
 	if err != nil {
@@ -978,7 +978,7 @@ func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisReso
 
 var redisClusterYamlTemplate = template.Must(template.ParseFiles("redis-cluster-pvc.yaml"))
 
-func loadRedisClusterResources_Peers(instanceID /*, redisPassword*/ string, containerMemory string, volumes []oshandler.Volume,
+func loadRedisClusterResources_Peers(instanceID, redisPassword string, containerMemory string, volumes []oshandler.Volume,
 	announces []redisAnnounceInfo, res []redisResources_Peer) error {
 
 	if announces == nil { // for get, announces is allowed to be nil
@@ -998,7 +998,7 @@ func loadRedisClusterResources_Peers(instanceID /*, redisPassword*/ string, cont
 
 	for i := range res {
 		err := loadRedisClusterResources_Peer(
-			instanceID, strconv.Itoa(i), /*, redisPassword*/
+			instanceID, strconv.Itoa(i), redisPassword,
 			memory,
 			volumes[i].Volume_name,
 			announces[i],
@@ -1011,21 +1011,36 @@ func loadRedisClusterResources_Peers(instanceID /*, redisPassword*/ string, cont
 	return nil
 }
 
-func loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/ string, containerMemory int, pvcName string,
+func loadRedisClusterResources_Peer(instanceID, peerID, redisPassword string, containerMemory int, pvcName string,
 	announce redisAnnounceInfo, res *redisResources_Peer) error {
 
-	var params = map[string]interface{}{
-		"InstanceID":             instanceID,
-		"NodeID":                 peerID,
-		"DataVolumePVC":          pvcName,
-		"ClusterAnnounceIP":      announce.IP,
-		"ClusterAnnouncePort":    announce.Port,
-		"ClusterAnnounceBusPort": announce.BusPort,
-		"RedisImage":             oshandler.RedisClusterImage(),
-		"ContainerMemory":        containerMemory, // "Mi"
-		//"Password":               redisPassword,
+	args := make([]string, 0, 100)
+	args = append(args, "/usr/local/etc/redis.conf")
+	args = append(args, "'--cluster-announce-ip'")
+	args = append(args, fmt.Sprintf("'%s'", announce.IP))
+	args = append(args, "'--cluster-announce-port'")
+	args = append(args, fmt.Sprintf("'%s'", announce.Port))
+	args = append(args, "'--cluster-announce-bus-port'")
+	args = append(args, fmt.Sprintf("'%s'", announce.BusPort))
+	if redisPassword != "" {
+		args = append(args, "'--masterauth'")
+		args = append(args, fmt.Sprintf("'%s'", redisPassword))
+		args = append(args, "'--requirepass'")
+		args = append(args, fmt.Sprintf("'%s'", redisPassword))
 	}
-	//
+	
+	var params = map[string]interface{}{
+		"InstanceID":    instanceID,
+		"NodeID":        peerID,
+		"DataVolumePVC": pvcName,
+		//"ClusterAnnounceIP":      announce.IP,
+		//"ClusterAnnouncePort":    announce.Port,
+		//"ClusterAnnounceBusPort": announce.BusPort,
+		"Arguments":       args,
+		"RedisImage":      oshandler.RedisClusterImage(),
+		"ContainerMemory": containerMemory, // "Mi"
+		//"Password":        redisPassword,
+	}
 
 	var buf bytes.Buffer
 	err := redisClusterYamlTemplate.Execute(&buf, params)
@@ -1053,7 +1068,7 @@ type redisResources_Peer struct {
 }
 
 func createRedisClusterResources_Peers(serviceBrokerNamespace string,
-	instanceID /*, redisPassword*/ string, memory int, volumes []oshandler.Volume,
+	instanceID, redisPassword string, memory int, volumes []oshandler.Volume,
 	announces []redisAnnounceInfo) ([]*redisResources_Peer, error) {
 
 	if len(announces) < len(volumes) {
@@ -1063,7 +1078,7 @@ func createRedisClusterResources_Peers(serviceBrokerNamespace string,
 	var outputs = make([]*redisResources_Peer, len(volumes))
 	for i := range outputs {
 		o, err := createRedisClusterResources_Peer(serviceBrokerNamespace,
-			instanceID, strconv.Itoa(i), /*, redisPassword*/
+			instanceID, strconv.Itoa(i), redisPassword,
 			memory,
 			volumes[i].Volume_name,
 			announces[i])
@@ -1076,11 +1091,11 @@ func createRedisClusterResources_Peers(serviceBrokerNamespace string,
 }
 
 func createRedisClusterResources_Peer(serviceBrokerNamespace string,
-	instanceID, peerID /*, redisPassword*/ string, memory int, pvcName string,
+	instanceID, peerID, redisPassword string, memory int, pvcName string,
 	announce redisAnnounceInfo) (*redisResources_Peer, error) {
 
 	var input redisResources_Peer
-	err := loadRedisClusterResources_Peer(instanceID, peerID /*, redisPassword*/, memory, pvcName,
+	err := loadRedisClusterResources_Peer(instanceID, peerID, redisPassword, memory, pvcName,
 		announce, &input)
 	if err != nil {
 		return nil, err
@@ -1132,13 +1147,13 @@ func createRedisClusterResources_NodePort(input *redisResources_Peer, serviceBro
 }
 
 func getRedisClusterResources_Peers(serviceBrokerNamespace string,
-	instanceID /*, redisPassword*/ string, volumes []oshandler.Volume) ([]*redisResources_Peer, error) {
+	instanceID, redisPassword string, volumes []oshandler.Volume) ([]*redisResources_Peer, error) {
 
 	var err error
 	var outputs = make([]*redisResources_Peer, len(volumes))
 	for i := range outputs {
 		o, err2 := getRedisClusterResources_Peer(serviceBrokerNamespace,
-			instanceID, strconv.Itoa(i) /*, redisPassword*/, volumes[i].Volume_name)
+			instanceID, strconv.Itoa(i), redisPassword, volumes[i].Volume_name)
 		if err == nil {
 			err = err2 // not perfect, only the first error is recorded.
 		}
@@ -1148,13 +1163,13 @@ func getRedisClusterResources_Peers(serviceBrokerNamespace string,
 }
 
 func getRedisClusterResources_Peer(serviceBrokerNamespace string,
-	instanceID, peerID /*, redisPassword*/, pvcName string) (*redisResources_Peer, error) {
+	instanceID, peerID, redisPassword, pvcName string) (*redisResources_Peer, error) {
 
 	var output redisResources_Peer
 
 	var input redisResources_Peer
 	err := loadRedisClusterResources_Peer(
-		instanceID, peerID, /*, redisPassword*/
+		instanceID, peerID, redisPassword,
 		100,                 // Gi memory, the value is nonsense here.
 		pvcName,             // the pvc name is nonsense here
 		redisAnnounceInfo{}, //the value is nonsense

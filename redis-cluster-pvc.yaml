@@ -53,13 +53,9 @@ spec:
       - command:
         - redis-server
         args:
-        - /usr/local/etc/redis.conf
-        - '--cluster-announce-ip'
-        - '{{ .ClusterAnnounceIP }}'
-        - '--cluster-announce-port'
-        - '{{ .ClusterAnnouncePort }}'
-        - '--cluster-announce-bus-port'
-        - '{{ .ClusterAnnounceBusPort }}'
+        {{- range .Arguments }}
+        - '{{- . }}'
+        {{- end}}
         image: {{ .RedisImage }}
         imagePullPolicy: Always
         name: redis
