@@ -488,6 +488,10 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		succeeded := false
 		
+		// delete old trib pod
+		
+		deleteRedisTribPod(namespace, instanceId, int(oldNumNodes))
+		
 		// create node ports
 		
 		var templates = make([]redisResources_Peer, newNumNodes - oldNumNodes)
@@ -647,7 +651,7 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 		//>> ...
 		go func() {
 			for i := 0; i < len(myServiceInfo.Volumes); i++ {
-				kdel(myServiceInfo.Database, "pods", "redis-trib-"+myServiceInfo.Url+"-"+strconv.Itoa(i))
+				deleteRedisTribPod(myServiceInfo.Database, myServiceInfo.Url, i)
 			}
 		}()
 		//<<
