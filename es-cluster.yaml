@@ -1,4 +1,4 @@
-# headless service for node discovery
+# headless service for node discovery and client connecting
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,25 +13,26 @@ spec:
   ports:
   - name: transport
     port: 9300
+  - name: client
+    port: 9200
   clusterIP: None
 
 ---
-# service for accessing from outside cluster 
+# route for client service
 apiVersion: v1
-kind: Service
+kind: Route
 metadata:
   annotations:
-    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
-  labels:
-    app: es-client-instanceid
-  name: es-client-instanceid
+    openshift.io/host.generated: 'true'
+  name: es-route-instanceid
+  namespace: brokers
 spec:
-  selector:
-    app: es-node-instanceid
-  ports:
-  - name: http
-    port: 9200
-  type: NodePort
+  host: es-cluster-instanceid.ai-dev.asiainfo.com
+  port:
+    targetPort: client
+  to:
+    kind: Service
+    name: es-cluster-instanceid
 
 ---
 apiVersion: apps/v1beta1
@@ -59,7 +60,7 @@ spec:
         imagePullPolicy: Always
         env:
         - name: CLUSTER_NAME
-          value: es-test
+          value: es-instanceid
         - name: NODES_NUM
           value: "3"
         ports:
@@ -71,9 +72,9 @@ spec:
           name: transport
         volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
-              name: es-data
+              name: data
             - mountPath: /usr/share/elasticsearch/logs
-              name: es-logs
+              name: logs
             - mountPath: /etc/stinfo/
               name: stinfo
       volumes:
@@ -88,7 +89,7 @@ spec:
                   fieldPath: metadata.labels
   volumeClaimTemplates:
   - metadata:
-      name: es-data
+      name: data
       annotations:
           volume.beta.kubernetes.io/storage-class: gluster-dyn
     spec:
@@ -98,7 +99,7 @@ spec:
         requests:
           storage: 1Gi
   - metadata:
-      name: es-logs
+      name: logs
       annotations:
           volume.beta.kubernetes.io/storage-class: gluster-dyn
     spec:

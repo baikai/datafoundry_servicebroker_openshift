@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +17,8 @@ import (
 	kapiv1 "k8s.io/kubernetes/pkg/api/v1"
 
 	kapiv1b1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+
+	routeapi "github.com/openshift/origin/route/api/v1"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
@@ -90,31 +91,38 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	//instanceIdInTempalte   := instanceID // todo: ok?
 	logger.Debug("DoProvision(), instanceID is " + instanceID)
 	instanceIDInTemplate := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
+
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 	//srvUser := oshandler.NewElevenLengthID()
-	srvPassword := oshandler.GenGUID()
+	//srvPassword := oshandler.GenGUID()
 
 	serviceInfo.Url = instanceIDInTemplate
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	//serviceInfo.User = srvUser
-	serviceInfo.Password = srvPassword
+	//serviceInfo.Password = srvPassword
 
 	println()
 	println("instanceIDInTemplate = ", instanceIDInTemplate)
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
 
-	logger.Debug("DoProvision(), serviceInfo:" + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
+	logger.Debug("DoProvision(), serviceInfo: " + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
 		serviceInfo.Service_name)
 
+	// objects created for elastic search cluster
+	var output *esResources
+
 	go func() {
+
 		err := <-etcdSaveResult
+
 		if err != nil {
+			logger.Error("DoProvision(), etcd save failed before creating instance", err)
 			return
 		}
 
-		output, err := createInstance(instanceIDInTemplate, serviceBrokerNamespace, srvPassword)
+		logger.Debug("DoProvison(), before creating instance")
+		output, err = createInstance(instanceIDInTemplate, serviceBrokerNamespace)
 
 		if err != nil {
 			destroyEsResources(output, serviceBrokerNamespace)
@@ -122,6 +130,9 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 			return
 		}
 
+		logger.Debug("DoProvision(), to start orchestration job, statefulset name is " +
+			output.sts.Name + ", cluster service name is " + output.srvCluster.Name +
+			", route name is " + output.route.Name)
 		// todo: maybe it is better to create a new job
 
 		// todo: improve watch. Pod may be already running before watching!
@@ -138,7 +149,7 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	serviceSpec.DashboardURL = ""
 
 	//>>>
-	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, output)
 	//<<<
 
 	return serviceSpec, serviceInfo, nil
@@ -173,7 +184,7 @@ func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 		if sts == nil || sts.Name == "" || sts.Spec.Replicas == nil || sts.Status.Replicas < *sts.Spec.Replicas {
 			return false
 		}
-		n, _ := startRunningPodsByLabels(myServiceInfo.Database, sts.Labels)
+		n, _ := countRunningPodsByLabels(myServiceInfo.Database, sts.Labels)
 		println("n =", n)
 		return n >= *sts.Spec.Replicas
 	}
@@ -215,10 +226,7 @@ func (handler *SrvBrokerHandler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 			}
 		}
 
-		// ...
-
-		println("to destroy resources")
-
+		logger.Debug("DoDeprovision(), deprovision instance of " + myServiceInfo.Url + "," + myServiceInfo.Service_name)
 		esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 		destroySrvResources(esRes, myServiceInfo.Database)
 	}()
@@ -227,32 +235,27 @@ func (handler *SrvBrokerHandler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 }
 
 // please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, output *esResources) oshandler.Credentials {
 
 	var stsRes esResources
-	err := loadSrvResources(myServiceInfo.Url, myServiceInfo.Password, &stsRes)
+	err := loadSrvResources(myServiceInfo.Url, &stsRes)
 
 	if err != nil {
+		logger.Error("getCredentialsOnProvision(), failed to load resources", err)
 		return oshandler.Credentials{}
 	}
+	//stsRes = *output
 
-	clientPort := &stsRes.srvClient.Spec.Ports[0]
-
-	clusterName := "cluster-" + stsRes.sts.Name
+	clusterName := stsRes.sts.Name
 	host := fmt.Sprintf("%s.%s.%s", stsRes.sts.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(clientPort.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
+	url := fmt.Sprintf("%s", stsRes.route.Spec.Host)
 
-	logger.Debug("getCredentialsOnProvision(), load yaml templates successfully, " +
-		string(clientPort.Port) + "," + clusterName + "," + host + "," + port)
+	logger.Debug("getCredentialsOnProvision(), load yaml templates successfully, cluster name is " +
+		clusterName + "," + host)
 
 	return oshandler.Credentials{
-		Uri:      "",
+		Uri:      url,
 		Hostname: host,
-		Port:     port,
-		//Username: myServiceInfo.User,
-		Password: myServiceInfo.Password,
 		Name:     clusterName,
 	}
 }
@@ -268,21 +271,17 @@ func (handler *SrvBrokerHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	clientPort := &esRes.srvClient.Spec.Ports[0]
 	//if client_port == nil {
 	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
 	//}
 
 	cluserName := "cluster-" + esRes.sts.Name
-	host := fmt.Sprintf("%s.%s.%s", esRes.srvClient.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(clientPort.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
+	host := fmt.Sprintf("%s.%s.%s", esRes.route.Spec.Host, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 
 	mycredentials := oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
-		Port:     port,
+		//Port:     port,
 		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 		Name:     cluserName,
@@ -363,23 +362,26 @@ type watchPodStatus struct {
 
 func (job *srvOrchestrationJob) run() {
 	serviceInfo := job.serviceInfo
-	//pod := job.masterResources.pod
+
 	sts := &job.clusterRes.sts
+
+	logger.Debug("srvOrchestrationJob.run(), waiting for pods to be ready that belong to " +
+		job.clusterRes.sts.Name)
 
 	for {
 		if job.cancelled {
 			return
 		}
 
-		n, _ := startRunningPodsByLabels(serviceInfo.Database, sts.Labels)
+		n, _ := countRunningPodsByLabels(serviceInfo.Database, sts.Labels)
 
-		logger.Debug("srvOrchestrationJob.run(), statefulset.spec.Replicas=" +
-			string(int(*sts.Spec.Replicas)) + ", pods already running is " + string(int(n)))
+		logger.Debug("srvOrchestrationJob.run(), pods already running is " + string(int(n)))
 
 		if n < *sts.Spec.Replicas {
 			time.Sleep(10 * time.Second)
 		} else {
-			logger.Debug("srvOrchestrationJob.run(), " + string(int(n)) + " pods are running now.")
+			logger.Debug("srvOrchestrationJob.run(), statefulset.spec.Replicas=" +
+				string(int(*sts.Spec.Replicas)) + string(int(n)) + " pods are running now.")
 			break
 		}
 	}
@@ -392,10 +394,10 @@ func (job *srvOrchestrationJob) run() {
 		return
 	}
 
-	logger.Debug("srvOrchestrationJob.run(), pods are running now")
+	logger.Debug("srvOrchestrationJob.run(), statefulset " + sts.Name + " is ready now")
 
-	// create services here
 	job.createEsServices(serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
+
 }
 
 //=======================================================================
@@ -405,14 +407,16 @@ func (job *srvOrchestrationJob) run() {
 // EsTemplateData template data for service broker
 var EsTemplateData []byte
 
-func loadSrvResources(instanceID, srvPassword string, res *esResources) error {
+func loadSrvResources(instanceID string, res *esResources) error {
 	if EsTemplateData == nil {
 		f, err := os.Open("es-cluster.yaml")
 		if err != nil {
+			logger.Error("loadSrvResources(), failed to open es-cluster.yaml", err)
 			return err
 		}
 		EsTemplateData, err = ioutil.ReadAll(f)
 		if err != nil {
+			logger.Error("loadSrvResources(), failed to read template data", err)
 			return err
 		}
 
@@ -437,7 +441,7 @@ func loadSrvResources(instanceID, srvPassword string, res *esResources) error {
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 
-	decoder.Decode(&res.srvCluster).Decode(&res.srvClient).Decode(&res.sts)
+	decoder.Decode(&res.srvCluster).Decode(&res.route).Decode(&res.sts)
 
 	if decoder.Err != nil {
 		logger.Debug("loadSrvResources(), decode yaml template failed with error " + decoder.Err.Error())
@@ -447,16 +451,17 @@ func loadSrvResources(instanceID, srvPassword string, res *esResources) error {
 }
 
 // Deployment for elastic cluster includes 3 components, statefulset, service for cluster,
-// and service for connecting outside of cluster
+// and route for connecting outside of cluster
 type esResources struct {
 	sts        kapiv1b1.StatefulSet
-	srvClient  kapiv1.Service
 	srvCluster kapiv1.Service
+	route      routeapi.Route
+	pvcs       kapiv1.PersistentVolumeClaimList
 }
 
-func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*esResources, error) {
+func createInstance(instanceID, serviceBrokerNamespace string) (*esResources, error) {
 	var input esResources
-	err := loadSrvResources(instanceID, srvPassword, &input)
+	err := loadSrvResources(instanceID, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -478,6 +483,11 @@ func createInstance(instanceID, serviceBrokerNamespace, srvPassword string) (*es
 		logger.Debug("createInstance(), create statefulset succeed, name is " + output.sts.Name)
 	}
 
+	// here, output.sts is assigned value from response, however, other objects such as services
+	// are not assigned value. So need to assign value from input.
+	output.srvCluster = input.srvCluster
+	output.route = input.route
+
 	return &output, osr.Err
 }
 
@@ -485,7 +495,7 @@ func getEsResources(instanceID, serviceBrokerNamespace, srvPassword string) (*es
 	var output esResources
 
 	var input esResources
-	err := loadSrvResources(instanceID, srvPassword, &input)
+	err := loadSrvResources(instanceID, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -505,48 +515,45 @@ func getEsResources(instanceID, serviceBrokerNamespace, srvPassword string) (*es
 func destroyEsResources(srvRes *esResources, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	//go func() {kdel (serviceBrokerNamespace, "pods", masterRes.pod.Name)}()
+	// delete statefulset only
 	go func() { kdelSts(serviceBrokerNamespace, &srvRes.sts) }()
 }
 
 func (job *srvOrchestrationJob) createEsServices(instanceID, serviceBrokerNamespace, srvPassword string) error {
 
-	var input esResources
-	err := loadSrvResources(instanceID, srvPassword, &input)
-	if err != nil {
-		return err
-	}
-
 	var output esResources
 
 	logger.Debug("createEsServices(), prepare to create services for es-cluster " + instanceID)
 
-	/* It's a little wired that job took nothing and need to reload resources again
-
-	logger.Debug("createEsServices(), " + job.clusterRes.srvCluster.Name + "," +
-		job.clusterRes.srvCluster.Kind + "," + job.clusterRes.srvCluster.Labels["app"] + "," +
-		string(job.clusterRes.srvCluster.Spec.Type))
-	*/
-
 	go func() {
-		if err := job.kpost(serviceBrokerNamespace, "services", &input.srvCluster, &output.srvCluster); err != nil {
+		logger.Debug("createEsServices(), to create cluster services, name is " +
+			job.clusterRes.srvCluster.Name + ", label is " +
+			job.clusterRes.srvCluster.Labels["app"])
+		if err := job.kpost(serviceBrokerNamespace, "services", job.clusterRes.srvCluster, &output.srvCluster); err != nil {
 			logger.Debug("createEsServices(), create cluster service failed with " + err.Error())
 			return
 		}
-		if err := job.kpost(serviceBrokerNamespace, "services", &input.srvClient, &output.srvClient); err != nil {
-			logger.Debug("createEsServices(), create client service failed with " + err.Error())
+		job.clusterRes.srvCluster = output.srvCluster
+
+		logger.Debug("createEsServices(), to create route for cluster service, name is " +
+			job.clusterRes.route.Name + ", label is " + job.clusterRes.route.Labels["app"] +
+			", host is " + job.clusterRes.route.Spec.Host)
+		if err := job.opost(serviceBrokerNamespace, "routes", job.clusterRes.route, &output.route); err != nil {
+			logger.Debug("createEsServices(), create route failed with " + err.Error())
 			return
 		}
+		job.clusterRes.route = output.route
+
 	}()
 
 	return nil
 }
 
-func getSrvResources(instanceID, serviceBrokerNamespace, redisPassword string) (*esResources, error) {
+func getSrvResources(instanceID, serviceBrokerNamespace, srvPassword string) (*esResources, error) {
 	var output esResources
 
 	var input esResources
-	err := loadSrvResources(instanceID, redisPassword, &input)
+	err := loadSrvResources(instanceID, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -555,27 +562,48 @@ func getSrvResources(instanceID, serviceBrokerNamespace, redisPassword string) (
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		KGet(prefix+"/services/"+input.srvClient.Name, &output.srvClient).
 		KGet(prefix+"/services/"+input.srvCluster.Name, &output.srvCluster).
-		Kv1b1Get(prefix+"/statefulsets/"+input.sts.Name, &output.sts)
+		OGet(prefix+"/routes/"+input.route.Name, &output.route).
+		Kv1b1Get(prefix+"/statefulsets/"+input.sts.Name, &output.sts).
+		KList(prefix+"/persistentvolumeclaims/", input.sts.Labels, &output.pvcs)
 
 	if osr.Err != nil {
 		logger.Error("getSrvResources(), retrieving resources failed, ", osr.Err)
 	}
 
+	logger.Debug("getSrvResources(), cluster service, " + output.srvCluster.Name + "," + output.srvCluster.Kind)
+	logger.Debug("getSrvResources(), route, " + output.route.Name + "," + output.route.Kind)
+	logger.Debug("getSrvResources(), statefulset, " + output.sts.Name + "," + output.sts.Kind)
+	// display all persistent volume claim
+	listPvcs(&output.pvcs)
 	return &output, osr.Err
+}
+
+func listPvcs(pvcs *kapiv1.PersistentVolumeClaimList) {
+	var msg string
+	for _, pvc := range pvcs.Items {
+		msg += pvc.Name + "\n"
+	}
+	logger.Debug("listPvcs(), pvc is " + msg)
 }
 
 func destroySrvResources(esRes *esResources, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel(serviceBrokerNamespace, "services", esRes.srvClient.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", esRes.srvCluster.Name) }()
+	go func() { odel(serviceBrokerNamespace, "routes", esRes.route.Name) }()
 	go func() { kdelSts(serviceBrokerNamespace, &esRes.sts) }()
+	// disclaim persistent volume claims
+	go func() {
+		for _, pvc := range esRes.pvcs.Items {
+			logger.Debug("destroySrvResources(), pvc to be deleted is " + pvc.Name)
+			kdel(serviceBrokerNamespace, "persistentvolumeclaims", pvc.Name)
+		}
+	}()
 }
 
 //===============================================================
-//
+//node
 //===============================================================
 
 func (job *srvOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
@@ -637,14 +665,21 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
-
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
+
+	logger.Debug("kdel(), to delete object " + uri)
+
 RETRY:
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KDelete(uri, nil)
+	var osr *oshandler.OpenshiftREST
+	if typeName == "statefulsets" {
+		osr = oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Delete(uri, nil)
+	} else {
+		osr = oshandler.NewOpenshiftREST(oshandler.OC()).KDelete(uri, nil)
+	}
+
 	if osr.Err == nil {
-		logger.Info("delete " + uri + " succeeded")
+		logger.Info("kdel(), delete " + uri + " succeeded")
 	} else {
 		i++
 		if i < n {
@@ -700,7 +735,6 @@ func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 	uri := "/namespaces/" + serviceBrokerNamespace + "/statefulsets/" + sts.Name
 
 	// scale down to 0 firstly
-
 	var zero int32
 	sts.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, sts, nil)
@@ -710,7 +744,6 @@ func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 	}
 
 	// start watching stateful status
-
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
 		logger.Error("start watching HA rc", err)
@@ -722,11 +755,11 @@ func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA redis rc error", status.Err)
+				logger.Error("watch es-cluster statefulset error", status.Err)
 				close(cancel)
 				return
 			}
-			//else {
+			//else {dfProxyApiPrefix
 			//logger.Debug("watch redis HA rc, status.Info: " + string(status.Info))
 			//}
 
@@ -745,6 +778,7 @@ func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 		// ...
 
 		kdel(serviceBrokerNamespace, "statefulset", sts.Name)
+
 	}()
 
 	return
@@ -757,9 +791,9 @@ type watchReplicationControllerStatus struct {
 	Object kapiv1.ReplicationController `json:"object"`
 }
 
-func startRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int32, error) {
+func countRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int32, error) {
 
-	logger.Debug("startRunningPodsByLabels(), list pods in " + serviceBrokerNamespace)
+	logger.Debug("countRunningPodsByLabels(), list pods in " + serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -783,7 +817,7 @@ func startRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]s
 		}
 	}
 
-	logger.Debug("startRunningPodsByLabels(), pods already running is " + string(nrunnings))
+	logger.Debug("countRunningPodsByLabels(), pods already running is " + string(int(nrunnings)))
 
 	return nrunnings, nil
 }
