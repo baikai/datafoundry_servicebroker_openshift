@@ -314,7 +314,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 		// run redis-trib.rb: create cluster
 		//err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, outputs) // bug: svc in outoupt is void
-		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, redisPassword)
+		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numPeers, redisPassword)
 		if err != nil {
 			println(" redis initRedisMasterSlots error: ", err)
 			logger.Error("redis initRedisMasterSlots error", err)
@@ -587,7 +587,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		// add new nodes to cluster and rebalance
 		
-		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, oldPeers, oldNumNodes)
+		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, oldPeers, newNumNodes)
 		if err != nil {
 			println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err.Error())
 			fmt.Println("DoUpdate: redis addRedisMasterNodeAndRebalance error: ", err)
@@ -753,9 +753,18 @@ func collectAnnounceInfos(nodePorts []*redisResources_Peer) []redisAnnounceInfo 
 	return announces
 }
 
+func redisTribPodNameSuffix(numNodes int) string {
+	return fmt.Sprintf("-%d", numNodes)
+}
+
+// to use ...
+func deleteRedisTribPod(serviceBrokerNamespace, instanceId string, numNodes int) {
+	kdel(serviceBrokerNamespace, "pods", "redis-trib-"+instanceId+redisTribPodNameSuffix(numNodes))
+}
+
 var redisTribYamlTemplate = template.Must(template.ParseFiles("redis-cluster-trib.yaml"))
 
-func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string, oldNumNodes int) error {
+func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string, newNumNodes int) error {
 
 	var params = map[string]interface{}{
 		"InstanceID":    instanceId,
@@ -763,7 +772,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 		"Command":       command,
 		"Arguments":     args,
 		"ScriptContent": customScript,
-		"OldNumNodes":   fmt.Sprintf("-%d", oldNumNodes),
+		"PodNameSuffix": redisTribPodNameSuffix(newNumNodes),
 	}
 
 	var buf bytes.Buffer
@@ -787,7 +796,7 @@ func getPeerAddr(peer *redisResources_Peer) string {
 	return ip+":"+port
 }
 
-func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, password string) error {
+func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numMasters int, password string) error {
 	cmd := "ruby"
 	args := make([]string, 0, 100)
 	if password != "" {
@@ -802,10 +811,10 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 	for _, res := range peers {
 		args = append(args, getPeerAddr(res))
 	}
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", 0)
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", numMasters)
 }
 
-func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, oldPeers []*redisResources_Peer, oldNumNodes int) error {
+func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, oldPeers []*redisResources_Peer, newNumNodes int) error {
 
 	var oldPeerAddr string
 	
@@ -825,7 +834,7 @@ func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, n
 	script += ">&2 echo ============== rebalance done. ==============\n\n"
 	
 	cmd := "/usr/local/bin/run-custom-script.sh"
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, oldNumNodes)
+	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, newNumNodes)
 }	
 
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {

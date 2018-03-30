@@ -844,15 +844,15 @@ func deleteRedisTribPod(serviceBrokerNamespace, instanceId string, numMasters, n
 
 var redisTribYamlTemplate = template.Must(template.ParseFiles("redis-cluster-trib.yaml"))
 
-func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string, oldNumMasters, oldNumReplicas int) error {
+func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []string, customScript string, newNumMasters, newNumReplicas int) error {
 
 	var params = map[string]interface{}{
-		"InstanceID":     instanceId,
-		"Image":          oshandler.RedisClusterTribImage(),
-		"Command":        command,
-		"Arguments":      args,
-		"ScriptContent":  customScript,
-		"PodNameSuffix":  redisTribPodNameSuffix(oldNumMasters, oldNumReplicas),
+		"InstanceID":    instanceId,
+		"Image":         oshandler.RedisClusterTribImage(),
+		"Command":       command,
+		"Arguments":     args,
+		"ScriptContent": customScript,
+		"PodNameSuffix": redisTribPodNameSuffix(newNumMasters, newNumReplicas),
 	}
 
 	var buf bytes.Buffer
@@ -864,7 +864,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 	var pod kapi.Pod
 	oshandler.NewYamlDecoder(buf.Bytes()).Decode(&pod)
 
-	println(string(buf.Bytes()))
+	//println(string(buf.Bytes()))
 
 	return kpost(serviceBrokerNamespace, "pods", &pod, nil)
 }
