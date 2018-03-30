@@ -224,7 +224,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	//serviceInfo.User = redisUser
-	//serviceInfo.Password = redisPassword
+	serviceInfo.Password = redisPassword
 
 	serviceInfo.Volumes = volumes
 	serviceInfo.Miscs = map[string]string{}
