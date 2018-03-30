@@ -187,7 +187,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		println("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
 	}
 
-	println("new redis cluster parameters: numPeers=", numPeers, ", containerMemory=", containerMemory, "Mi")
+	println("new redis cluster parameters: numPeers=", numPeers, ", containerMemory=", containerMemory, "Mi, enableAuth=", enableAuth)
 
 	//if asyncAllowed == false {
 	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
