@@ -1,5 +1,48 @@
 
 
+### Supported API Parameters And Custom Options For `Redis_volumes_cluster_with_replicas` and `Redis_volumes_cluster` Plans
+
+Parameters:
+* `ATTR_enable_auth`: enable auth or not. Enable if the value is "yes", "true" or "1".
+
+Custom Options (`replicas` is only for Redis_volumes_cluster_with_replicas):
+```
+"customize": {
+	"nodes": {
+		"default":3,
+		"max":5,
+		"price":100000000,
+		"unit":"nodes",
+		"step":1,
+		"desc":"Redis集群node数量"
+	},
+	"memory": {
+		"default":0.1,
+		"max":2,
+		"price":10000000,
+		"unit":"GB",
+		"step":0.1,
+		"desc":"Redis集群节点内存设置"
+	},
+	"volumeSize": {
+		"default":1,
+		"max":10,
+		"price":10000000,
+		"unit":"GB",
+		"step":1,
+		"desc":"Redis挂卷大小设置"
+	},
+	"replicas": {
+		"default":1,
+		"max":3,
+		"price":100000000,
+		"unit":"replicas",
+		"step":1,
+		"desc":"Redis集群slaves/master数量"
+	}
+}
+```
+
 ### Supported API Parameters And Custom Options For `Storm_external_standalone` Plan
 
 Parameters:

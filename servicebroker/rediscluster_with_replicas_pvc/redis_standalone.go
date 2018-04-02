@@ -848,7 +848,7 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 
 	var params = map[string]interface{}{
 		"InstanceID":    instanceId,
-		"Image":         oshandler.RedisClusterTribImage(),
+		"Image":         oshandler.RedisClusterImage(), // oshandler.RedisClusterTribImage(),
 		"Command":       command,
 		"Arguments":     args,
 		"ScriptContent": customScript,
