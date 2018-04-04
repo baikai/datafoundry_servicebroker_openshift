@@ -27,7 +27,7 @@ metadata:
   name: es-route-instanceid
   namespace: brokers
 spec:
-  host: es-cluster-instanceid.ai-dev.asiainfo.com
+  host: es-cluster-instanceid.endpoint-postfix-place-holder
   port:
     targetPort: client
   to:
@@ -42,11 +42,12 @@ metadata:
   labels:
     app: es-node-instanceid
 spec:
-  replicas: 3
+  replicas: replica_num
   selector:
     matchLabels:
       app: es-node-instanceid
-  serviceName: "es-cluster"
+  #noted: serviceName is the real service name
+  serviceName: "es-cluster-instanceid"
   template:
     metadata:
       labels:
@@ -62,7 +63,9 @@ spec:
         - name: CLUSTER_NAME
           value: es-instanceid
         - name: NODES_NUM
-          value: "3"
+          value: replica_num
+        - name: SRVNAME
+          value: es-cluster-instanceid
         ports:
         - containerPort: 9200
           protocol: TCP
@@ -70,23 +73,15 @@ spec:
         - containerPort: 9300
           protocol: TCP
           name: transport
+#        resources:
+#          requests:
+#            memory: mem-size
+#            cpu: cpu-size
         volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: data
             - mountPath: /usr/share/elasticsearch/logs
               name: logs
-            - mountPath: /etc/stinfo/
-              name: stinfo
-      volumes:
-        - name: stinfo
-          downwardAPI:
-            items:
-              - path: "annotations"
-                fieldRef:
-                 fieldPath: metadata.annotations
-              - path: "labels"
-                fieldRef:
-                  fieldPath: metadata.labels
   volumeClaimTemplates:
   - metadata:
       name: data
@@ -97,7 +92,7 @@ spec:
       persistentVolumeReclaimPolicy: delete
       resources:
         requests:
-          storage: 1Gi
+          storage: disk-size
   - metadata:
       name: logs
       annotations:
@@ -107,4 +102,4 @@ spec:
       persistentVolumeReclaimPolicy: delete
       resources:
         requests:
-          storage: 1Gi
+          storage: disk-size
