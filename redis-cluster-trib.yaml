@@ -4,7 +4,8 @@ metadata:
   labels:
     redis-cluster-instance-id: {{ .InstanceID }}
     redis-trib: {{ .InstanceID }}
-  name: redis-trib-{{ .InstanceID }}{{ .OldNumNodes }}
+  name: redis-trib-{{ .InstanceID }}{{ .PodNameSuffix }}
+  # changes of the name format should be reflected into code of DoDeprovision.
 spec:
   containers:
   - name: redis-trib

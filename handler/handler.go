@@ -34,8 +34,10 @@ const (
 	Connections = "connections"
 	// redis cluster, ...
 	Nodes = "nodes"
-	// redis cluster
+	// redis cluster, storem external, ...
 	Memory = "memory"
+	// redis cluster, ...
+	Replicas = "replicas"
 )
 
 type ServiceInfo struct {
@@ -346,9 +348,9 @@ func RedisClusterImage() string {
 	return redisClusterImage
 }
 
-func RedisClusterTribImage() string {
-	return redisClusterTribImage
-}
+//func RedisClusterTribImage() string {
+//	return redisClusterTribImage
+//}
 
 func KafkaImage() string {
 	return kafkaImage
@@ -470,7 +472,7 @@ var zookeeperexhibitorImage string
 var redisImage string
 var redis32Image string
 var redisClusterImage string
-var redisClusterTribImage string
+//var redisClusterTribImage string // merged into redisClusterImage
 var redisphpadminImage string
 var kafkaImage string
 var stormImage string
@@ -527,7 +529,7 @@ func init() {
 	redisImage = getenv("REDISIMAGE")
 	redis32Image = getenv("REDIS32IMAGE")
 	redisClusterImage = getenv("REDISCLUSTERIMAGE")
-	redisClusterTribImage = getenv("REDISCLUSTERTRIBIMAGE")
+	//redisClusterTribImage = getenv("REDISCLUSTERTRIBIMAGE")
 	redisphpadminImage = getenv("REDISPHPADMINIMAGE")
 	kafkaImage = getenv("KAFKAIMAGE")
 	stormImage = getenv("STORMIMAGE")

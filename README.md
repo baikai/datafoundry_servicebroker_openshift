@@ -1,28 +1,81 @@
 
-# datafoundry_servicebroker_openshift
 
-need golang 1.6+ to build and run
+### Supported API Parameters And Custom Options For `Redis_volumes_cluster_with_replicas` and `Redis_volumes_cluster` Plans
 
-# install
+Parameters:
+* `ATTR_enable_auth`: enable auth or not. Enable if the value is "yes", "true" or "1".
 
-oc login ...
-oc project servicebrokers-openshift
-oc new-build https://github.com/asiainfoLDP/etcd-openshift-orchestration 
-oc new-build https://github.com/asiainfoLDP/zookeeper-openshift-orchestration --context-dir='image'
+Custom Options (`replicas` is only for Redis_volumes_cluster_with_replicas):
+```
+"customize": {
+	"nodes": {
+		"default":3,
+		"max":5,
+		"price":100000000,
+		"unit":"nodes",
+		"step":1,
+		"desc":"Redis集群node数量"
+	},
+	"memory": {
+		"default":0.1,
+		"max":2,
+		"price":10000000,
+		"unit":"GB",
+		"step":0.1,
+		"desc":"Redis集群节点内存设置"
+	},
+	"volumeSize": {
+		"default":1,
+		"max":10,
+		"price":10000000,
+		"unit":"GB",
+		"step":1,
+		"desc":"Redis挂卷大小设置"
+	},
+	"replicas": {
+		"default":1,
+		"max":3,
+		"price":100000000,
+		"unit":"replicas",
+		"step":1,
+		"desc":"Redis集群slaves/master数量"
+	}
+}
+```
 
-oc new-app --name servicebroker-openshift https://github.com/asiainfoLDP/datafoundry_servicebroker_openshift#develop \
-    -e  ETCDENDPOINT="..."  \
-    -e  ETCDUSER="..." \
-    -e  ETCDPASSWORD="..." \
-    -e  BROKERPORT="8888"  \
-    -e  OPENSHIFTADDR="..."  \
-    -e  OPENSHIFTUSER="...."   \
-    -e  OPENSHIFTPASS="..."  \
-    -e  DATAFOUNDRYPROXYADDR="..." \
-    -e  SBNAMESPACE="servicebrokers-openshift"   \
-    -e  ETCDIMAGE="servicebrokers-openshift/etcd-openshift-orchestration"   \
-    -e  ZOOKEEPERIMAGE="servicebrokers-openshift/zookeeper-openshift-orchestration"   \
-    -e  ENDPOINTSUFFIX="..."
+### Supported API Parameters And Custom Options For `Storm_external_standalone` Plan
 
-ENDPOINTSUFFIX: the suffix of routes
+Parameters:
+* `ATTR_krb5conf`: content of `/etc/krb5.conf`, must be base64 encoded.
+* `ATTR_kafkaclient-keytab`: content of `/etc/security/keytabs/storm.headless.keytab`, must be base64 encoded.
+* `ATTR_kafkaclient-service-name`: value of `serviceName` in `storm_jaas.conf`.
+* `ATTR_kafkaclient-principal`: value of `principal` in `storm_jaas.conf`.
+
+Custom Options:
+```
+"customize": {
+    "supervisors": {
+        "default":2,
+        "max":10,
+        "unit":"个",
+        "step":1,
+        "desc":"Storm集群supervisor数量"
+    },
+    "memory": {
+        "default":0.5,
+        "max":32,
+        "unit":"GB",
+        "step":0.1,
+        "desc":"Storm集群supervisor节点内存设置"
+    },
+    "workers": {
+        "default":4,
+        "max":30,
+        "unit":"个",
+        "step":1,
+        "desc":"每个supervisor上的worker数量"
+    }
+}
+```
+
 
