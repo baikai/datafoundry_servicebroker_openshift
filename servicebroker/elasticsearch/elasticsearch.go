@@ -110,7 +110,7 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 
 	// retrieve parameters for constructing the cluster
 
-	var replicas, volsize string
+	var paras podParas
 	/*
 		if cpu, ok := details.Parameters["cpu"].(string); ok {
 			logger.Debug("DoProvision(), cpu=" + cpu)
@@ -123,18 +123,18 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 			logger.Debug("DoProvision(), memory information missed")
 		}
 	*/
-	if replicas, ok := details.Parameters["replicas"].(int); ok {
-		logger.Debug("DoProvision(), replicas=" + strconv.Itoa(replicas))
+	if replicas, ok := details.Parameters["replicas"].(string); ok {
+		logger.Debug("DoProvision(), replicas=" + replicas)
+		paras.replicas = replicas
 	} else {
 		logger.Debug("DoProvision(), replicas information missed")
 	}
 	if volsize, ok := details.Parameters["volume"].(string); ok {
 		logger.Debug("DoProvision(), volume size=" + volsize)
+		paras.disk = volsize
 	} else {
 		logger.Debug("DoProvision, volume size missed")
 	}
-
-	paras := podParas{replicas, volsize}
 
 	println()
 	println("instanceIDInTemplate = ", instanceIDInTemplate)
@@ -205,15 +205,8 @@ func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 
 	// the job may be finished or interrupted or running in another instance.
 
-	//master_res, _ := getRedisResources_Master (myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(sts *kapiv1b1.StatefulSet) bool {
 		println("rc.Name =", sts.Name)
 		if sts == nil || sts.Name == "" || sts.Spec.Replicas == nil || sts.Status.Replicas < *sts.Spec.Replicas {
@@ -279,11 +272,11 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, output *esR
 		logger.Error("getCredentialsOnProvision(), failed to load resources", err)
 		return oshandler.Credentials{}
 	}
-	//stsRes = *output
 
 	clusterName := stsRes.sts.Name
-	host := fmt.Sprintf("%s.%s.%s", stsRes.sts.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	//host := fmt.Sprintf("%s.%s.%s", stsRes.sts.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	url := fmt.Sprintf("%s", stsRes.route.Spec.Host)
+	host := url
 
 	logger.Debug("getCredentialsOnProvision(), load yaml templates successfully, cluster name is " +
 		clusterName + "," + host)
@@ -299,8 +292,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, output *esR
 func (handler *SrvBrokerHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	// master_res may has been shutdown normally.
-
 	esRes, err := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
@@ -311,15 +302,17 @@ func (handler *SrvBrokerHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 	//}
 
 	cluserName := "cluster-" + esRes.sts.Name
-	host := fmt.Sprintf("%s.%s.%s", esRes.route.Spec.Host, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	// host := fmt.Sprintf("%s.%s.%s", esRes.route.Spec.Host, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	url := fmt.Sprintf("%s", esRes.route.Spec.Host)
+	host := url
 
 	mycredentials := oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
 		//Port:     port,
 		//Username: myServiceInfo.User,
-		Password: myServiceInfo.Password,
-		Name:     cluserName,
+		//Password: myServiceInfo.Password,
+		Name: cluserName,
 	}
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
@@ -417,13 +410,13 @@ func (job *srvOrchestrationJob) run() {
 
 		n, _ := countRunningPodsByLabels(serviceInfo.Database, sts.Labels)
 
-		logger.Debug("srvOrchestrationJob.run(), pods already running is " + string(int(n)))
+		logger.Debug("srvOrchestrationJob.run(), pods already running is " + strconv.Itoa(int(n)))
 
 		if n < *sts.Spec.Replicas {
 			time.Sleep(10 * time.Second)
 		} else {
 			logger.Debug("srvOrchestrationJob.run(), statefulset.spec.Replicas=" +
-				string(int(*sts.Spec.Replicas)) + string(int(n)) + " pods are running now.")
+				strconv.Itoa(int(*sts.Spec.Replicas)) + ", " + strconv.Itoa(int(n)) + " pods are running now.")
 			break
 		}
 	}
@@ -457,8 +450,11 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 		EsTemplateData, err = ioutil.ReadAll(f)
 		if err != nil {
 			logger.Error("loadSrvResources(), failed to read template data", err)
+			f.Close()
 			return err
 		}
+
+		f.Close()
 
 		esImage := oshandler.EsclusterImage()
 		esImage = strings.TrimSpace(esImage)
@@ -480,29 +476,39 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 				-1)
 		}
 
+		var repn, volsize string
 		if paras != nil {
 			rep, err := strconv.Atoi(paras.replicas)
-			if err != nil || rep <= 1 {
-				logger.Error("loadSrvResources(), replicas passed in is "+paras.replicas+
-					", set replicas to default value 3", err)
+			logger.Debug("loadSrvResources(), replicas passed in is " + strconv.Itoa(rep))
+			if rep <= 1 {
+				logger.Error("loadSrvResources(), replicas passed in is invalid, set replicas to default value 3", err)
 				// set replicas to default value
 				rep = 3
 
 			}
+			volsize = paras.disk
+			repn = paras.replicas
+			logger.Debug("loadSrvResources(), replicas=" + paras.replicas + ",disk=" + paras.disk)
+
+		} else {
+			repn = "0"
+			volsize = "0"
+		}
+		EsTemplateData = bytes.Replace(
+			EsTemplateData,
+			[]byte("replica-num"),
+			[]byte(repn),
+			-1)
+
+		if len(paras.disk) > 0 {
 			EsTemplateData = bytes.Replace(
 				EsTemplateData,
-				[]byte("replica_num"),
-				[]byte(string(rep)),
+				[]byte("disk-size"),
+				[]byte(volsize),
 				-1)
-
-			if len(paras.disk) > 0 {
-				EsTemplateData = bytes.Replace(
-					EsTemplateData,
-					[]byte("disk_size"),
-					[]byte(paras.disk),
-					-1)
-			}
 		}
+
+		logger.Debug("loadSrvResources(), loaded yaml templates")
 	}
 
 	yamlTemplates := EsTemplateData
@@ -565,34 +571,11 @@ func createInstance(instanceID, serviceBrokerNamespace string, paras *podParas) 
 	return &output, osr.Err
 }
 
-/*
-func getEsResources(instanceID, serviceBrokerNamespace, srvPassword string) (*esResources, error) {
-	var output esResources
-
-	var input esResources
-	err := loadSrvResources(instanceID, &input)
-	if err != nil {
-		return &output, err
-	}
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
-	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.Kv1b1Get(prefix+"/statefulsets/"+input.sts.Name, &output.sts)
-
-	if osr.Err != nil {
-		logger.Error("getSrvResources", osr.Err)
-	}
-
-	return &output, osr.Err
-}
-*/
-
 func destroyEsResources(srvRes *esResources, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
 	// delete statefulset only
-	go func() { kdelSts(serviceBrokerNamespace, &srvRes.sts) }()
+	go func() { kdelSts(serviceBrokerNamespace, &srvRes.sts, &srvRes.pvcs) }()
 }
 
 func (job *srvOrchestrationJob) createEsServices(instanceID, serviceBrokerNamespace, srvPassword string) error {
@@ -629,6 +612,7 @@ func getSrvResources(instanceID, serviceBrokerNamespace, srvPassword string) (*e
 	var output esResources
 
 	var input esResources
+
 	err := loadSrvResources(instanceID, &input, nil)
 	if err != nil {
 		return &output, err
@@ -668,14 +652,9 @@ func destroySrvResources(esRes *esResources, serviceBrokerNamespace string) {
 
 	go func() { kdel(serviceBrokerNamespace, "services", esRes.srvCluster.Name) }()
 	go func() { odel(serviceBrokerNamespace, "routes", esRes.route.Name) }()
-	go func() { kdelSts(serviceBrokerNamespace, &esRes.sts) }()
-	// disclaim persistent volume claims
-	go func() {
-		for _, pvc := range esRes.pvcs.Items {
-			logger.Debug("destroySrvResources(), pvc to be deleted is " + pvc.Name)
-			kdel(serviceBrokerNamespace, "persistentvolumeclaims", pvc.Name)
-		}
-	}()
+	// need to delete pvcs after pods are deleted successully
+	go func() { kdelSts(serviceBrokerNamespace, &esRes.sts, &esRes.pvcs) }()
+
 }
 
 //===============================================================
@@ -797,14 +776,12 @@ RETRY:
 	return nil
 }
 
-func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
+func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet, pvcs *kapiv1.PersistentVolumeClaimList) {
 	// looks pods will be auto deleted when rc is deleted.
 
 	if sts == nil || sts.Name == "" {
 		return
 	}
-
-	println("to delete statefulset ", sts.Name)
 
 	logger.Debug("kdelSts(), to delete statefulset " + sts.Name)
 
@@ -820,9 +797,9 @@ func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 	}
 
 	// start watching stateful status
-	statuses, cancel, err := oshandler.OC().KWatch(uri)
+	statuses, cancel, err := oshandler.OC().Kv1b1Watch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("start watching statefulset "+sts.Name, err)
 		return
 	}
 
@@ -839,32 +816,39 @@ func kdelSts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 			//logger.Debug("watch redis HA rc, status.Info: " + string(status.Info))
 			//}
 
-			var wrcs watchReplicationControllerStatus
-			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+			var wsts watchStatefulsetStatus
+			if err := json.Unmarshal(status.Info, &wsts); err != nil {
+				logger.Error("parse statefulset status", err)
 				close(cancel)
 				return
 			}
 
-			if wrcs.Object.Status.Replicas <= 0 {
+			if wsts.Object.Status.Replicas <= 0 {
 				break
 			}
 		}
 
 		// ...
 
-		kdel(serviceBrokerNamespace, "statefulset", sts.Name)
+		if err := kdel(serviceBrokerNamespace, "statefulsets", sts.Name); err != nil {
+			logger.Error("kdelSts(), delete statefulset failed", err)
+		}
+
+		logger.Debug("kdelSts(), statefulset " + sts.Name + " deleted successfully. Start to release persistent storage ")
+		for _, pvc := range pvcs.Items {
+			kdel(serviceBrokerNamespace, "persistentvolumeclaims", pvc.Name)
+		}
 
 	}()
 
 	return
 }
 
-type watchReplicationControllerStatus struct {
+type watchStatefulsetStatus struct {
 	// The type of watch update contained in the message
 	Type string `json:"type"`
-	// RC details
-	Object kapiv1.ReplicationController `json:"object"`
+	// Statefulset details
+	Object kapiv1b1.StatefulSet `json:"object"`
 }
 
 func countRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int32, error) {
@@ -877,7 +861,7 @@ func countRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]s
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
 	if osr.Err != nil {
-		logger.Error("startRunningPodsByLabels(), list pods failed with err "+osr.Err.Error(), osr.Err)
+		logger.Error("countRunningPodsByLabels(), list pods failed with err "+osr.Err.Error(), osr.Err)
 		return 0, osr.Err
 	}
 
@@ -893,7 +877,7 @@ func countRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]s
 		}
 	}
 
-	logger.Debug("countRunningPodsByLabels(), pods already running is " + string(int(nrunnings)))
+	logger.Debug("countRunningPodsByLabels(), pods already running is " + strconv.Itoa(int(nrunnings)))
 
 	return nrunnings, nil
 }

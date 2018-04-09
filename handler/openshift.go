@@ -369,6 +369,11 @@ func (osr *OpenshiftREST) Kv1b1Put(uri string, body interface{}, into interface{
 	return osr.doRequest(true, "PUT", osr.oc.kapiV1B1Url+uri, body, into)
 }
 
+// Kv1b1Watch --- api for watching objects defined in v1beta1
+func (oc *OpenshiftClient) Kv1b1Watch(uri string) (<-chan WatchStatus, chan<- struct{}, error) {
+	return oc.doWatch(oc.kapiV1B1Url + "/watch" + uri)
+}
+
 //===============================================================
 //
 //===============================================================

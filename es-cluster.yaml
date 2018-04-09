@@ -42,7 +42,7 @@ metadata:
   labels:
     app: es-node-instanceid
 spec:
-  replicas: replica_num
+  replicas: replica-num
   selector:
     matchLabels:
       app: es-node-instanceid
@@ -63,7 +63,7 @@ spec:
         - name: CLUSTER_NAME
           value: es-instanceid
         - name: NODES_NUM
-          value: replica_num
+          value: "replica-num"
         - name: SRVNAME
           value: es-cluster-instanceid
         ports:
