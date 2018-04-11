@@ -23,6 +23,8 @@ import (
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 
+	"net/http"
+	"crypto/tls"
 )
 
 //==============================================================
@@ -73,6 +75,13 @@ func (handler *Dataiku_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInf
 //==============================================================
 //
 //==============================================================
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	},
+	Timeout:   0,
+}
+
 
 type Dataiku_Handler struct {
 }
@@ -159,16 +168,22 @@ func (handler *Dataiku_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 	// todo: check if http get dashboard request is ok
 
 	if ok(&master_res.rc) {
-		return brokerapi.LastOperation{
-			State:       brokerapi.Succeeded,
-			Description: "Succeeded!",
-		}, nil
-	} else {
-		return brokerapi.LastOperation{
-			State:       brokerapi.InProgress,
-			Description: "In progress.",
-		}, nil
+		req, _ := http.NewRequest("GET", "http://"+master_res.route.Spec.Host, nil)
+		request,_ :=httpClient.Do(req)
+		defer request.Body.Close()
+		if request.StatusCode == 200{
+			return brokerapi.LastOperation{
+				State:       brokerapi.Succeeded,
+				Description: "Succeeded!",
+			}, nil
+
+		}
 	}
+	return brokerapi.LastOperation{
+		State:       brokerapi.InProgress,
+		Description: "In progress.",
+	}, nil
+
 }
 
 func (handler *Dataiku_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
