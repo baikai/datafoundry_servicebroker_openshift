@@ -30,6 +30,8 @@ import (
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"net/http"
+	"crypto/tls"
 )
 
 //==============================================================
@@ -46,6 +48,13 @@ func init() {
 }
 
 var logger lager.Logger
+
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	},
+	Timeout:   0,
+}
 
 //==============================================================
 //
@@ -174,16 +183,21 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 	// todo: check if http get dashboard request is ok
 
 	if ok(&master_res.rc) {
-		return brokerapi.LastOperation{
-			State:       brokerapi.Succeeded,
-			Description: "Succeeded!",
-		}, nil
-	} else {
-		return brokerapi.LastOperation{
-			State:       brokerapi.InProgress,
-			Description: "In progress.",
-		}, nil
+		req, _ := http.NewRequest("GET", "http://"+master_res.route.Spec.Host, nil)
+		request,_ :=httpClient.Do(req)
+		defer request.Body.Close()
+		if request.StatusCode == 200{
+			return brokerapi.LastOperation{
+				State:       brokerapi.Succeeded,
+				Description: "Succeeded!",
+			}, nil
+
+		}
 	}
+	return brokerapi.LastOperation{
+		State:       brokerapi.InProgress,
+		Description: "In progress.",
+	}, nil
 }
 
 func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
