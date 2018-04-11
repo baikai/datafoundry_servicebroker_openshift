@@ -14,7 +14,6 @@ import (
 	"io/ioutil"
 	"os"
 
-
 	"github.com/pivotal-golang/lager"
 
 	//"k8s.io/kubernetes/pkg/util/yaml"
@@ -23,6 +22,7 @@ import (
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 
+	"net/http"
 )
 
 //==============================================================
@@ -73,6 +73,10 @@ func (handler *Dataiku_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInf
 //==============================================================
 //
 //==============================================================
+var httpClient = &http.Client{
+	Transport: &http.Transport{},
+	Timeout:   0,
+}
 
 type Dataiku_Handler struct {
 }
@@ -145,7 +149,6 @@ func (handler *Dataiku_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 
 	master_res, _ := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
 
-
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
@@ -159,16 +162,23 @@ func (handler *Dataiku_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 	// todo: check if http get dashboard request is ok
 
 	if ok(&master_res.rc) {
-		return brokerapi.LastOperation{
-			State:       brokerapi.Succeeded,
-			Description: "Succeeded!",
-		}, nil
-	} else {
-		return brokerapi.LastOperation{
-			State:       brokerapi.InProgress,
-			Description: "In progress.",
-		}, nil
+		req, _ := http.NewRequest("GET", "http://"+master_res.route.Spec.Host, nil)
+		request, err := httpClient.Do(req)
+		defer request.Body.Close()
+		if err == nil {
+			if request.StatusCode >= 200 && request.StatusCode < 400 {
+				return brokerapi.LastOperation{
+					State:       brokerapi.Succeeded,
+					Description: "Succeeded!",
+				}, nil
+			}
+		}
 	}
+	return brokerapi.LastOperation{
+		State:       brokerapi.InProgress,
+		Description: "In progress.",
+	}, nil
+
 }
 
 func (handler *Dataiku_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
@@ -248,7 +258,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
 
-
 	return oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
@@ -257,7 +266,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 		Password: myServiceInfo.Password,
 	}
 }
-
 
 func createDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUser, dataikuPassword string) (*dataikuResources_Master, error) {
 	var input dataikuResources_Master
@@ -285,7 +293,6 @@ func createDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUs
 }
 
 var DataikuTemplateData_Master []byte = nil
-
 
 func loadDataikuResources_Master(instanceID, dataikuUser, dataikuPassword string, res *dataikuResources_Master) error {
 	if DataikuTemplateData_Master == nil {
@@ -323,7 +330,6 @@ func loadDataikuResources_Master(instanceID, dataikuUser, dataikuPassword string
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.rc).
@@ -332,7 +338,6 @@ func loadDataikuResources_Master(instanceID, dataikuUser, dataikuPassword string
 
 	return decoder.Err
 }
-
 
 func getDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUser, dataikuPassword string) (*dataikuResources_Master, error) {
 	var output dataikuResources_Master
@@ -365,7 +370,6 @@ func destroyDataikuResources_Master(masterRes *dataikuResources_Master, serviceB
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
 }
-
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
@@ -448,7 +452,6 @@ RETRY:
 
 	return nil
 }
-
 
 type watchReplicationControllerStatus struct {
 	// The type of watch update contained in the message
