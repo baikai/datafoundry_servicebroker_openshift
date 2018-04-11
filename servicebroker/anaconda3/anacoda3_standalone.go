@@ -31,7 +31,6 @@ import (
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	"net/http"
-	"crypto/tls"
 )
 
 //==============================================================
@@ -50,9 +49,7 @@ func init() {
 var logger lager.Logger
 
 var httpClient = &http.Client{
-	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	},
+	Transport: &http.Transport{},
 	Timeout:   0,
 }
 
@@ -113,7 +110,6 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 
-
 	println()
 	println("instanceIdInTempalte = ", instanceIdInTempalte)
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
@@ -142,7 +138,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	}()
 
 	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceIdInTempalte,serviceInfo.User, serviceInfo.Password, &input)
+	err := loadAnacodaResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password, &input)
 	if err != nil {
 		return serviceSpec, serviceInfo, err
 	}
@@ -184,14 +180,15 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 
 	if ok(&master_res.rc) {
 		req, _ := http.NewRequest("GET", "http://"+master_res.route.Spec.Host, nil)
-		request,_ :=httpClient.Do(req)
+		request, err := httpClient.Do(req)
 		defer request.Body.Close()
-		if request.StatusCode == 200{
-			return brokerapi.LastOperation{
-				State:       brokerapi.Succeeded,
-				Description: "Succeeded!",
-			}, nil
-
+		if err == nil {
+			if request.StatusCode >= 200 && request.StatusCode < 400 {
+				return brokerapi.LastOperation{
+					State:       brokerapi.Succeeded,
+					Description: "Succeeded!",
+				}, nil
+			}
 		}
 	}
 	return brokerapi.LastOperation{
@@ -327,8 +324,6 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
 	//println()
-
-
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -609,5 +604,3 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 	return nrunnings, nil
 }
-
-
