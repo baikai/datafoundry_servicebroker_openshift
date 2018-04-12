@@ -131,7 +131,7 @@ Path参数
 * `instance_id`: 欲创建的Service Broker Instance ID, 最好为一个uuid。
 
 Query参数
-* `accepts_incomplete`: 是否支持异步删除。
+* `accepts_incomplete`: 是否支持异步创建。
 
 Body参数（JSON格式）
 * service_id: Service Broker Instance ID
@@ -174,7 +174,7 @@ Path参数
 * `instance_id`: 欲创建的Service Broker Instance ID, 最好为一个uuid。
 
 Query参数
-* `accepts_incomplete`: 是否支持异步删除。
+* `accepts_incomplete`: 是否支持异步修改。
 
 Body参数（JSON格式）
 * service_id: Service Broker Instance ID
