@@ -180,10 +180,10 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 
 	if ok(&master_res.rc) {
 		req, _ := http.NewRequest("GET", "http://"+master_res.route.Spec.Host, nil)
-		request, err := httpClient.Do(req)
-		defer request.Body.Close()
+		response, err := httpClient.Do(req)
+		defer response.Body.Close()
 		if err == nil {
-			if request.StatusCode >= 200 && request.StatusCode < 400 {
+			if response.StatusCode >= 200 && response.StatusCode < 400 {
 				return brokerapi.LastOperation{
 					State:       brokerapi.Succeeded,
 					Description: "Succeeded!",
