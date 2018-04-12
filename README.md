@@ -130,12 +130,14 @@
 Path参数
 * `instance_id`: 欲创建的Service Broker Instance ID, 最好为一个uuid。
 
+Query参数
+* `accepts_incomplete`: 是否支持异步删除。
+
 Body参数（JSON格式）
 * service_id: Service Broker Instance ID
 * plan_id： 套餐ID
 * organization_guid: 用户的组织ID
 * space_guid: 用户的项目ID
-* accepts_incomplete: 是否可以异步创建
 * parameters: 其它参数，包括在Cataglog中对应Service Broker的对应plan的metadata.customize中列出的参数。
 
 服务器回应: 所创建的Service Brokder Instance的访问信息。
@@ -150,7 +152,6 @@ curl -i -X PUT \
   	"plan_id":"94bcf092-74e7-49b1-add6-314fb2c7bdfb", \
   	"organization_guid": "default", \
   	"space_guid":"space-guid", \
-  	"accepts_incomplete":true, \
   	"parameters": {"nodes":3, "replicas":1, "memory":0.3} \
    }'
 ```
@@ -172,12 +173,14 @@ curl -i -X PUT \
 Path参数
 * `instance_id`: 欲创建的Service Broker Instance ID, 最好为一个uuid。
 
+Query参数
+* `accepts_incomplete`: 是否支持异步删除。
+
 Body参数（JSON格式）
 * service_id: Service Broker Instance ID
 * plan_id： 套餐ID
 * organization_guid: 用户的组织ID
 * space_guid: 用户的项目ID
-* accepts_incomplete: 是否可以异步创建
 * parameters: 其它参数，包括在Cataglog中对应Service Broker的对应plan的metadata.customize中列出的参数。
 
 curl样例：
@@ -190,7 +193,6 @@ curl -i -X PATCH \
   	"plan_id":"94bcf092-74e7-49b1-add6-314fb2c7bdfb", \
   	"organization_guid": "default", \
   	"space_guid":"space-guid", \
-  	"accepts_incomplete":true, \
   	"parameters": {"nodes":5, "replicas":2, "memory":0.6} \
    }'
 ```
@@ -237,7 +239,6 @@ Path参数
 Query参数
 * `service_id`: 对应的Service Broker ID。
 * `plan_id`: 对应的Service Broker Plan ID。
-* `accepts_incomplete`: 是否支持异步删除。
 
 服务器回应: 
 * `state`: 当前状态。("in progress" | "succeeded" | "failed")
