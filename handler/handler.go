@@ -389,7 +389,7 @@ func SparkImage() string {
 }
 
 func ZepplinImage() string {
-	return zepplinImage
+	return zeppelinImage
 }
 
 func PySpiderImage() string {
@@ -478,7 +478,7 @@ var kettleImage string
 var simplefileuplaoderImage string
 var rabbitmqImage string
 var sparkImage string
-var zepplinImage string
+var zeppelinImage string
 var pyspiderImage string
 var elasticsearchVolumeImage string
 var mongoVolumeImage string
@@ -532,7 +532,7 @@ func init() {
 	simplefileuplaoderImage = getenv("SIMPLEFILEUPLOADERIMAGE")
 	rabbitmqImage = getenv("RABBITMQIMAGE")
 	sparkImage = getenv("SPARKIMAGE")
-	zepplinImage = getenv("ZEPPLINIMAGE")
+	zeppelinImage = getenv("ZEPPELINIMAGE")
 	pyspiderImage = getenv("PYSPIDERIMAGE")
 	etcdVolumeImage = getenv("ETCDVOLUMEIMAGE")
 	elasticsearchVolumeImage = getenv("ELASTICSEARCHVOLUMEIMAGE")
