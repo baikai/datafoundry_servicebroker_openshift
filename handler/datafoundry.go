@@ -502,7 +502,7 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 		case pvc = <-getPvcChan:
 		case status, _ := <-statuses:
 			if status.Err != nil {
-				return errors.New("WaitUntilPvcIsBound statuses error: " + status.Err.Error())
+				return errors.New("WaitUntilPvcIsBound statuses error: " + status.Err.Error() + ", status.Info=" + string(status.Info))
 			}
 
 			var wps watchPvcStatus

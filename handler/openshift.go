@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"strings"
 	"time"
-	//"io"
+	"io"
 	"io/ioutil"
 	"os"
 	"sync/atomic"
@@ -147,18 +147,26 @@ type WatchStatus struct {
 }
 
 func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struct{}, error) {
-	res, err := oc.request("GET", url, nil, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	//if res.Body == nil {
-	//	return nil, nil, errors.New("response.body is nil")
+	//res, err := oc.request("GET", url, nil, 0)
+	//if err != nil {
+	//	return nil, nil, err
 	//}
+	////if res.Body == nil {
+	////	return nil, nil, errors.New("response.body is nil")
+	////}
 
 	statuses := make(chan WatchStatus, 5)
 	canceled := make(chan struct{}, 1)
 
 	go func() {
+Retry:
+		res, err := oc.request("GET", url, nil, 0)
+		if err != nil {
+			//return nil, nil, err
+			statuses <- WatchStatus{nil, err}
+		}
+		//if res.Body == nil {
+		
 		defer func() {
 			close(statuses)
 			res.Body.Close()
@@ -174,7 +182,12 @@ func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struc
 
 			line, err := reader.ReadBytes('\n')
 			if err != nil {
-				statuses <- WatchStatus{nil, err}
+				if err == io.ErrUnexpectedEOF {
+					time.Sleep(time.Second * 5)
+					goto Retry
+				}
+				
+				statuses <- WatchStatus{line, err}
 				return
 			}
 
