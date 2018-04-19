@@ -163,7 +163,15 @@ Retry:
 		res, err := oc.request("GET", url, nil, 0)
 		if err != nil {
 			//return nil, nil, err
-			statuses <- WatchStatus{nil, err}
+			println("doWatch, oc.request. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
+			
+			if err == io.ErrUnexpectedEOF {
+				time.Sleep(time.Second * 5)
+				goto Retry
+			}
+			
+			//statuses <- WatchStatus{nil, err}
+			//return
 		}
 		//if res.Body == nil {
 		
@@ -182,6 +190,7 @@ Retry:
 
 			line, err := reader.ReadBytes('\n')
 			if err != nil {
+				println("doWatch, reader.ReadBytes. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
 				if err == io.ErrUnexpectedEOF {
 					time.Sleep(time.Second * 5)
 					goto Retry
