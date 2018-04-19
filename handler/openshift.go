@@ -159,49 +159,59 @@ func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struc
 	canceled := make(chan struct{}, 1)
 
 	go func() {
-Retry:
-		res, err := oc.request("GET", url, nil, 0)
-		if err != nil {
-			//return nil, nil, err
-			println("doWatch, oc.request. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
-			
-			if err == io.ErrUnexpectedEOF {
-				time.Sleep(time.Second * 5)
-				goto Retry
-			}
-			
-			//statuses <- WatchStatus{nil, err}
-			//return
-		}
-		//if res.Body == nil {
-		
-		defer func() {
-			close(statuses)
-			res.Body.Close()
-		}()
-
-		reader := bufio.NewReader(res.Body)
-		for {
-			select {
-			case <-canceled:
-				return
-			default:
-			}
-
-			line, err := reader.ReadBytes('\n')
-			if err != nil {
-				println("doWatch, reader.ReadBytes. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
-				if err == io.ErrUnexpectedEOF {
-					time.Sleep(time.Second * 5)
-					goto Retry
+		for range [100]struct{}{} { // most 99 retries on ErrUnexpectedEOF
+			needRetry := func() bool {
+				res, err := oc.request("GET", url, nil, 0)
+				if err != nil {
+					//return nil, nil, err
+					println("doWatch, oc.request. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
+					
+					if err == io.ErrUnexpectedEOF {
+						return true
+					}
+					
+					statuses <- WatchStatus{nil, err}
+					return false
 				}
+				//if res.Body == nil {
 				
-				statuses <- WatchStatus{line, err}
+				defer func() {
+					close(statuses)
+					res.Body.Close()
+				}()
+
+				reader := bufio.NewReader(res.Body)
+				for {
+					select {
+					case <-canceled:
+						return false
+					default:
+					}
+
+					line, err := reader.ReadBytes('\n')
+					if err != nil {
+						println("doWatch, reader.ReadBytes. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
+						if err == io.ErrUnexpectedEOF {
+							return true
+						}
+						
+						statuses <- WatchStatus{line, err}
+						return false
+					}
+
+					statuses <- WatchStatus{line, nil}
+				}
+			}()
+			
+			if needRetry {
+				time.Sleep(time.Second * 5)
+			} else {
 				return
 			}
-
-			statuses <- WatchStatus{line, nil}
 		}
+		
+		statuses <- WatchStatus{nil, errors.New("too many tires")}
+		return
 	}()
 
 	return statuses, canceled, nil
