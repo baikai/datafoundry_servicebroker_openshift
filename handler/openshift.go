@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"strings"
 	"time"
-	//"io"
+	"io"
 	"io/ioutil"
 	"os"
 	"sync/atomic"
@@ -151,39 +151,71 @@ type WatchStatus struct {
 }
 
 func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struct{}, error) {
-	res, err := oc.request("GET", url, nil, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	//if res.Body == nil {
-	//	return nil, nil, errors.New("response.body is nil")
+	//res, err := oc.request("GET", url, nil, 0)
+	//if err != nil {
+	//	return nil, nil, err
 	//}
+	////if res.Body == nil {
+	////	return nil, nil, errors.New("response.body is nil")
+	////}
 
 	statuses := make(chan WatchStatus, 5)
 	canceled := make(chan struct{}, 1)
 
 	go func() {
-		defer func() {
-			close(statuses)
-			res.Body.Close()
-		}()
+		for range [100]struct{}{} { // most 99 retries on ErrUnexpectedEOF
+			needRetry := func() bool {
+				res, err := oc.request("GET", url, nil, 0)
+				if err != nil {
+					//return nil, nil, err
+					println("doWatch, oc.request. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
+					
+					if err == io.ErrUnexpectedEOF {
+						return true
+					}
+					
+					statuses <- WatchStatus{nil, err}
+					return false
+				}
+				//if res.Body == nil {
+				
+				defer func() {
+					close(statuses)
+					res.Body.Close()
+				}()
 
-		reader := bufio.NewReader(res.Body)
-		for {
-			select {
-			case <-canceled:
+				reader := bufio.NewReader(res.Body)
+				for {
+					select {
+					case <-canceled:
+						return false
+					default:
+					}
+
+					line, err := reader.ReadBytes('\n')
+					if err != nil {
+						println("doWatch, reader.ReadBytes. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
+						if err == io.ErrUnexpectedEOF {
+							return true
+						}
+						
+						statuses <- WatchStatus{line, err}
+						return false
+					}
+
+					statuses <- WatchStatus{line, nil}
+				}
+			}()
+			
+			if needRetry {
+				time.Sleep(time.Second * 5)
+			} else {
 				return
-			default:
 			}
-
-			line, err := reader.ReadBytes('\n')
-			if err != nil {
-				statuses <- WatchStatus{nil, err}
-				return
-			}
-
-			statuses <- WatchStatus{line, nil}
 		}
+		
+		statuses <- WatchStatus{nil, errors.New("too many tires")}
+		return
 	}()
 
 	return statuses, canceled, nil

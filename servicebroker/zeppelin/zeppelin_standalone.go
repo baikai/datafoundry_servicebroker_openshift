@@ -1,31 +1,18 @@
-package anaconda3
+package zeppelin
 
 import (
 	"errors"
 	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"github.com/pivotal-cf/brokerapi"
-	//"time"
 	"bytes"
 	"encoding/json"
 	"strconv"
 	"strings"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
 	"io/ioutil"
 	"os"
-	//"sync"
 
 	"github.com/pivotal-golang/lager"
 
-	//"k8s.io/kubernetes/pkg/util/yaml"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 
@@ -37,12 +24,12 @@ import (
 //
 //==============================================================
 
-const AnacodaServcieBrokerName_Standalone = "Anaconda_standalone"
+const ZeppelinServcieBrokerName_Standalone = "Zeppelin_standalone"
 
 func init() {
-	oshandler.Register(AnacodaServcieBrokerName_Standalone, &Anacoda_freeHandler{})
+	oshandler.Register(ZeppelinServcieBrokerName_Standalone, &Zeppelin_freeHandler{})
 
-	logger = lager.NewLogger(AnacodaServcieBrokerName_Standalone)
+	logger = lager.NewLogger(ZeppelinServcieBrokerName_Standalone)
 	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
@@ -57,44 +44,44 @@ var httpClient = &http.Client{
 //
 //==============================================================
 
-type Anacoda_freeHandler struct{}
+type Zeppelin_freeHandler struct{}
 
-func (handler *Anacoda_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	return newAnacodaHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
+func (handler *Zeppelin_freeHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+	return newZeppelinHandler().DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
 }
 
-func (handler *Anacoda_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-	return newAnacodaHandler().DoLastOperation(myServiceInfo)
+func (handler *Zeppelin_freeHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+	return newZeppelinHandler().DoLastOperation(myServiceInfo)
 }
 
-func (handler *Anacoda_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-	return newAnacodaHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
+func (handler *Zeppelin_freeHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	return newZeppelinHandler().DoUpdate(myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
 }
 
-func (handler *Anacoda_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
-	return newAnacodaHandler().DoDeprovision(myServiceInfo, asyncAllowed)
+func (handler *Zeppelin_freeHandler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+	return newZeppelinHandler().DoDeprovision(myServiceInfo, asyncAllowed)
 }
 
-func (handler *Anacoda_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
-	return newAnacodaHandler().DoBind(myServiceInfo, bindingID, details)
+func (handler *Zeppelin_freeHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+	return newZeppelinHandler().DoBind(myServiceInfo, bindingID, details)
 }
 
-func (handler *Anacoda_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
-	return newAnacodaHandler().DoUnbind(myServiceInfo, mycredentials)
+func (handler *Zeppelin_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+	return newZeppelinHandler().DoUnbind(myServiceInfo, mycredentials)
 }
 
 //==============================================================
 //
 //==============================================================
 
-type Anacoda_Handler struct {
+type Zeppelin_Handler struct {
 }
 
-func newAnacodaHandler() *Anacoda_Handler {
-	return &Anacoda_Handler{}
+func newZeppelinHandler() *Zeppelin_Handler {
+	return &Zeppelin_Handler{}
 }
 
-func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
+func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
 	//初始化到openshift的链接
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
@@ -127,18 +114,18 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		}
 
 		// master
-		output, err := createAnacodaResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password)
+		output, err := createZeppelinResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password)
 
 		if err != nil {
-			destroyAnacodaResources_Master(output, serviceBrokerNamespace)
+			destroyZeppelinResources_Master(output, serviceBrokerNamespace)
 
 			return
 		}
 
 	}()
 
-	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password, &input)
+	var input zeppelinResources_Master
+	err := loadZeppelinResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password, &input)
 	if err != nil {
 		return serviceSpec, serviceInfo, err
 	}
@@ -152,13 +139,13 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	return serviceSpec, serviceInfo, nil
 }
 
-func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+func (handler *Zeppelin_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 
 	// assume in provisioning
 
 	// the job may be finished or interrupted or running in another instance.
 
-	master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
+	master_res, _ := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
 
 	//ok := func(rc *kapi.ReplicationController) bool {
 	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -180,10 +167,10 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 
 	if ok(&master_res.rc) {
 		req, _ := http.NewRequest("GET", "http://"+master_res.route.Spec.Host, nil)
-		response, err := httpClient.Do(req)
-		defer response.Body.Close()
+		request, err := httpClient.Do(req)
+		defer request.Body.Close()
 		if err == nil {
-			if response.StatusCode >= 200 && response.StatusCode < 400 {
+			if request.StatusCode >= 200 && request.StatusCode < 400 {
 				return brokerapi.LastOperation{
 					State:       brokerapi.Succeeded,
 					Description: "Succeeded!",
@@ -197,25 +184,25 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 	}, nil
 }
 
-func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+func (handler *Zeppelin_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
 	return nil
 }
 
-func (handler *Anacoda_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
+func (handler *Zeppelin_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
 	println("to destroy resources")
 
-	master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
-	destroyAnacodaResources_Master(master_res, myServiceInfo.Database)
+	master_res, _ := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
+	destroyZeppelinResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
 }
 
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
-	var master_res anacodaResources_Master
-	err := loadAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, &master_res)
+	var master_res zeppelinResources_Master
+	err := loadZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, &master_res)
 	if err != nil {
 		return oshandler.Credentials{}
 	}
@@ -239,10 +226,10 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	}
 }
 
-func (handler *Anacoda_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
+func (handler *Zeppelin_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	master_res, err := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
+	master_res, err := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
@@ -270,7 +257,7 @@ func (handler *Anacoda_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bin
 	return myBinding, mycredentials, nil
 }
 
-func (handler *Anacoda_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
+func (handler *Zeppelin_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
 	// do nothing
 
 	return nil
@@ -280,44 +267,44 @@ func (handler *Anacoda_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, m
 //
 //=======================================================================
 
-var AnacondaTemplateData_Master []byte = nil
+var ZeppelinTemplateData_Master []byte = nil
 
-func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string, res *anacodaResources_Master) error {
-	if AnacondaTemplateData_Master == nil {
-		f, err := os.Open("anaconda3.yaml")
+func loadZeppelinResources_Master(instanceID, zeppelinUser, zeppelinPassword string, res *zeppelinResources_Master) error {
+	if ZeppelinTemplateData_Master == nil {
+		f, err := os.Open("zeppelin.yaml")
 		if err != nil {
 			return err
 		}
-		AnacondaTemplateData_Master, err = ioutil.ReadAll(f)
+		ZeppelinTemplateData_Master, err = ioutil.ReadAll(f)
 		if err != nil {
 			return err
 		}
 		endpoint_postfix := oshandler.EndPointSuffix()
 		endpoint_postfix = strings.TrimSpace(endpoint_postfix)
 		if len(endpoint_postfix) > 0 {
-			AnacondaTemplateData_Master = bytes.Replace(
-				AnacondaTemplateData_Master,
+			ZeppelinTemplateData_Master = bytes.Replace(
+				ZeppelinTemplateData_Master,
 				[]byte("endpoint-postfix-place-holder"),
 				[]byte(endpoint_postfix),
 				-1)
 		}
-		anacoda_image := oshandler.AnacodaImage()
-		anacoda_image = strings.TrimSpace(anacoda_image)
-		if len(anacoda_image) > 0 {
-			AnacondaTemplateData_Master = bytes.Replace(
-				AnacondaTemplateData_Master,
-				[]byte("http://anaconda3-image-place-holder/anaconda3-openshift-orchestration"),
-				[]byte(anacoda_image),
+		zeppelin_image := oshandler.ZepplinImage()
+		zeppelin_image = strings.TrimSpace(zeppelin_image)
+		if len(zeppelin_image) > 0 {
+			ZeppelinTemplateData_Master = bytes.Replace(
+				ZeppelinTemplateData_Master,
+				[]byte("http://zeppelin-image-place-holder/zeppelin-openshift-orchestration"),
+				[]byte(zeppelin_image),
 				-1)
 		}
 	}
 
 	// ...
 
-	yamlTemplates := AnacondaTemplateData_Master
+	yamlTemplates := ZeppelinTemplateData_Master
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("sb-token"), []byte(anacodaPassword), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("sb-token"), []byte(zeppelinPassword), -1)
 	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(anacondaUser), -1)
 	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(anacondaPassword), -1)
 
@@ -334,20 +321,20 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 	return decoder.Err
 }
 
-type anacodaResources_Master struct {
+type zeppelinResources_Master struct {
 	rc      kapi.ReplicationController
 	route   routeapi.Route
 	service kapi.Service
 }
 
-func createAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacondaUser, anacondaPassword string) (*anacodaResources_Master, error) {
-	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceId, anacondaUser, anacondaPassword, &input)
+func createZeppelinResources_Master(instanceId, serviceBrokerNamespace, zeppelinUser, zeppelinPassword string) (*zeppelinResources_Master, error) {
+	var input zeppelinResources_Master
+	err := loadZeppelinResources_Master(instanceId, zeppelinUser, zeppelinPassword, &input)
 	if err != nil {
 		return nil, err
 	}
 
-	var output anacodaResources_Master
+	var output zeppelinResources_Master
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
@@ -359,17 +346,17 @@ func createAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacondaU
 		KPost(prefix+"/services", &input.service, &output.service)
 
 	if osr.Err != nil {
-		logger.Error("createAnacodaResources_Master", osr.Err)
+		logger.Error("createZeppelinResources_Master", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func getAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacodaUser, anacodaPassword string) (*anacodaResources_Master, error) {
-	var output anacodaResources_Master
+func getZeppelinResources_Master(instanceId, serviceBrokerNamespace, zeppelinUser, zeppelinPassword string) (*zeppelinResources_Master, error) {
+	var output zeppelinResources_Master
 
-	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceId, anacodaUser, anacodaPassword, &input)
+	var input zeppelinResources_Master
+	err := loadZeppelinResources_Master(instanceId, zeppelinUser, zeppelinPassword, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -383,13 +370,13 @@ func getAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacodaUser,
 		KGet(prefix+"/services/"+input.service.Name, &output.service)
 
 	if osr.Err != nil {
-		logger.Error("getAnacodaResources_Master", osr.Err)
+		logger.Error("getZeppelinResources_Master", osr.Err)
 	}
 
 	return &output, osr.Err
 }
 
-func destroyAnacodaResources_Master(masterRes *anacodaResources_Master, serviceBrokerNamespace string) {
+func destroyZeppelinResources_Master(masterRes *zeppelinResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()

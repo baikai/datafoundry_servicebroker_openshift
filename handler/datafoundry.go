@@ -463,7 +463,7 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 	uri := "/namespaces/" + namespace + "/persistentvolumeclaims/" + pvcName
 	statuses, cancel, err := OC().KWatch(uri)
 	if err != nil {
-		return err
+		return errors.New("WaitUntilPvcIsBound KWatch error:" + err.Error())
 	}
 	defer close(cancel)
 
@@ -483,6 +483,7 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 				getPvcChan <- pvc
 			} else {
 				getPvcChan <- nil
+				println("WaitUntilPvcIsBound KGet error: " + err.Error())
 			}
 		}
 	}()
@@ -501,12 +502,13 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 		case pvc = <-getPvcChan:
 		case status, _ := <-statuses:
 			if status.Err != nil {
-				return status.Err
+				return errors.New("WaitUntilPvcIsBound statuses error: " + status.Err.Error() + ", status.Info=" + string(status.Info))
 			}
 
 			var wps watchPvcStatus
 			if err := json.Unmarshal(status.Info, &wps); err != nil {
-				return err
+				fmt.Println("WaitUntilPvcIsBound status.Info =", string(status.Info))
+				return errors.New("WaitUntilPvcIsBound Unmarshal error: " + err.Error())
 			}
 
 			pvc = &wps.Object
