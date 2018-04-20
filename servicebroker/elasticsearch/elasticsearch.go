@@ -3,6 +3,7 @@ package escluster
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -106,7 +107,6 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	serviceInfo.Url = instanceIDInTemplate
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	//serviceInfo.User = srvUser
-	//serviceInfo.Password = srvPassword
 
 	// retrieve parameters for constructing the cluster
 
@@ -205,7 +205,7 @@ func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 
 	// the job may be finished or interrupted or running in another instance.
 
-	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, nil)
 
 	ok := func(sts *kapiv1b1.StatefulSet) bool {
 		println("rc.Name =", sts.Name)
@@ -216,8 +216,6 @@ func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 		println("n =", n)
 		return n >= *sts.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&esRes.sts) {
 		return brokerapi.LastOperation{
@@ -235,6 +233,72 @@ func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 
 // DoUpdate update operation for service broker handler
 func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+	srvNamespace := myServiceInfo.Database
+	var paras podParas
+	paras.replicas = "0"
+	paras.disk = "0Gi"
+
+	/*
+		currently pvc doesn't support automatic resize
+		before k8s 1.9, heketi api could be called to expand glusterfs volume size directly
+	*/
+	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, &paras)
+
+	/*
+		quan, err := kapiquan.ParseQuantity("3Gi")
+		if err != nil {
+			logger.Error("DoUpdate(), volume size is invalid", err)
+		}
+		esRes.pvcs.Items[0].Spec.Resources.Requests["storage"] = *quan
+
+		pvcuri := "/namespaces/" + srvNamespace + "/persistentvolumeclaims/" + esRes.pvcs.Items[0].Name
+		osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(pvcuri, esRes.pvcs.Items[0], nil)
+		if osr.Err != nil {
+			logger.Error("DoUpdate(), increase volume size failed", osr.Err)
+			return osr.Err
+		}
+	*/
+
+	uri := "/namespaces/" + srvNamespace + "/statefulsets/" + esRes.sts.Name
+
+	if replicas, ok := planInfo.MoreParameters["replicas"].(string); ok {
+		logger.Debug("DoUpdate(), replicas=" + replicas)
+		paras.replicas = replicas
+	} else {
+		logger.Debug("DoUpdate(), replicas not specified")
+	}
+	if volsize, ok := planInfo.MoreParameters["volume"].(string); ok {
+		logger.Debug("DoUpdate(), volume size=" + volsize)
+		paras.disk = volsize
+	} else {
+		logger.Debug("DoUpdate(), volume size not specified")
+	}
+
+	logger.Debug("DoUpdate(), current replicas is " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)) + ", updated replicas is " + paras.replicas)
+
+	upReplicas, err := strconv.Atoi(paras.replicas)
+	if err != nil {
+		return err
+	}
+
+	if (*esRes.sts.Spec.Replicas) > int32(upReplicas) {
+		logger.Debug("DoUpdate(), updated replicas is " + paras.replicas +
+			" and less than current replicas " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)))
+		return errors.New("specified replicas is less than current replicas")
+	}
+
+	//*esRes.sts.Spec.Replicas = int32(upReplicas)
+	err = loadSrvResources(myServiceInfo.Url, esRes, &paras)
+	if err != nil {
+		logger.Error("DoUpdate(), failed to load resources", err)
+		return err
+	}
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
+	if osr.Err != nil {
+		logger.Error("DoUpdate(), scale statefulset failed.", osr.Err)
+		return osr.Err
+	}
+
 	return nil
 }
 
@@ -255,7 +319,7 @@ func (handler *SrvBrokerHandler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 		}
 
 		logger.Debug("DoDeprovision(), deprovision instance of " + myServiceInfo.Url + "," + myServiceInfo.Service_name)
-		esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+		esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, nil)
 		destroySrvResources(esRes, myServiceInfo.Database)
 	}()
 
@@ -292,7 +356,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, output *esR
 func (handler *SrvBrokerHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	esRes, err := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
+	esRes, err := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, nil)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
@@ -441,7 +505,7 @@ func (job *srvOrchestrationJob) run() {
 var EsTemplateData []byte
 
 func loadSrvResources(instanceID string, res *esResources, paras *podParas) error {
-	if EsTemplateData == nil {
+	if EsTemplateData == nil || paras != nil {
 		f, err := os.Open("es-cluster.yaml")
 		if err != nil {
 			logger.Error("loadSrvResources(), failed to open es-cluster.yaml", err)
@@ -488,26 +552,23 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 			}
 			volsize = paras.disk
 			repn = paras.replicas
-			logger.Debug("loadSrvResources(), replicas=" + paras.replicas + ",disk=" + paras.disk)
+			logger.Debug("loadSrvResources(), updated parameters, replicas=" + paras.replicas +
+				",disk=" + paras.disk)
 
-		} else {
-			repn = "0"
-			volsize = "0"
-		}
-		EsTemplateData = bytes.Replace(
-			EsTemplateData,
-			[]byte("replica-num"),
-			[]byte(repn),
-			-1)
-
-		if len(paras.disk) > 0 {
 			EsTemplateData = bytes.Replace(
 				EsTemplateData,
-				[]byte("disk-size"),
-				[]byte(volsize),
+				[]byte("replica-num"),
+				[]byte(repn),
 				-1)
-		}
 
+			if len(paras.disk) > 0 {
+				EsTemplateData = bytes.Replace(
+					EsTemplateData,
+					[]byte("disk-size"),
+					[]byte(volsize),
+					-1)
+			}
+		}
 		logger.Debug("loadSrvResources(), loaded yaml templates")
 	}
 
@@ -608,12 +669,12 @@ func (job *srvOrchestrationJob) createEsServices(instanceID, serviceBrokerNamesp
 	return nil
 }
 
-func getSrvResources(instanceID, serviceBrokerNamespace, srvPassword string) (*esResources, error) {
+func getSrvResources(instanceID, serviceBrokerNamespace string, paras *podParas) (*esResources, error) {
 	var output esResources
 
 	var input esResources
 
-	err := loadSrvResources(instanceID, &input, nil)
+	err := loadSrvResources(instanceID, &input, paras)
 	if err != nil {
 		return &output, err
 	}
