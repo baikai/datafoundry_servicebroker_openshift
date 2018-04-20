@@ -159,6 +159,8 @@ func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struc
 	canceled := make(chan struct{}, 1)
 
 	go func() {
+		defer close(statuses)
+		
 		for range [100]struct{}{} { // most 99 retries on ErrUnexpectedEOF
 			needRetry := func() bool {
 				res, err := oc.request("GET", url, nil, 0)
@@ -176,7 +178,6 @@ func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struc
 				//if res.Body == nil {
 				
 				defer func() {
-					close(statuses)
 					res.Body.Close()
 				}()
 
@@ -211,6 +212,7 @@ func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struc
 		}
 		
 		statuses <- WatchStatus{nil, errors.New("too many tires")}
+		
 		return
 	}()
 
