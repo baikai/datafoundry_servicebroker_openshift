@@ -246,6 +246,9 @@ func GenGUID() string {
 	return getmd5string(base64.URLEncoding.EncodeToString(b))
 }
 
+func AnaGenGUID(str string) string {
+	return getmd5string(base64.URLEncoding.EncodeToString([]byte(str)))
+}
 //=========================================================
 
 func getenv(env string) string {
