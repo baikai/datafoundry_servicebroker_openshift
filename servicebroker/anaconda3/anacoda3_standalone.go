@@ -118,7 +118,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	serviceInfo.User = ""
-	serviceInfo.Password = oshandler.GenGUID()
+	serviceInfo.Password = oshandler.AnaGenGUID("")
 
 	go func() {
 		err := <-etcdSaveResult
