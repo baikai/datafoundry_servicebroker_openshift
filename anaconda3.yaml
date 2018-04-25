@@ -17,7 +17,6 @@ spec:
       - args:
         - -c
         - /usr/local/bin/start-notebook.sh --NotebookApp.token=''
-          --no-browser
         command:
           - /bin/sh
         image: http://anaconda3-image-place-holder/anaconda3-openshift-orchestration
