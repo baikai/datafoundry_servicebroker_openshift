@@ -31,6 +31,10 @@ func DfProxyApiPrefix() string {
 const DfRequestTimeout = time.Duration(8) * time.Second
 
 func dfRequest(method, url, bearerToken string, bodyParams interface{}, into interface{}) (err error) {
+	return dfRequestWithTimeout(DfRequestTimeout, method, url, bearerToken, bodyParams, into)
+}
+
+func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string, bodyParams interface{}, into interface{}) (err error) {
 	var body []byte
 	if bodyParams != nil {
 		body, err = json.Marshal(bodyParams)
@@ -39,7 +43,7 @@ func dfRequest(method, url, bearerToken string, bodyParams interface{}, into int
 		}
 	}
 
-	res, err := request(DfRequestTimeout, method, url, bearerToken, body)
+	res, err := request(timeout, method, url, bearerToken, body)
 	if err != nil {
 		return
 	}
@@ -119,7 +123,7 @@ func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error 
 		NewSize: newSize,
 	}
 
-	err := dfRequest("PUT", url, oc.BearerToken(), options, nil)
+	err := dfRequestWithTimeout(time.Minute * 3, "PUT", url, oc.BearerToken(), options, nil)
 
 	return err
 }

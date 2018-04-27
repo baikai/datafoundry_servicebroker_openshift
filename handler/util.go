@@ -60,8 +60,14 @@ func request(timeout time.Duration, method, url, bearerToken string, body []byte
 		return httpClientC.Do(req)
 	case DfRequestTimeout:
 		return httpClientB.Do(req)
-	default:
+	case 0:
 		return httpClientA.Do(req)
+	default:
+		c := &http.Client{
+			Transport: httpClientA.Transport,
+			Timeout:   timeout,
+		}
+		return c.Do(req)
 	}
 }
 
