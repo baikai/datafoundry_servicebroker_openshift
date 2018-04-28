@@ -498,7 +498,9 @@ func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mys
 
 func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
-
+	
+	pvclabels := masterRes.statefulset.Spec.Template.ObjectMeta.Labels
+	
 	go func() { kdel(serviceBrokerNamespace, "configmaps", masterRes.cmConfigD.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceMaria.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceMysql.Name) }()
@@ -516,6 +518,7 @@ func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBroke
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicePma.Name) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rcPma) }()
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routePma.Name) }()
+	go func() { deletePvcsByLabels(serviceBrokerNamespace, pvclabels) }()
 }
 
 //===============================================================
@@ -625,7 +628,7 @@ RETRY:
 }
 
 func del(serviceBrokerNamespace, typeName, resName string, apiGroup string, opt *kapi.DeleteOptions) error {
-	fmt.Println(">>>>>>> opt=", *opt)
+	//fmt.Println(">>>>>>> opt=", *opt)
 	if resName == "" {
 		return nil
 	}
@@ -752,4 +755,30 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	}
 
 	return nrunnings, nil
+}
+
+func deletePvcsByLabels(serviceBrokerNamespace string, labels map[string]string) error {
+
+	println("to delete pvcs in", serviceBrokerNamespace)
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/persistentvolumeclaims"
+
+	i, n := 0, 5
+RETRY:
+	var result interface{}
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KDeleteByLabels(uri, labels, result)
+	if osr.Err == nil {
+		logger.Info("delete " + uri + " succeeded")
+	} else {
+		i++
+		if i < n {
+			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
+			goto RETRY
+		} else {
+			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
+			return osr.Err
+		}
+	}
+
+	return nil
 }

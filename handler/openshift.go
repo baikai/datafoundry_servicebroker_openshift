@@ -273,10 +273,10 @@ func (osr *OpenshiftREST) doRequest(returnIfAlreadyError bool, method, url strin
 			}
 		}
 		
-		if method == "DELETE" {
-			fmt.Println(">>>>>> bodyParams=", bodyParams)
-			fmt.Printf(">>>>>> %s\n", string(body))
-		}
+		//if method == "DELETE" {
+		//	fmt.Println(">>>>>> bodyParams=", bodyParams)
+		//	fmt.Printf(">>>>>> %s\n", string(body))
+		//}
 
 		//res, osr.Err := oc.request(method, url, body, GeneralRequestTimeout) // non-name error
 		res, err := osr.oc.request(method, url, body, GeneralRequestTimeout)
@@ -376,6 +376,10 @@ func (osr *OpenshiftREST) KDelete(uri string, into interface{}) *OpenshiftREST {
 	return osr.doRequest(false, "DELETE", osr.oc.kapiUrl+uri, &kapi.DeleteOptions{}, into)
 }
 
+func (osr *OpenshiftREST) KDeleteByLabels(uri string, selector map[string]string, into interface{}) *OpenshiftREST {
+	return osr.doRequest(false, "DELETE", osr.oc.kapiUrl+buildUriWithSelector(uri, selector), &kapi.DeleteOptions{}, into)
+}
+
 func (osr *OpenshiftREST) KPost(uri string, body interface{}, into interface{}) *OpenshiftREST {
 	return osr.doRequest(true, "POST", osr.oc.kapiUrl+uri, body, into)
 }
@@ -395,7 +399,7 @@ func (osr *OpenshiftREST) Get(uri string, into interface{}, apiGroup string) *Op
 }
 
 func (osr *OpenshiftREST) Delete(uri string, into interface{}, apiGroup string, opt *kapi.DeleteOptions) *OpenshiftREST {
-	fmt.Println(">>>>>>> opt=", *opt)
+	//fmt.Println(">>>>>>> opt=", *opt)
 	if opt == nil {
 		opt = &kapi.DeleteOptions{}
 	}
