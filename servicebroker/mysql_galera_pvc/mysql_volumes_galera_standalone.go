@@ -30,7 +30,8 @@ import (
 	//"k8s.io/kubernetes/pkg/util/yaml"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-	kapi_apps_v1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+	//kapi_apps_v1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
+	kapi_apps_v1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1-int32-to-int"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
