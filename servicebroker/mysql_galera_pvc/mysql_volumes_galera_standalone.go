@@ -2,7 +2,7 @@ package mysql_galera_pvc
 
 import (
 	"errors"
-	"fmt"
+	//"fmt"
 	//marathon "github.com/gambol99/go-marathon"
 	//kapi "golang.org/x/build/kubernetes/api"
 	//"golang.org/x/build/kubernetes"
