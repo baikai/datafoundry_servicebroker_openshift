@@ -436,4 +436,49 @@ $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617
 
 
 
+###创建服务 MySQL
+$ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f #服务id
+
+###创建服务级的配置
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/name "Mongo"
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/description "A Sample MongoDB cluster on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/bindable true
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/planupdatable false
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/tags 'mongodb,openshift'
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/metadata '{"displayName":"MongoDB","imageUrl":"https://webassets.mongodb.com/_com_assets/global/mongodb-logo-white.png","longDescription":"Managed, highly available MongoDB clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://docs.mongodb.com/","supportUrl":"https://www.mongodb.com/"}'
+
+###创建套餐目录
+$ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan
+###创建套餐1 (pvc)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/name "volumes_standalone"
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/description "HA MongoDB With Volumes on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/free false
+
+
+
+
+###创建服务 MySQL
+$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9 #服务id
+
+###创建服务级的配置
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/name "MySQL"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/description "A Sample MySQL cluster on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/bindable true
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/planupdatable false
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/tags 'mysql,openshift'
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/metadata '{"displayName":"MySQL","imageUrl":"https://labs.mysql.com/common/logos/mysql-logo.svg?v2","longDescription":"Managed, highly available MySQL clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://dev.mysql.com/doc/","supportUrl":"https://www.mysql.com/"}'
+
+###创建套餐目录
+$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan
+###创建套餐1 (pvc)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a/name "volumes_ha_cluster"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a/description "HA MySQL With Volumes on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a/free false
+
+
+
 
