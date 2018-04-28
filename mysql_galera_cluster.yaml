@@ -260,7 +260,7 @@ spec:
       volumes:
       - name: conf
         configMap:
-          name: conf-d
+          name: sb-{{ .InstanceID }}-conf-d
       - name: initdb
         emptyDir: {}
   volumeClaimTemplates:
