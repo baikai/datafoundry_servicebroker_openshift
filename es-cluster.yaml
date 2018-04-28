@@ -73,10 +73,6 @@ spec:
         - containerPort: 9300
           protocol: TCP
           name: transport
-#        resources:
-#          requests:
-#            memory: mem-size
-#            cpu: cpu-size
         volumeMounts:
             - mountPath: /usr/share/elasticsearch/data
               name: data

@@ -235,29 +235,39 @@ func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
 	srvNamespace := myServiceInfo.Database
 	var paras podParas
-	paras.replicas = "0"
-	paras.disk = "0Gi"
 
 	/*
 		currently pvc doesn't support automatic resize
 		before k8s 1.9, heketi api could be called to expand glusterfs volume size directly
 	*/
-	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, &paras)
+	esRes, _ := getStRes(myServiceInfo.Url, myServiceInfo.Database)
 
-	/*
-		quan, err := kapiquan.ParseQuantity("3Gi")
-		if err != nil {
-			logger.Error("DoUpdate(), volume size is invalid", err)
-		}
-		esRes.pvcs.Items[0].Spec.Resources.Requests["storage"] = *quan
+	// need to expand volume directly, pvc is not impacted, actually it's only object
+	var vols = make([]oshandler.Volume, len(esRes.pvcs.Items))
+	for i, pvc := range esRes.pvcs.Items {
+		vols[i].Volume_name = pvc.Name
+		quan := pvc.Spec.Resources.Requests["storage"]
+		vols[i].Volume_size = int(quan.Value())
+		logger.Debug("DoUpdate(), volume name=" + vols[i].Volume_name + ", volume size=" +
+			strconv.Itoa(vols[i].Volume_size))
+	}
 
-		pvcuri := "/namespaces/" + srvNamespace + "/persistentvolumeclaims/" + esRes.pvcs.Items[0].Name
-		osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(pvcuri, esRes.pvcs.Items[0], nil)
-		if osr.Err != nil {
-			logger.Error("DoUpdate(), increase volume size failed", osr.Err)
-			return osr.Err
-		}
-	*/
+	for _, vol := range myServiceInfo.Volumes {
+		logger.Debug("DoUpdate(), " + strconv.Itoa(vol.Volume_size) + "," + strconv.Itoa(vol.Volume_size))
+	}
+
+	result := oshandler.StartExpandPvcVolumnJob(
+		myServiceInfo.Url,
+		myServiceInfo.Database,
+		vols,
+		3,
+	)
+	err := <-result
+	if err == nil {
+		logger.Error("DoUpdate(), expand volume failed", err)
+		return err
+	}
+	logger.Debug("DoUpdate(), expand volume finished")
 
 	uri := "/namespaces/" + srvNamespace + "/statefulsets/" + esRes.sts.Name
 
@@ -287,12 +297,14 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 		return errors.New("specified replicas is less than current replicas")
 	}
 
-	//*esRes.sts.Spec.Replicas = int32(upReplicas)
-	err = loadSrvResources(myServiceInfo.Url, esRes, &paras)
-	if err != nil {
-		logger.Error("DoUpdate(), failed to load resources", err)
-		return err
-	}
+	*esRes.sts.Spec.Replicas = int32(upReplicas)
+	/*
+		err = loadSrvResources(myServiceInfo.Url, esRes, &paras)
+		if err != nil {
+			logger.Error("DoUpdate(), failed to load resources", err)
+			return err
+		}
+	*/
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
 	if osr.Err != nil {
 		logger.Error("DoUpdate(), scale statefulset failed.", osr.Err)
@@ -700,10 +712,35 @@ func getSrvResources(instanceID, serviceBrokerNamespace string, paras *podParas)
 	return &output, osr.Err
 }
 
+func getStRes(instanceID, serviceBrokerNamespace string) (*esResources, error) {
+	var output esResources
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.
+		KGet(prefix+"/services/"+"es-cluster-"+instanceID, &output.srvCluster).
+		OGet(prefix+"/routes/"+"es-route-"+instanceID, &output.route).
+		Kv1b1Get(prefix+"/statefulsets/"+"es-"+instanceID, &output.sts)
+
+	osr.KList(prefix+"/persistentvolumeclaims/", output.sts.Labels, &output.pvcs)
+
+	if osr.Err != nil {
+		logger.Error("getStRes(), retrieving resources failed, ", osr.Err)
+	}
+
+	logger.Debug("getStRes(), cluster service, " + output.srvCluster.Name + "," + output.srvCluster.Kind)
+	logger.Debug("getStRes(), route, " + output.route.Name + "," + output.route.Kind)
+	logger.Debug("getStRes(), statefulset, " + output.sts.Name + "," + output.sts.Kind)
+	// display all persistent volume claim
+	listPvcs(&output.pvcs)
+	return &output, osr.Err
+}
+
 func listPvcs(pvcs *kapiv1.PersistentVolumeClaimList) {
 	var msg string
 	for _, pvc := range pvcs.Items {
-		msg += pvc.Name + "\n"
+		msg += "pvc=" + pvc.Name + ", pv=" + pvc.Spec.VolumeName + "\n"
 	}
 	logger.Debug("listPvcs(), pvc is " + msg)
 }
