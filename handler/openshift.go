@@ -389,8 +389,11 @@ func (osr *OpenshiftREST) Get(uri string, into interface{}, apiGroup string) *Op
 	return osr.doRequest(false, "GET", osr.oc.host + apiGroup + uri, nil, into)
 }
 
-func (osr *OpenshiftREST) Delete(uri string, into interface{}, apiGroup string) *OpenshiftREST {
-	return osr.doRequest(false, "DELETE", osr.oc.host + apiGroup + uri, &kapi.DeleteOptions{}, into)
+func (osr *OpenshiftREST) Delete(uri string, into interface{}, apiGroup string, opt *kapi.DeleteOptions) *OpenshiftREST {
+	if opt == nil {
+		opt = &kapi.DeleteOptions{}
+	}
+	return osr.doRequest(false, "DELETE", osr.oc.host + apiGroup + uri, opt, into)
 }
 
 func (osr *OpenshiftREST) Post(uri string, body interface{}, into interface{}, apiGroup string) *OpenshiftREST {

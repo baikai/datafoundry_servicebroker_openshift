@@ -30,6 +30,7 @@ import (
 	//"k8s.io/kubernetes/pkg/util/yaml"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 	//kapi_apps_v1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
 	kapi_apps_v1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1-int32-to-int"
 
@@ -501,7 +502,17 @@ func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBroke
 	go func() { kdel(serviceBrokerNamespace, "configmaps", masterRes.cmConfigD.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceMaria.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceMysql.Name) }()
-	go func() { del(serviceBrokerNamespace, "statefulsets", masterRes.statefulset.Name, "/apis/apps/v1beta1") }()
+	go func() {
+		policy := kapi.DeletePropagationForeground
+		opt := &kapi.DeleteOptions {
+			TypeMeta: unversioned.TypeMeta {
+				Kind:       "DeleteOptions",
+				APIVersion: "v1",
+			},
+			PropagationPolicy: &policy,
+		}
+		del(serviceBrokerNamespace, "statefulsets", masterRes.statefulset.Name, "/apis/apps/v1beta1", opt)
+	}()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicePma.Name) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rcPma) }()
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routePma.Name) }()
@@ -613,7 +624,7 @@ RETRY:
 	return nil
 }
 
-func del(serviceBrokerNamespace, typeName, resName string, apiGroup string) error {
+func del(serviceBrokerNamespace, typeName, resName string, apiGroup string, opt *kapi.DeleteOptions) error {
 	if resName == "" {
 		return nil
 	}
@@ -623,7 +634,7 @@ func del(serviceBrokerNamespace, typeName, resName string, apiGroup string) erro
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
 RETRY:
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Delete(uri, nil, apiGroup)
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Delete(uri, nil, apiGroup, opt)
 	if osr.Err == nil {
 		logger.Info("delete " + uri + " succeeded")
 	} else {
