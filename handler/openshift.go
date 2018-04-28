@@ -274,7 +274,8 @@ func (osr *OpenshiftREST) doRequest(returnIfAlreadyError bool, method, url strin
 		}
 		
 		if method == "DELETE" {
-			fmt.Println(">>>>>> %s", body)
+			fmt.Println(">>>>>> bodyParams=", bodyParams)
+			fmt.Printf(">>>>>> %s\n", string(body))
 		}
 
 		//res, osr.Err := oc.request(method, url, body, GeneralRequestTimeout) // non-name error
@@ -394,6 +395,7 @@ func (osr *OpenshiftREST) Get(uri string, into interface{}, apiGroup string) *Op
 }
 
 func (osr *OpenshiftREST) Delete(uri string, into interface{}, apiGroup string, opt *kapi.DeleteOptions) *OpenshiftREST {
+	fmt.Println(">>>>>>> opt=", *opt)
 	if opt == nil {
 		opt = &kapi.DeleteOptions{}
 	}
