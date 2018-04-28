@@ -379,6 +379,28 @@ func (osr *OpenshiftREST) KPut(uri string, body interface{}, into interface{}) *
 	return osr.doRequest(true, "PUT", osr.oc.kapiUrl+uri, body, into)
 }
 
+// custom api group
+
+func (osr *OpenshiftREST) List(uri string, selector map[string]string, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(false, "GET", apiGroup + buildUriWithSelector(uri, selector), nil, into)
+}
+
+func (osr *OpenshiftREST) Get(uri string, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(false, "GET", apiGroup + uri, nil, into)
+}
+
+func (osr *OpenshiftREST) Delete(uri string, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(false, "DELETE", apiGroup + uri, &kapi.DeleteOptions{}, into)
+}
+
+func (osr *OpenshiftREST) Post(uri string, body interface{}, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(true, "POST", apiGroup + uri, body, into)
+}
+
+func (osr *OpenshiftREST) Put(uri string, body interface{}, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(true, "PUT", apiGroup + uri, body, into)
+}
+
 //===============================================================
 //
 //===============================================================

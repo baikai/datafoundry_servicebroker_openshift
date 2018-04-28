@@ -274,6 +274,10 @@ func EndPointSuffix() string {
 	return endpointSuffix
 }
 
+func StorageClassName() string {
+	return storageClassName
+}
+
 func DnsmasqServer() string {
 	return dnsmasqServer
 }
@@ -435,8 +439,20 @@ func OcspHdpVersion() string {
 	return ocspHdpVersion
 }
 
-func AnacodaImage() string{
-	return  anacondaImage
+func AnacodaImage() string {
+	return anacondaImage
+}
+
+func MariadbImage() string {
+	return mariadbImage
+}
+
+func PrometheusMysqldExporterImage() string {
+	return prometheusMysqldExporterImage
+}
+
+func PhpMyAdminImage() string {
+	return phpMyAdminImage
 }
 
 //func DfExternalIPs() string {
@@ -448,6 +464,8 @@ var theOC *OpenshiftClient
 var svcDomainSuffix string
 var endpointSuffix string
 var svcDomainSuffixWithDot string
+
+var storageClassName string
 
 var dnsmasqServer string // may be useless now.
 
@@ -488,6 +506,9 @@ var stormExternalImage string
 var ocspImage string
 var dataikuImage string
 var anacondaImage string
+var mariadbImage string
+var prometheusMysqldExporterImage string
+var phpMyAdminImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -504,6 +525,9 @@ func init() {
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
 
 	endpointSuffix = getenv("ENDPOINTSUFFIX")
+	
+	storageClassName = getenv("STORAGECLASSNAME")
+	
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
 	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
@@ -543,4 +567,8 @@ func init() {
 	ocspImage = getenv("OCSPIMAGE")
 	dataikuImage = getenv("DATAIKUIMAGE")
 	anacondaImage = getenv("ANACONDAIMAGE")
+	mariadbImage = getenv("MARIADBIMAGE")
+	prometheusMysqldExporterImage = getenv("PROMETHEUSMYSQLEXPORTERIMAGE")
+	phpMyAdminImage = getenv("PHPMYADMINIMAGE")
+	
 }

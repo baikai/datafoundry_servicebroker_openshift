@@ -57,6 +57,7 @@ import (
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/anaconda3"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/zeppelin"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/rediscluster_with_replicas_pvc"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/mysql_galera_pvc"
 )
 
 type myServiceBroker struct {

@@ -10,18 +10,18 @@ import (
 	//"net/http"
 	"bytes"
 	"encoding/json"
-	"net"
+	//"net"
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
+	//"time"
 
 	"github.com/pivotal-cf/brokerapi"
 	//"crypto/sha1"
 	//"encoding/base64"
 	//"text/template"
 	//"io"
-	"io/ioutil"
+	//"io/ioutil"
 	"os"
 	//"sync"
 
@@ -121,7 +121,9 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceInfo.User = mysqlUser
 	serviceInfo.Password = mysqlPassword
 
-	serviceInfo.Volumes = volumes
+	//serviceInfo.Volumes = volumes
+	serviceInfo.Miscs = map[string]string{}
+	serviceInfo.Miscs[oshandler.VolumeSize] = strconv.Itoa(planInfo.Volume_size)
 
 	//>> may be not optimized
 	var template mysqlResources_Master
@@ -136,6 +138,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	}
 	//<<
 
+	/*
 	nodePort, err := createMysqlResources_NodePort(
 		&template,
 		serviceInfo.Database,
@@ -143,6 +146,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	if err != nil {
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
+	*/
 
 	// ...
 	go func() {
@@ -173,10 +177,10 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		}
 	}()
 
-	serviceSpec.DashboardURL = "http://" + net.JoinHostPort(template.routeAdmin.Spec.Host, "80")
+	serviceSpec.DashboardURL = "http://" + template.routePma.Spec.Host
 
 	//>>>
-	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, nodePort)
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, &template)
 	//<<<
 
 	return serviceSpec, serviceInfo, nil
@@ -186,6 +190,7 @@ func (handler *Mysql_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 
 	// assume in provisioning
 
+	/*
 	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
 	if volumeJob != nil {
 		return brokerapi.LastOperation{
@@ -193,6 +198,7 @@ func (handler *Mysql_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 			Description: "in progress.",
 		}, nil
 	}
+	*/
 
 	// the job may be finished or interrupted or running in another instance.
 
@@ -201,7 +207,7 @@ func (handler *Mysql_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		myServiceInfo.Database,
 		myServiceInfo.User,
 		myServiceInfo.Password,
-		myServiceInfo.Volumes,
+		// myServiceInfo.Volumes,
 	)
 
 	//ok := func(rc *kapi.ReplicationController) bool {
@@ -220,7 +226,7 @@ func (handler *Mysql_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 
 	//println("num_ok_rcs = ", num_ok_rcs)
 
-	if ok(&master_res.rc) {
+	if ok(&master_res.rcPma) {
 		return brokerapi.LastOperation{
 			State:       brokerapi.Succeeded,
 			Description: "Succeeded!",
@@ -240,6 +246,7 @@ func (handler *Mysql_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	go func() {
 		// ...
+		/*
 		volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
 		if volumeJob != nil {
 			volumeJob.Cancel()
@@ -252,6 +259,7 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 				}
 			}
 		}
+		*/
 
 		// ...
 
@@ -262,15 +270,15 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 			myServiceInfo.Database,
 			myServiceInfo.User,
 			myServiceInfo.Password,
-			myServiceInfo.Volumes,
+			// 123,
 		)
 		destroyMysqlResources_Master(master_res, myServiceInfo.Database)
 
 		// ...
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
-
-		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
+		//println("to destroy volumes:", myServiceInfo.Volumes)
+		//
+		//oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
 
 	return brokerapi.IsAsync(false), nil
@@ -279,40 +287,42 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *mysqlResources_Master) oshandler.Credentials {
 	var master_res mysqlResources_Master
-	err := loadMysqlResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
+	err := loadMysqlResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, 123, &master_res)
 	if err != nil {
 		return oshandler.Credentials{}
 	}
 
-	mq_port := oshandler.GetServicePortByName(&master_res.service, "mq")
-	if mq_port == nil {
+	mysql_port := oshandler.GetServicePortByName(&master_res.serviceMysql, "mysql")
+	if mysql_port == nil {
 		return oshandler.Credentials{}
 	}
 
-	svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	svcport := strconv.Itoa(mq_port.Port)
+	svchost := fmt.Sprintf("%s.%s.%s", master_res.serviceMysql.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	svcport := strconv.Itoa(mysql_port.Port)
 	//host := master_res.routeMQ.Spec.Host
 	//port := "80"
 
-	ndhost := oshandler.RandomNodeAddress()
-	var ndport string = ""
-	if nodePort != nil && len(nodePort.serviceNodePort.Spec.Ports) > 0 {
-		ndport = strconv.Itoa(nodePort.serviceNodePort.Spec.Ports[0].NodePort)
-	}
+	//ndhost := oshandler.RandomNodeAddress()
+	//var ndport string = ""
+	//if nodePort != nil && len(nodePort.serviceNodePort.Spec.Ports) > 0 {
+	//	ndport = strconv.Itoa(nodePort.serviceNodePort.Spec.Ports[0].NodePort)
+	//}
 
 	return oshandler.Credentials{
-		Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, svchost, svcport),
-		Hostname: ndhost,
-		Port:     ndport,
+		//Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, svchost, svcport),
+		Hostname: svchost, //ndhost,
+		Port:     svcport, //ndport,
 		Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
-		Vhost:    svchost,
+		//Vhost:    svchost,
 	}
 }
 
 func (handler *Mysql_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
-
+	return brokerapi.Binding{}, oshandler.Credentials{}, nil
+	
+	/*
 	master_res, err := getMysqlResources_Master(
 		myServiceInfo.Url,
 		myServiceInfo.Database,
@@ -347,6 +357,7 @@ func (handler *Mysql_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
 
 	return myBinding, mycredentials, nil
+	*/
 }
 
 func (handler *Mysql_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycredentials *oshandler.Credentials) error {
@@ -369,6 +380,7 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		"MysqlDataDiskSize":             volumeSize, // Gb
 		"MariadbImage":                  oshandler.MariadbImage(),
 		"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
+		"PhpMyAdminImage":               oshandler.PhpMyAdminImage(),
 		"StorageClassName":              oshandler.StorageClassName(),
 		"EndPointSuffix":                oshandler.EndPointSuffix(),
 	}
@@ -383,7 +395,7 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 	//println(string(buf.Bytes()))
 	//println()
 
-	decoder := oshandler.NewYamlDecoder(yamlTemplates)
+	decoder := oshandler.NewYamlDecoder(buf.Bytes())
 	decoder.
 		Decode(&res.cmConfigD).
 		Decode(&res.serviceMaria).
@@ -454,11 +466,11 @@ func createMysqlResources_NodePort(input *mysqlResources_Master, serviceBrokerNa
 }
 */
 
-func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string, volumes []oshandler.Volume) (*mysqlResources_Master, error) {
+func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string/*, volumes []oshandler.Volume*/) (*mysqlResources_Master, error) {
 	var output mysqlResources_Master
 
 	var input mysqlResources_Master
-	err := loadMysqlResources_Master(instanceId, mysqlUser, mysqlPassword, volumes, &input)
+	err := loadMysqlResources_Master(instanceId, mysqlUser, mysqlPassword, 123/*volumes*/, &input)
 	if err != nil {
 		return &output, err
 	}
@@ -584,6 +596,33 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 	i, n := 0, 5
 RETRY:
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).ODelete(uri, nil)
+	if osr.Err == nil {
+		logger.Info("delete " + uri + " succeeded")
+	} else {
+		i++
+		if i < n {
+			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
+			goto RETRY
+		} else {
+			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
+			return osr.Err
+		}
+	}
+
+	return nil
+}
+
+func del(serviceBrokerNamespace, typeName, resName string, apiGroup string) error {
+	if resName == "" {
+		return nil
+	}
+
+	println("to delete ", typeName, "/", resName)
+
+	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
+	i, n := 0, 5
+RETRY:
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Delete(uri, nil, apiGroup)
 	if osr.Err == nil {
 		logger.Info("delete " + uri + " succeeded")
 	} else {
