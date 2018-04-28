@@ -3625,7 +3625,7 @@ type DeleteOptions struct {
 	// The default policy is decided by the existing finalizer set in the
 	// metadata.finalizers and the resource-specific default policy.
 	// +optional
-	PropagationPolicy *DeletionPropagation `protobuf:"bytes,4,opt,name=propagationPolicy,casttype=DeletionPropagation"`
+	PropagationPolicy *DeletionPropagation `json:"propagationPolicy,omitempty" protobuf:"bytes,4,opt,name=propagationPolicy,casttype=DeletionPropagation"`
 }
 
 // ListOptions is the query options to a standard REST list call.
