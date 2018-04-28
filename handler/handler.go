@@ -435,8 +435,13 @@ func OcspHdpVersion() string {
 	return ocspHdpVersion
 }
 
-func AnacodaImage() string{
-	return  anacondaImage
+func AnacodaImage() string {
+	return anacondaImage
+}
+
+// EsclusterImage return image name for elastic search cluster
+func EsclusterImage() string {
+	return esclusterImage
 }
 
 //func DfExternalIPs() string {
@@ -488,6 +493,9 @@ var stormExternalImage string
 var ocspImage string
 var dataikuImage string
 var anacondaImage string
+
+// added by Jared
+var esclusterImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -543,4 +551,6 @@ func init() {
 	ocspImage = getenv("OCSPIMAGE")
 	dataikuImage = getenv("DATAIKUIMAGE")
 	anacondaImage = getenv("ANACONDAIMAGE")
+
+	esclusterImage = getenv("ESCLUSTERIMAGE")
 }

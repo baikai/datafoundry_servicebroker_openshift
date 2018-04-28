@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,30 +40,39 @@ func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string
 	if bodyParams != nil {
 		body, err = json.Marshal(bodyParams)
 		if err != nil {
-			return
+			logger.Error("dfRequest(), failed to parse body", err)
+			return err
 		}
 	}
 
+	logger.Debug("dfRequest(), method=" + method + ",url=" + url + ", token=" + bearerToken)
 	res, err := request(timeout, method, url, bearerToken, body)
 	if err != nil {
-		return
+		logger.Error("dfRequest(), request failed", err)
+		return err
 	}
 	defer res.Body.Close()
 
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return
+		logger.Error("dfRequest(), read data from response failed", err)
+		return err
 	}
 
 	//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
 
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
 		err = errors.New(string(data))
+		logger.Error("dfRequest(), unknown status code", err)
+		return err
 	} else {
 		if into != nil {
 			//println("into data = ", string(data), "\n")
 
 			err = json.Unmarshal(data, into)
+			if err != nil {
+				logger.Error("dfRequest(), parse response data failed", err)
+			}
 		}
 	}
 
@@ -111,12 +121,13 @@ func DeleteVolumn(namespace, volumnName string) error {
 	return err
 }
 
-// oldSize is not used here.
+// oldSize is not really used, however, it's required in df volume
 func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error {
 	oc := OC()
 
 	url := DfProxyApiPrefix() + "/namespaces/" + namespace + "/volumes"
 
+	logger.Debug("ExpandVolume(), uri=" + url)
 	options := &VolumnUpdateOptions{
 		Name:    volumnName,
 		OldSize: oldSize,
@@ -386,10 +397,12 @@ func (job *ExpandPvcVolumnJob) run(c chan<- error) {
 
 			println("ExpandVolumn: name=", name, ", oldSize=", oldSize, ", newSize =", newSize)
 
+			logger.Debug("ExpandVolume, name=" + name + ", oldsize=" + strconv.Itoa(oldSize) +
+				", newSize=" + strconv.Itoa(newSize))
 			err := ExpandVolumn(job.namespace, name, oldSize, newSize)
 			if err != nil {
 				println("ExpandVolumn error:", err.Error())
-
+				logger.Error("ExpandVolume, failed", err)
 				errChan <- err
 				return
 			}
