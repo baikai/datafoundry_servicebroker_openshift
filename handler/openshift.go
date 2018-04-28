@@ -1,7 +1,7 @@
 package handler
 
 import (
-	//"fmt"
+	"fmt"
 	"errors"
 	//marathon "github.com/gambol99/go-marathon"
 	//"github.com/pivotal-cf/brokerapi"
@@ -271,6 +271,10 @@ func (osr *OpenshiftREST) doRequest(returnIfAlreadyError bool, method, url strin
 			if err != nil {
 				return err
 			}
+		}
+		
+		if method == "DELETE" {
+			fmt.Println(">>>>>> %s", body)
 		}
 
 		//res, osr.Err := oc.request(method, url, body, GeneralRequestTimeout) // non-name error
