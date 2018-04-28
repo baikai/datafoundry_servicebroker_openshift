@@ -16,8 +16,7 @@ spec:
       containers: #Pod内容器的定义部分
       - args:
         - -c
-        - /usr/local/bin/start-notebook.sh --port=8888 --allow-root --NotebookApp.token='sb-token'
-          --no-browser
+        - /usr/local/bin/start-notebook.sh --NotebookApp.token=''
         command:
           - /bin/sh
         image: http://anaconda3-image-place-holder/anaconda3-openshift-orchestration

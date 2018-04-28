@@ -1,15 +1,15 @@
 package zeppelin
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/pivotal-cf/brokerapi"
-	"bytes"
-	"encoding/json"
-	"strconv"
-	"strings"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/pivotal-golang/lager"
 
@@ -87,14 +87,9 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 
 	println()
@@ -105,7 +100,7 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	serviceInfo.User = ""
-	serviceInfo.Password = oshandler.GenGUID()
+	serviceInfo.Password = ""
 
 	go func() {
 		err := <-etcdSaveResult
@@ -147,12 +142,6 @@ func (handler *Zeppelin_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 
 	master_res, _ := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
@@ -160,8 +149,6 @@ func (handler *Zeppelin_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 		return n >= *rc.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	// todo: check if http get dashboard request is ok
 
@@ -304,13 +291,6 @@ func loadZeppelinResources_Master(instanceID, zeppelinUser, zeppelinPassword str
 	yamlTemplates := ZeppelinTemplateData_Master
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("sb-token"), []byte(zeppelinPassword), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(anacondaUser), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(anacondaPassword), -1)
-
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -387,54 +367,6 @@ func destroyZeppelinResources_Master(masterRes *zeppelinResources_Master, servic
 //===============================================================
 //
 //===============================================================
-
-func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).OPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
 
 func kdel(serviceBrokerNamespace, typeName, resName string) error {
 	if resName == "" {

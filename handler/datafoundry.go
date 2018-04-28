@@ -32,6 +32,10 @@ func DfProxyApiPrefix() string {
 const DfRequestTimeout = time.Duration(8) * time.Second
 
 func dfRequest(method, url, bearerToken string, bodyParams interface{}, into interface{}) (err error) {
+	return dfRequestWithTimeout(DfRequestTimeout, method, url, bearerToken, bodyParams, into)
+}
+
+func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string, bodyParams interface{}, into interface{}) (err error) {
 	var body []byte
 	if bodyParams != nil {
 		body, err = json.Marshal(bodyParams)
@@ -42,7 +46,7 @@ func dfRequest(method, url, bearerToken string, bodyParams interface{}, into int
 	}
 
 	logger.Debug("dfRequest(), method=" + method + ",url=" + url + ", token=" + bearerToken)
-	res, err := request(DfRequestTimeout, method, url, bearerToken, body)
+	res, err := request(timeout, method, url, bearerToken, body)
 	if err != nil {
 		logger.Error("dfRequest(), request failed", err)
 		return err
@@ -130,7 +134,7 @@ func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error 
 		NewSize: newSize,
 	}
 
-	err := dfRequest("PUT", url, oc.BearerToken(), options, nil)
+	err := dfRequestWithTimeout(time.Minute * 3, "PUT", url, oc.BearerToken(), options, nil)
 
 	return err
 }
@@ -502,7 +506,7 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 	}()
 
 	// avoid waiting too long time
-	timer := time.NewTimer(1 * time.Hour)
+	timer := time.NewTimer(50 * time.Hour)
 	defer timer.Stop()
 
 	for {
