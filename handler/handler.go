@@ -455,6 +455,11 @@ func PhpMyAdminImage() string {
 	return phpMyAdminImage
 }
 
+// EsclusterImage return image name for elastic search cluster
+func EsclusterImage() string {
+	return esclusterImage
+}
+
 //func DfExternalIPs() string {
 //	return externalIPs
 //}
@@ -509,6 +514,9 @@ var anacondaImage string
 var mariadbImage string
 var prometheusMysqldExporterImage string
 var phpMyAdminImage string
+
+// added by Jared
+var esclusterImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -570,5 +578,6 @@ func init() {
 	mariadbImage = getenv("MARIADBIMAGE")
 	prometheusMysqldExporterImage = getenv("PROMETHEUSMYSQLEXPORTERIMAGE")
 	phpMyAdminImage = getenv("PHPMYADMINIMAGE")
-	
+
+	esclusterImage = getenv("ESCLUSTERIMAGE")
 }
