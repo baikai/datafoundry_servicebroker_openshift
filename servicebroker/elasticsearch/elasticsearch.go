@@ -111,18 +111,7 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	// retrieve parameters for constructing the cluster
 
 	var paras podParas
-	/*
-		if cpu, ok := details.Parameters["cpu"].(string); ok {
-			logger.Debug("DoProvision(), cpu=" + cpu)
-		} else {
-			logger.Debug("DoProvision(), cpu information missed")
-		}
-		if mem, ok := details.Parameters["mem"].(string); ok {
-			logger.Debug("DoProvision(), mem=" + mem)
-		} else {
-			logger.Debug("DoProvision(), memory information missed")
-		}
-	*/
+
 	if replicas, ok := details.Parameters["replicas"].(string); ok {
 		logger.Debug("DoProvision(), replicas=" + replicas)
 		paras.replicas = replicas
@@ -240,34 +229,42 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 		currently pvc doesn't support automatic resize
 		before k8s 1.9, heketi api could be called to expand glusterfs volume size directly
 	*/
-	esRes, _ := getStRes(myServiceInfo.Url, myServiceInfo.Database)
+	//esRes, _ := getStRes(myServiceInfo.Url, myServiceInfo.Database)
+	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, nil)
 
-	// need to expand volume directly, pvc is not impacted, actually it's only object
-	var vols = make([]oshandler.Volume, len(esRes.pvcs.Items))
-	for i, pvc := range esRes.pvcs.Items {
-		vols[i].Volume_name = pvc.Name
-		quan := pvc.Spec.Resources.Requests["storage"]
-		vols[i].Volume_size = int(quan.Value())
-		logger.Debug("DoUpdate(), volume name=" + vols[i].Volume_name + ", volume size=" +
-			strconv.Itoa(vols[i].Volume_size))
-	}
+	if volsize, ok := planInfo.MoreParameters["volume"].(string); ok {
+		logger.Debug("DoUpdate(), volume size=" + volsize)
+		paras.disk = volsize
+		// need to expand volume directly, pvc is not impacted, actually it's only object
+		var vols = make([]oshandler.Volume, len(esRes.pvcs.Items))
+		for i, pvc := range esRes.pvcs.Items {
+			vols[i].Volume_name = pvc.Name
+			quan := pvc.Spec.Resources.Requests["storage"]
+			vols[i].Volume_size = int(quan.Value())
+			logger.Debug("DoUpdate(), volume name=" + vols[i].Volume_name + ", volume size=" +
+				strconv.Itoa(vols[i].Volume_size))
+		}
 
-	for _, vol := range myServiceInfo.Volumes {
-		logger.Debug("DoUpdate(), " + strconv.Itoa(vol.Volume_size) + "," + strconv.Itoa(vol.Volume_size))
-	}
+		for _, vol := range myServiceInfo.Volumes {
+			logger.Debug("DoUpdate(), " + strconv.Itoa(vol.Volume_size) + "," + strconv.Itoa(vol.Volume_size))
+		}
 
-	result := oshandler.StartExpandPvcVolumnJob(
-		myServiceInfo.Url,
-		myServiceInfo.Database,
-		vols,
-		3,
-	)
-	err := <-result
-	if err == nil {
-		logger.Error("DoUpdate(), expand volume failed", err)
-		return err
+		vsize, _ := strconv.Atoi(volsize)
+		result := oshandler.StartExpandPvcVolumnJob(
+			myServiceInfo.Url,
+			myServiceInfo.Database,
+			vols,
+			vsize,
+		)
+		err := <-result
+		if err != nil {
+			logger.Error("DoUpdate(), expand volume failed", err)
+			return err
+		}
+		logger.Debug("DoUpdate(), expand volume finished")
+	} else {
+		logger.Debug("DoUpdate(), volume size not specified")
 	}
-	logger.Debug("DoUpdate(), expand volume finished")
 
 	uri := "/namespaces/" + srvNamespace + "/statefulsets/" + esRes.sts.Name
 
@@ -276,12 +273,6 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 		paras.replicas = replicas
 	} else {
 		logger.Debug("DoUpdate(), replicas not specified")
-	}
-	if volsize, ok := planInfo.MoreParameters["volume"].(string); ok {
-		logger.Debug("DoUpdate(), volume size=" + volsize)
-		paras.disk = volsize
-	} else {
-		logger.Debug("DoUpdate(), volume size not specified")
 	}
 
 	logger.Debug("DoUpdate(), current replicas is " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)) + ", updated replicas is " + paras.replicas)
@@ -298,13 +289,7 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 	}
 
 	*esRes.sts.Spec.Replicas = int32(upReplicas)
-	/*
-		err = loadSrvResources(myServiceInfo.Url, esRes, &paras)
-		if err != nil {
-			logger.Error("DoUpdate(), failed to load resources", err)
-			return err
-		}
-	*/
+
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
 	if osr.Err != nil {
 		logger.Error("DoUpdate(), scale statefulset failed.", osr.Err)
@@ -331,6 +316,7 @@ func (handler *SrvBrokerHandler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 		}
 
 		logger.Debug("DoDeprovision(), deprovision instance of " + myServiceInfo.Url + "," + myServiceInfo.Service_name)
+		//esRes, _ := getStRes(myServiceInfo.Url, myServiceInfo.Database)
 		esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, nil)
 		destroySrvResources(esRes, myServiceInfo.Database)
 	}()
@@ -552,35 +538,39 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 				-1)
 		}
 
+		if paras == nil {
+			paras = &podParas{"1", "1Gi"}
+			logger.Debug("loadSrvResources(), initialize paras for pass decode check")
+		}
 		var repn, volsize string
-		if paras != nil {
-			rep, err := strconv.Atoi(paras.replicas)
-			logger.Debug("loadSrvResources(), replicas passed in is " + strconv.Itoa(rep))
-			if rep <= 1 {
-				logger.Error("loadSrvResources(), replicas passed in is invalid, set replicas to default value 3", err)
-				// set replicas to default value
-				rep = 3
 
-			}
-			volsize = paras.disk
-			repn = paras.replicas
-			logger.Debug("loadSrvResources(), updated parameters, replicas=" + paras.replicas +
-				",disk=" + paras.disk)
+		rep, err := strconv.Atoi(paras.replicas)
+		logger.Debug("loadSrvResources(), replicas passed in is " + strconv.Itoa(rep))
+		if rep <= 1 {
+			logger.Error("loadSrvResources(), replicas passed in is invalid, set replicas to default value 3", err)
+			// set replicas to default value
+			rep = 2
+		}
 
+		volsize = paras.disk
+		repn = paras.replicas
+		logger.Debug("loadSrvResources(), updated parameters, replicas=" + paras.replicas +
+			",disk=" + paras.disk)
+
+		EsTemplateData = bytes.Replace(
+			EsTemplateData,
+			[]byte("replica-num"),
+			[]byte(repn),
+			-1)
+
+		if len(paras.disk) > 0 {
 			EsTemplateData = bytes.Replace(
 				EsTemplateData,
-				[]byte("replica-num"),
-				[]byte(repn),
+				[]byte("disk-size"),
+				[]byte(volsize),
 				-1)
-
-			if len(paras.disk) > 0 {
-				EsTemplateData = bytes.Replace(
-					EsTemplateData,
-					[]byte("disk-size"),
-					[]byte(volsize),
-					-1)
-			}
 		}
+
 		logger.Debug("loadSrvResources(), loaded yaml templates")
 	}
 
@@ -597,7 +587,7 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 	decoder.Decode(&res.srvCluster).Decode(&res.route).Decode(&res.sts)
 
 	if decoder.Err != nil {
-		logger.Debug("loadSrvResources(), decode yaml template failed with error " + decoder.Err.Error())
+		logger.Error("loadSrvResources(), decode yaml template failed", decoder.Err)
 	}
 
 	return decoder.Err
@@ -707,31 +697,6 @@ func getSrvResources(instanceID, serviceBrokerNamespace string, paras *podParas)
 	logger.Debug("getSrvResources(), cluster service, " + output.srvCluster.Name + "," + output.srvCluster.Kind)
 	logger.Debug("getSrvResources(), route, " + output.route.Name + "," + output.route.Kind)
 	logger.Debug("getSrvResources(), statefulset, " + output.sts.Name + "," + output.sts.Kind)
-	// display all persistent volume claim
-	listPvcs(&output.pvcs)
-	return &output, osr.Err
-}
-
-func getStRes(instanceID, serviceBrokerNamespace string) (*esResources, error) {
-	var output esResources
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
-	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.
-		KGet(prefix+"/services/"+"es-cluster-"+instanceID, &output.srvCluster).
-		OGet(prefix+"/routes/"+"es-route-"+instanceID, &output.route).
-		Kv1b1Get(prefix+"/statefulsets/"+"es-"+instanceID, &output.sts)
-
-	osr.KList(prefix+"/persistentvolumeclaims/", output.sts.Labels, &output.pvcs)
-
-	if osr.Err != nil {
-		logger.Error("getStRes(), retrieving resources failed, ", osr.Err)
-	}
-
-	logger.Debug("getStRes(), cluster service, " + output.srvCluster.Name + "," + output.srvCluster.Kind)
-	logger.Debug("getStRes(), route, " + output.route.Name + "," + output.route.Kind)
-	logger.Debug("getStRes(), statefulset, " + output.sts.Name + "," + output.sts.Kind)
 	// display all persistent volume claim
 	listPvcs(&output.pvcs)
 	return &output, osr.Err
