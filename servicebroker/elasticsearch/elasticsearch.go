@@ -229,10 +229,54 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 		currently pvc doesn't support automatic resize
 		before k8s 1.9, heketi api could be called to expand glusterfs volume size directly
 	*/
-	//esRes, _ := getStRes(myServiceInfo.Url, myServiceInfo.Database)
 	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, nil)
 
+	uri := "/namespaces/" + srvNamespace + "/statefulsets/" + esRes.sts.Name
+
+	if replicas, ok := planInfo.MoreParameters["replicas"].(string); ok {
+		logger.Debug("DoUpdate(), replicas=" + replicas)
+		paras.replicas = replicas
+	} else {
+		logger.Debug("DoUpdate(), replicas not specified")
+		paras.replicas = "0"
+	}
+
+	logger.Debug("DoUpdate(), current replicas is " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)) + ", updated replicas is " + paras.replicas)
+
+	upReplicas, err := strconv.Atoi(paras.replicas)
+	if err != nil {
+		return err
+	}
+
+	if (*esRes.sts.Spec.Replicas) > int32(upReplicas) && upReplicas > 0 {
+		logger.Debug("DoUpdate(), updated replicas is " + paras.replicas +
+			" and less than current replicas " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)))
+		return errors.New("specified replicas is less than current replicas")
+	}
+
+	if upReplicas > 0 {
+		*esRes.sts.Spec.Replicas = int32(upReplicas)
+
+		osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
+		if osr.Err != nil {
+			logger.Error("DoUpdate(), scale statefulset failed.", osr.Err)
+			return osr.Err
+		}
+	}
+
 	if volsize, ok := planInfo.MoreParameters["volume"].(string); ok {
+		// need to fetch pvc information again
+		if upReplicas > 0 {
+			osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+			prefix := "/namespaces/" + myServiceInfo.Database
+			osr.KList(prefix+"/persistentvolumeclaims/", esRes.sts.Labels, &esRes.pvcs)
+
+			if osr.Err != nil {
+				logger.Error("DoUpdate(), refetch pvcs failed", osr.Err)
+			}
+		}
+
 		logger.Debug("DoUpdate(), volume size=" + volsize)
 		paras.disk = volsize
 		// need to expand volume directly, pvc is not impacted, actually it's only object
@@ -264,36 +308,6 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 		logger.Debug("DoUpdate(), expand volume finished")
 	} else {
 		logger.Debug("DoUpdate(), volume size not specified")
-	}
-
-	uri := "/namespaces/" + srvNamespace + "/statefulsets/" + esRes.sts.Name
-
-	if replicas, ok := planInfo.MoreParameters["replicas"].(string); ok {
-		logger.Debug("DoUpdate(), replicas=" + replicas)
-		paras.replicas = replicas
-	} else {
-		logger.Debug("DoUpdate(), replicas not specified")
-	}
-
-	logger.Debug("DoUpdate(), current replicas is " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)) + ", updated replicas is " + paras.replicas)
-
-	upReplicas, err := strconv.Atoi(paras.replicas)
-	if err != nil {
-		return err
-	}
-
-	if (*esRes.sts.Spec.Replicas) > int32(upReplicas) {
-		logger.Debug("DoUpdate(), updated replicas is " + paras.replicas +
-			" and less than current replicas " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)))
-		return errors.New("specified replicas is less than current replicas")
-	}
-
-	*esRes.sts.Spec.Replicas = int32(upReplicas)
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
-	if osr.Err != nil {
-		logger.Error("DoUpdate(), scale statefulset failed.", osr.Err)
-		return osr.Err
 	}
 
 	return nil
