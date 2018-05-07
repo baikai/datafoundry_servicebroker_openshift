@@ -20,7 +20,7 @@ import (
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RabbitmqServcieBrokerName_Standalone = "RabbitMQ_volumes_standalone"
@@ -65,7 +65,7 @@ func (handler *Rabbitmq_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceIn
 }
 
 //==============================================================
-//
+//挂卷
 //==============================================================
 
 // version 1:
@@ -115,10 +115,8 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 		},
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Rabbitmq Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
+
 
 	// master rabbitmq
 
@@ -138,6 +136,7 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 		serviceInfo.Volumes,
 		&template)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error",err)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 	//<<
@@ -184,8 +183,6 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" rabbitmq createRabbitmqResources_Master error: ", err)
-			logger.Error("rabbitmq createRabbitmqResources_Master error", err)
 
 			destroyRabbitmqResources_Master(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
@@ -295,6 +292,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *r
 	var master_res rabbitmqResources_Master
 	err := loadRabbitmqResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error",err)
 		return oshandler.Credentials{}
 	}
 
@@ -433,6 +431,7 @@ func createRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmq
 	var input rabbitmqResources_Master
 	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error",err)
 		return nil, err
 	}
 
@@ -476,6 +475,7 @@ func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUse
 	var input rabbitmqResources_Master
 	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error",err)
 		return &output, err
 	}
 
