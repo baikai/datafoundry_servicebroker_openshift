@@ -1,19 +1,19 @@
 package redis_pvc
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
-	"time"
-	"github.com/pivotal-cf/brokerapi"
-	"io/ioutil"
-	"os"
 	"sync"
-	"github.com/pivotal-golang/lager"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"time"
 )
 
 //==============================================================
@@ -90,7 +90,6 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	logger.Info("Redis Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
-
 	go func() {
 		err := <-etcdSaveResult
 		if err != nil {
@@ -159,7 +158,6 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		return n >= *rc.Spec.Replicas
 	}
 
-
 	if ok(&more_res.rc) && ok(&more_res.rcSentinel) {
 		return brokerapi.LastOperation{
 			State:       brokerapi.Succeeded,
@@ -212,7 +210,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	err := loadRedisResources_More(myServiceInfo.Url, myServiceInfo.Password, &more_res)
 
 	if err != nil {
-		logger.Error("loadRedisResources_More error",err)
+		logger.Error("loadRedisResources_More error", err)
 		return oshandler.Credentials{}
 	}
 
@@ -320,7 +318,6 @@ func (job *redisOrchestrationJob) cancel() {
 	}
 }
 
-
 func (job *redisOrchestrationJob) run() {
 	serviceInfo := job.serviceInfo
 	//pod := job.masterResources.pod
@@ -389,7 +386,6 @@ func loadRedisResources_Master(instanceID, redisPassword string, res *redisResou
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
 
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.rc)
@@ -427,7 +423,6 @@ func loadRedisResources_More(instanceID, redisPassword string, res *redisResourc
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
 
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.serviceSentinel).
@@ -451,7 +446,7 @@ func createRedisResources_Master(instanceId, serviceBrokerNamespace, redisPasswo
 	var input redisResources_Master
 	err := loadRedisResources_Master(instanceId, redisPassword, &input)
 	if err != nil {
-		logger.Error("loadRedisResources_Master error",err)
+		logger.Error("loadRedisResources_Master error", err)
 		return nil, err
 	}
 
@@ -532,7 +527,7 @@ func getRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword st
 	var input redisResources_More
 	err := loadRedisResources_More(instanceId, redisPassword, &input)
 	if err != nil {
-		logger.Error("loadRedisResources_Master error",err)
+		logger.Error("loadRedisResources_Master error", err)
 		return &output, err
 	}
 
@@ -643,7 +638,6 @@ RETRY:
 
 	return nil
 }
-
 
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.

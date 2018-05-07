@@ -1,19 +1,19 @@
 package rabbitmq
 
 import (
-	"errors"
-	"fmt"
-	"github.com/pivotal-cf/brokerapi"
-	"net"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"net"
+	"os"
 	"strconv"
 	"strings"
-	"io/ioutil"
-	"os"
-	"github.com/pivotal-golang/lager"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
@@ -222,7 +222,6 @@ func (handler *Rabbitmq_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(mq_port.Port)
 
-
 	mycredentials := oshandler.Credentials{
 		Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, host, port),
 		Hostname: host,
@@ -286,7 +285,6 @@ func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword str
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(rabbitmqUser), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(rabbitmqPassword), -1)
 
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.rc).
@@ -299,7 +297,7 @@ func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword str
 type rabbitmqResources_Master struct {
 	rc         kapi.ReplicationController
 	routeAdmin routeapi.Route
-	service kapi.Service
+	service    kapi.Service
 }
 
 func createRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUser, rabbitmqPassword string) (*rabbitmqResources_Master, error) {
@@ -364,7 +362,6 @@ func destroyRabbitmqResources_Master(masterRes *rabbitmqResources_Master, servic
 //
 //===============================================================
 
-
 func kdel(serviceBrokerNamespace, typeName, resName string) error {
 	if resName == "" {
 		return nil
@@ -418,7 +415,6 @@ RETRY:
 
 	return nil
 }
-
 
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
