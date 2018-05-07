@@ -1,23 +1,23 @@
 package rediscluster_pvc
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"bytes"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	dcapi "github.com/openshift/origin/deploy/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
-	"github.com/pivotal-cf/brokerapi"
-	"os"
-	"github.com/pivotal-golang/lager"
-	dcapi "github.com/openshift/origin/deploy/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster"
@@ -66,7 +66,7 @@ func (handler *RedisCluster_freeHandler) DoUnbind(myServiceInfo *oshandler.Servi
 }
 
 //==============================================================
-//
+//挂卷配置
 //==============================================================
 
 func volumeBaseName(instanceId string) string {
@@ -158,12 +158,12 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 	numPeers, err := retrieveNumNodesFromPlanInfo(planInfo, DefaultNumNodes)
 	if err != nil {
-		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
+		logger.Error("retrieveNumNodesFromPlanInfo error: ", err)
 	}
 
 	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 500) // Mi
 	if err != nil {
-		println("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
+		logger.Error("retrieveNodeMemoryFromPlanInfo error: ", err)
 	}
 
 	println("new redis cluster parameters: numPeers=", numPeers, ", containerMemory=", containerMemory, "Mi, enableAuth=", enableAuth)
@@ -187,10 +187,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		}
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Redis Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	// ...
 
@@ -281,7 +278,6 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			return
 		}
 
-
 		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numPeers, redisPassword)
 		if err != nil {
 			logger.Error("redis initRedisMasterSlots error", err)
@@ -357,7 +353,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 
 	namespace := myServiceInfo.Database
 	instanceId := myServiceInfo.Url
-	
+
 	params := planInfo.MoreParameters
 	enableAuthParam, _ := oshandler.ParseString(params[Key_EnableAuth])
 	enableAuth := enableAuthParam == "1" || enableAuthParam == "yes" || enableAuthParam == "true"
@@ -373,18 +369,18 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 				println("[DoUpdate] redis cluster done with error:", finalError.Error())
 				fmt.Println("[DoUpdate] redis cluster done with error:", finalError.Error())
 			}
-		
+
 			println("[DoUpdate] redis cluster. Updated exit.")
 			fmt.Println("[DoUpdate] redis cluster. Updated exit.")
 		}()
-		
+
 		// get old peer 0
 		if len(myServiceInfo.Volumes) == 0 {
 			return errors.New("[DoUpdate] old number of nodes is zero?!")
 		}
 		oldPeers, err := getRedisClusterResources_Peers(namespace, instanceId,
 			myServiceInfo.Password, myServiceInfo.Volumes)
-	
+
 		if err != nil {
 			return err
 		}
@@ -406,7 +402,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		if hostip == "" {
 			return errors.New("cluster-announce-ip is not found in old peer.")
 		}
-		
+
 		// get new number of nodes
 		oldNumNodes := len(myServiceInfo.Volumes)
 		newNumNodes, err := retrieveNumNodesFromPlanInfo(planInfo, oldNumNodes)
@@ -416,7 +412,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		if newNumNodes <= oldNumNodes {
 			return errors.New("number of nodes can only be increased.")
 		}
-		
+
 		// get new node memory
 		nMemory, err := oshandler.ParseInt64(myServiceInfo.Miscs[oshandler.Memory])
 		if err != nil {
@@ -430,7 +426,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		if newNodeMemory != oldNodeMemory {
 			return errors.New("memory update is not supported now.")
 		}
-		
+
 		volumeBaseName := volumeBaseName(instanceId)
 		newVolumes := make([]oshandler.Volume, newNumNodes-oldNumNodes)
 		for i := oldNumNodes; i < newNumNodes; i++ {
@@ -442,21 +438,21 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 
 		println("[DoUpdate] new redis cluster parameters: newNumNodes=", newNumNodes, ", newNodeMemory=", newNodeMemory)
 		fmt.Println("[DoUpdate] new redis cluster parameters: newNumNodes=", newNumNodes, ", newNodeMemory=", newNodeMemory)
-		
+
 		//===========================================================================
-		
+
 		succeeded := false
-		
+
 		// delete old trib pod
-		
+
 		deleteRedisTribPod(namespace, instanceId, int(oldNumNodes))
-		
+
 		// create node ports
-		
-		var templates = make([]redisResources_Peer, newNumNodes - oldNumNodes)
+
+		var templates = make([]redisResources_Peer, newNumNodes-oldNumNodes)
 		for i := range templates {
 			err := loadRedisClusterResources_Peer(
-				instanceId, strconv.Itoa(oldNumNodes + i), myServiceInfo.Password,
+				instanceId, strconv.Itoa(oldNumNodes+i), myServiceInfo.Password,
 				newNodeMemory,
 				newVolumes[i].Volume_name,
 				redisAnnounceInfo{}, // nonsense
@@ -466,9 +462,9 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 				return err
 			}
 		}
-		
+
 		defer func() {
-			if ! succeeded {
+			if !succeeded {
 				peers := make([]*redisResources_Peer, len(templates))
 				for i := range templates {
 					peers[i] = &templates[i]
@@ -476,7 +472,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 				destroyRedisClusterResources_Peers(peers, namespace)
 			}
 		}()
-		
+
 		nodePorts, err := createRedisClusterResources_NodePorts(
 			templates,
 			namespace,
@@ -489,13 +485,13 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		fmt.Println("[DoUpdate] redis cluster. NodePort svcs created done")
 
 		// create new volumes
-		
+
 		defer func() {
-			if ! succeeded {
+			if !succeeded {
 				oshandler.DeleteVolumns(namespace, newVolumes)
 			}
 		}()
-		
+
 		result := oshandler.StartCreatePvcVolumnJob(
 			volumeBaseName,
 			namespace,
@@ -506,20 +502,20 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			logger.Error("DoUpdate: redis cluster create volume", err)
 			return err
 		}
-		
+
 		// create dc
-		
+
 		var outputs = make([]*redisResources_Peer, len(newVolumes))
-		
+
 		defer func() {
-			if ! succeeded {
+			if !succeeded {
 				destroyRedisClusterResources_Peers(outputs, namespace)
 			}
 		}()
-		
+
 		for i, p := range nodePorts {
 			o, err := createRedisClusterResources_Peer(namespace,
-				instanceId, strconv.Itoa(oldNumNodes + i), myServiceInfo.Password,
+				instanceId, strconv.Itoa(oldNumNodes+i), myServiceInfo.Password,
 				newNodeMemory,
 				newVolumes[i].Volume_name,
 				redisAnnounceInfo{
@@ -532,48 +528,48 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			}
 			outputs[i] = o
 		}
-		
+
 		println("[DoUpdate] redis cluster. new dcs are created.")
 		fmt.Println("[DoUpdate] redis cluster. new dcs are created.")
-		
+
 		err = waitAllRedisPodsAreReady(nodePorts, outputs)
 		if err != nil {
 			logger.Error("DoUpdate: redis waitAllRedisPodsAreReady error", err)
 			return err
 		}
-		
+
 		println("[DoUpdate] redis cluster. new pods are running.")
 		fmt.Println("[DoUpdate] redis cluster. new pods are running.")
-		
+
 		// add new nodes to cluster and rebalance
-		
+
 		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, oldPeers, newNumNodes)
 		if err != nil {
 			logger.Error("DoUpdate: redis addRedisMasterNodeAndRebalance error", err)
 			return err
 		}
-		
+
 		// save info (todo: improve the flow)
-		
+
 		myServiceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(newNumNodes)
 		myServiceInfo.Miscs[oshandler.Memory] = strconv.Itoa(newNodeMemory)
 		myServiceInfo.Volumes = append(myServiceInfo.Volumes, newVolumes...)
-		
+
 		err = callbackSaveNewInfo(myServiceInfo)
 		if err != nil {
 			logger.Error("redis cluster add nodes succeeded but save info error", err)
 			return err
 		}
-		
+
 		println("[DoUpdate] redis cluster. updated info saved.")
 		fmt.Println("[DoUpdate] redis cluster. updated info saved.")
-		
+
 		// ...
 		succeeded = true
-		
+
 		return nil
 	}()
-	
+
 	return nil
 }
 
@@ -619,7 +615,6 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 
 	return brokerapi.IsAsync(false), nil
 }
-
 
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, announces []redisAnnounceInfo) oshandler.Credentials {
@@ -723,7 +718,7 @@ func getPeerAddr(peer *redisResources_Peer) string {
 	ip := peer.serviceNodePort.Spec.ClusterIP
 	port := strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].Port)
 	// res.serviceNodePort.Name is not ok, but ip is ok. Don't know why.
-	return ip+":"+port
+	return ip + ":" + port
 }
 
 func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numMasters int, password string) error {
@@ -747,7 +742,7 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, oldPeers []*redisResources_Peer, newNumNodes int) error {
 
 	var oldPeerAddr string
-	
+
 	script := ""
 	for _, newPeer := range newPeers {
 		newPeerAddr := getPeerAddr(newPeer)
@@ -762,10 +757,10 @@ func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, n
 	script += ">&2 echo ============== rebalance started: " + oldPeerAddr + "... ==============\n\n"
 	script += ">&2 ruby /usr/local/bin/redis-trib.rb rebalance --threshold 1 --use-empty-masters " + " " + oldPeerAddr + "\n\n"
 	script += ">&2 echo ============== rebalance done. ==============\n\n"
-	
+
 	cmd := "/usr/local/bin/run-custom-script.sh"
 	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, newNumNodes)
-}	
+}
 
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
 	time.Sleep(time.Second)
@@ -854,11 +849,11 @@ func loadRedisClusterResources_Peer(instanceID, peerID, redisPassword string, co
 		args = append(args, "--requirepass")
 		args = append(args, redisPassword)
 	}
-	
+
 	var params = map[string]interface{}{
-		"InstanceID":    instanceID,
-		"NodeID":        peerID,
-		"DataVolumePVC": pvcName,
+		"InstanceID":      instanceID,
+		"NodeID":          peerID,
+		"DataVolumePVC":   pvcName,
 		"Arguments":       args,
 		"RedisImage":      oshandler.RedisClusterImage(),
 		"ContainerMemory": containerMemory, // "Mi"
@@ -1106,7 +1101,6 @@ RETRY:
 
 	return nil
 }
-
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
