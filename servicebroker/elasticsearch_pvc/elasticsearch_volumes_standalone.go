@@ -254,11 +254,13 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var ha_res esResources_HA
 	err := loadESResources_HA(myServiceInfo.Url, myServiceInfo.Volumes, &ha_res)
 	if err != nil {
+		logger.Error("getCredentialsOnPrivision loadESResources_HA error ",err)
 		return oshandler.Credentials{}
 	}
 
 	es_host, es_port, err := ha_res.ServiceHostPort(myServiceInfo.Database)
 	if err != nil {
+		logger.Error("ServiceHostPort error ",err)
 		return oshandler.Credentials{}
 	}
 	es_uri := fmt.Sprintf("http://%s:%s", es_host, es_port)
@@ -276,11 +278,13 @@ func (handler *Elasticsearch_handler) DoBind(myServiceInfo *oshandler.ServiceInf
 		myServiceInfo.Url, myServiceInfo.Database,
 		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
 	if err != nil {
+		logger.Error("DoBind() getESResources_HA error ",err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
 	es_host, es_port, err := ha_res.ServiceHostPort(myServiceInfo.Database)
 	if err != nil {
+		logger.Error("DoBind() ServiceHostPort error ",err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 	es_uri := fmt.Sprintf("http://%s:%s", es_host, es_port)
@@ -311,10 +315,12 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 	if ESTemplateData_HA == nil {
 		f, err := os.Open("elasticsearch-pvc.yaml")
 		if err != nil {
+			logger.Error("open yaml error ",err)
 			return err
 		}
 		ESTemplateData_HA, err = ioutil.ReadAll(f)
 		if err != nil {
+			logger.Error("ioutil.ReadAll error ",err)
 			return err
 		}
 
@@ -327,15 +333,6 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 				[]byte(ES_image),
 				-1)
 		}
-		//endpoint_postfix := oshandler.EndPointSuffix()
-		//endpoint_postfix = strings.TrimSpace(endpoint_postfix)
-		//if len(endpoint_postfix) > 0 {
-		//	EtcdTemplateData_HA = bytes.Replace(
-		//		EtcdTemplateData_HA,
-		//		[]byte("endpoint-postfix-place-holder"),
-		//		[]byte(endpoint_postfix),
-		//		-1)
-		//}
 	}
 
 	peerPvcName0 := peerPvcName0(volumes)
@@ -349,10 +346,6 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace0"), []byte(peerPvcName0), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace1"), []byte(peerPvcName1), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace2"), []byte(peerPvcName2), -1)
-
-	//println("========= HA yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
