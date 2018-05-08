@@ -436,13 +436,6 @@ func (job *srvOrchestrationJob) cancel() {
 	}
 }
 
-type watchPodStatus struct {
-	// The type of watch update contained in the message
-	Type string `json:"type"`
-	// Pod details
-	Object kapiv1.Pod `json:"object"`
-}
-
 func (job *srvOrchestrationJob) run() {
 	serviceInfo := job.serviceInfo
 
