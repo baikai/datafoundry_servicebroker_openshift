@@ -94,11 +94,6 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
-
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	serviceInfo.User = ""
