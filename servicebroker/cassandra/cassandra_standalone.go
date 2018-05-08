@@ -1,21 +1,21 @@
 package cassandra
 
 import (
-	"errors"
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	cassandra "github.com/gocql/gocql"
 	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
-	"time"
-	"io/ioutil"
-	"os"
 	"sync"
-	cassandra "github.com/gocql/gocql"
-	"github.com/pivotal-golang/lager"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"time"
 )
 
 //==============================================================
@@ -349,7 +349,6 @@ func (job *cassandraOrchestrationJob) cancel() {
 	}
 }
 
-
 func (job *cassandraOrchestrationJob) run() {
 	start_time := time.Now()
 
@@ -362,7 +361,7 @@ func (job *cassandraOrchestrationJob) run() {
 		return
 	}
 
-CHECK_POD_STATE_0:  // todo: check if seed pod is running
+CHECK_POD_STATE_0: // todo: check if seed pod is running
 
 	if job.cancelled {
 		return
@@ -381,7 +380,7 @@ CHECK_POD_STATE_0:  // todo: check if seed pod is running
 
 	println("seed pod is running now")
 
-CHECK_POD_STATE_1:   // todo: check if Cassandra pods fully init
+CHECK_POD_STATE_1: // todo: check if Cassandra pods fully init
 
 	if job.cancelled {
 		return
@@ -419,7 +418,7 @@ CHECK_POD_STATE_1:   // todo: check if Cassandra pods fully init
 		return
 	}
 
-CHECK_POD_STATE_2:  // todo: start runing pod by labels
+CHECK_POD_STATE_2: // todo: start runing pod by labels
 
 	time.Sleep(10 * time.Second)
 
@@ -443,7 +442,7 @@ CHECK_POD_STATE_2:  // todo: start runing pod by labels
 
 	println("cassandra ha pods are all running now")
 
-CHECK_POD_STATE_3:   // todo: check if Cassandra pods fully init
+CHECK_POD_STATE_3: // todo: check if Cassandra pods fully init
 
 	if job.cancelled {
 		return
@@ -472,7 +471,7 @@ CHECK_POD_STATE_3:   // todo: check if Cassandra pods fully init
 
 	time.Sleep(5 * time.Minute) // wait cluster fully formed.
 
-RETRY_CREATE_NEW_USER:   // todo: create new super user
+RETRY_CREATE_NEW_USER: // todo: create new super user
 
 	if job.cancelled {
 		return
@@ -513,7 +512,7 @@ RETRY_CREATE_NEW_USER:   // todo: create new super user
 		goto RETRY_CREATE_NEW_USER
 	}
 
-RETRY_DELETE_DEFAULT_USER:   // todo: delete user cassandra
+RETRY_DELETE_DEFAULT_USER: // todo: delete user cassandra
 
 	time.Sleep(30 * time.Second)
 
@@ -611,10 +610,12 @@ func loadCassandraResources_Boot(instanceID, serviceBrokerNamespace string, res 
 	if CassandraTemplateData_Boot == nil {
 		f, err := os.Open("cassandra-boot.yaml")
 		if err != nil {
+			logger.Error("loadCassandraResources_Boot open yaml error ", err)
 			return err
 		}
 		CassandraTemplateData_Boot, err = ioutil.ReadAll(f)
 		if err != nil {
+			logger.Error("loadCassandraResources_Boot ReadAll error ", err)
 			return err
 		}
 
@@ -644,7 +645,7 @@ func loadCassandraResources_Boot(instanceID, serviceBrokerNamespace string, res 
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -687,7 +688,7 @@ func loadCassandraResources_HA(instanceID, serviceBrokerNamespace string, res *c
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= HA yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -713,7 +714,6 @@ type cassandraResources_HA struct {
 	service kapi.Service
 }
 
-
 func (bootRes *cassandraResources_HA) ServiceHostPort(serviceBrokerNamespace string) (string, int, error) {
 
 	client_port := &bootRes.service.Spec.Ports[0]
@@ -728,6 +728,7 @@ func createCassandraResources_Boot(instanceId, serviceBrokerNamespace string) (*
 	var input cassandraResources_Boot
 	err := loadCassandraResources_Boot(instanceId, serviceBrokerNamespace, &input)
 	if err != nil {
+		logger.Error("createCassandraResources_Boot loadCassandraResources_Boot error ", err)
 		return nil, err
 	}
 
@@ -755,6 +756,7 @@ func getCassandraResources_Boot(instanceId, serviceBrokerNamespace string) (*cas
 	var input cassandraResources_Boot
 	err := loadCassandraResources_Boot(instanceId, serviceBrokerNamespace, &input)
 	if err != nil {
+		logger.Error("getCassandraResources_Boot loadCassandraResources_Boot error ", err)
 		return &output, err
 	}
 
@@ -784,6 +786,7 @@ func (job *cassandraOrchestrationJob) createCassandraResources_HA(instanceId, se
 	var input cassandraResources_HA
 	err := loadCassandraResources_HA(instanceId, serviceBrokerNamespace, &input)
 	if err != nil {
+		logger.Error("createCassandraResources_HA loadCassandraResources_HA error ", err)
 		return nil, err
 	}
 
@@ -791,9 +794,11 @@ func (job *cassandraOrchestrationJob) createCassandraResources_HA(instanceId, se
 
 	go func() {
 		if err := job.kpost(serviceBrokerNamespace, "replicationcontrollers", &input.rc, &output.rc); err != nil {
+			logger.Error("createCassandraResources_HA kpost error ", err)
 			return
 		}
 		if err := job.kpost(serviceBrokerNamespace, "services", &input.service, &output.service); err != nil {
+			logger.Error("kpost services error ", err)
 			return
 		}
 	}()
@@ -807,6 +812,7 @@ func getCassandraResources_HA(instanceId, serviceBrokerNamespace string) (*cassa
 	var input cassandraResources_HA
 	err := loadCassandraResources_HA(instanceId, serviceBrokerNamespace, &input)
 	if err != nil {
+		logger.Error("getCassandraResources_HA loadCassandraResources_HA error ", err)
 		return &output, err
 	}
 
@@ -988,7 +994,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 				logger.Error("watch HA cassandra rc error", status.Err)
 				close(cancel)
 				return
-			} 
+			}
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
