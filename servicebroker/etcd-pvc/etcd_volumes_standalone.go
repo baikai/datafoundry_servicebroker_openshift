@@ -140,7 +140,7 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 			return
 		}
 
-		println("create etcd Resources ...")
+		logger.Debug("create etcd Resources ...")
 
 		// todo: consider if DoDeprovision is called now, ...
 
@@ -151,7 +151,6 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 			rootPassword, volumes)
 
 		if err != nil {
-			println("etcd createEtcdResources_HA error: ", err)
 			logger.Error("etcd createEtcdResources_HA error", err)
 
 			//destroyEtcdResources_HA(output, serviceBrokerNamespace)
@@ -161,7 +160,7 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 			return
 		}
 
-		println("create etcd Resources done")
+		logger.Debug("create etcd Resources done")
 	}()
 
 	serviceSpec.DashboardURL = ""
@@ -187,7 +186,7 @@ func (handler *Etcd_sampleHandler) DoLastOperation(myServiceInfo *oshandler.Serv
 	ok := func(dc *dcapi.DeploymentConfig) bool {
 		podCount, err := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
 		if err != nil {
-			fmt.Println("statRunningPodsByLabels err:", err)
+			logger.Error("statRunningPodsByLabels err:", err)
 			return false
 		}
 		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
@@ -231,7 +230,7 @@ func (handler *Etcd_sampleHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo
 			return
 		}
 
-		println("etcd expand volumens done")
+		logger.Debug("etcd expand volumens done")
 
 		for i := range myServiceInfo.Volumes {
 			myServiceInfo.Volumes[i].Volume_size = planInfo.Volume_size
@@ -262,7 +261,7 @@ func (handler *Etcd_sampleHandler) DoDeprovision(myServiceInfo *oshandler.Servic
 			}
 		}
 
-		println("to destroy master resources")
+		logger.Debug("to destroy master resources")
 
 		ha_res, _ := getEtcdResources_HA(
 			myServiceInfo.Url, myServiceInfo.Database,
@@ -289,6 +288,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var ha_res etcdResources_HA
 	err := loadEtcdResources_HA(myServiceInfo.Url, myServiceInfo.Admin_password, myServiceInfo.Volumes, &ha_res)
 	if err != nil {
+		logger.Error("getCredentialsOnPrivision load error ",err)
 		return oshandler.Credentials{}
 	}
 
@@ -298,7 +298,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 
 
 	etcd_addr, host, port := ha_res.endpoint()
-	println("etcd addr: ", etcd_addr)
+	logger.Debug("etcd addr: " + etcd_addr)
 	//etcd_addrs := []string{etcd_addr}
 
 	return oshandler.Credentials{
@@ -323,7 +323,7 @@ func (handler *Etcd_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, 
 
 
 	etcd_addr, host, port := ha_res.endpoint()
-	println("etcd addr: ", etcd_addr)
+	logger.Debug("etcd addr: " + etcd_addr)
 	//etcd_addrs := []string{etcd_addr}
 
 	mycredentials := oshandler.Credentials{
@@ -355,7 +355,7 @@ func initEtcdRootPassword(namespasce string, input etcdResources_HA) bool {
 		podCount, err := statRunningPodsByLabels(namespasce, dc.Labels)
 		fmt.Println("running pod:", podCount)
 		if err != nil {
-			fmt.Println("statRunningPodsByLabels err:", err)
+			logger.Error("statRunningPodsByLabels err:", err)
 			return false
 		}
 		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
@@ -373,7 +373,7 @@ func initEtcdRootPassword(namespasce string, input etcdResources_HA) bool {
 		if ok(&input.etcddc1) && ok(&input.etcddc2) && ok(&input.etcddc3) {
 			err := kpost(namespasce, "pods", &input.pod, &output.pod)
 			if err != nil {
-				fmt.Println("cteate init password pod err:", err)
+				logger.Error("cteate init password pod err:", err)
 				return false
 			}
 			break
@@ -381,7 +381,7 @@ func initEtcdRootPassword(namespasce string, input etcdResources_HA) bool {
 		i++
 	}
 	if i == MaxTries {
-		fmt.Println("cteate init password pod err: max tries reached")
+		logger.Info("cteate init password pod err: max tries reached")
 		return false
 	}
 	return true
@@ -393,10 +393,12 @@ func loadEtcdResources_HA(instanceID, rootPassword string, volumes []oshandler.V
 	if EtcdTemplateData_HA == nil {
 		f, err := os.Open("etcd-pvc.yaml")
 		if err != nil {
+			logger.Error("open yaml error ",err)
 			return err
 		}
 		EtcdTemplateData_HA, err = ioutil.ReadAll(f)
 		if err != nil {
+			logger.Error("ioutil.ReadAll error ",err)
 			return err
 		}
 
@@ -477,6 +479,7 @@ func createEtcdResources_HA(instanceId, serviceBrokerNamespace, rootPassword str
 	var input etcdResources_HA
 	err := loadEtcdResources_HA(instanceId, rootPassword, volumes, &input)
 	if err != nil {
+		logger.Error("createEtcdResources_HA load error ",err)
 		return nil, err
 	}
 
@@ -513,6 +516,7 @@ func getEtcdResources_HA(instanceId, serviceBrokerNamespace, rootPassword, user,
 	var input etcdResources_HA
 	err := loadEtcdResources_HA(instanceId, rootPassword, volumes, &input)
 	if err != nil {
+		logger.Error("getEtcdResources_HA load error ",err)
 		return &output, err
 	}
 
@@ -687,7 +691,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Debug("to delete pods on replicationcontroller " + rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -750,7 +754,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Debug("to list pods in " + serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -777,7 +781,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 }
 
 func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]string) ([]kapi.ReplicationController, error) {
-	println("to list RC in", serviceBrokerNamespace)
+	logger.Debug( "to list RC in " + serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers"
 
@@ -785,7 +789,7 @@ func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]stri
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &rcs)
 	if osr.Err != nil {
-		fmt.Println("get rc list err:", osr.Err)
+		logger.Error("get rc list err:", osr.Err)
 		return nil, osr.Err
 	}
 
