@@ -2,12 +2,6 @@ package spark
 
 import (
 	"fmt"
-	//"errors"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
 	"bytes"
 	"encoding/json"
 	"github.com/pivotal-cf/brokerapi"
@@ -15,18 +9,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	//"text/template"
-	//"io"
 	"io/ioutil"
 	"os"
 	"sync"
-
 	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
@@ -125,20 +113,14 @@ func (handler *Spark_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 	sparkSecret := oshandler.GenGUID()
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	//serviceInfo.User = oshandler.NewElevenLengthID()
 	serviceInfo.Password = sparkSecret
 
 	println()
@@ -169,8 +151,6 @@ func (handler *Spark_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			serviceInfo:     &serviceInfo,
 			planNumWorkers:  handler.numWorkers,
 			masterResources: output,
-			//slavesResources:   nil,
-			//zeppelinResources: nil,
 		})
 
 	}()
@@ -290,7 +270,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 
 	// todo: check if pods are created and running, return error on false.
 
-	//master_host := master_res.webroute.Spec.Host
 	master_host := fmt.Sprintf("%s.%s.%s", master_res.mastersvc.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	master_port := strconv.Itoa(master_res.mastersvc.Spec.Ports[0].Port)
 	master_uri := "spark://" + net.JoinHostPort(master_host, master_port)
@@ -316,7 +295,6 @@ func (handler *Spark_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 
 	// todo: check if pods are created and running, return error on false.
 
-	//master_host := master_res.webroute.Spec.Host
 	master_host := fmt.Sprintf("%s.%s.%s", master_res.mastersvc.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	master_port := strconv.Itoa(master_res.mastersvc.Spec.Ports[0].Port)
 	master_uri := "spark://" + net.JoinHostPort(master_host, master_port)
@@ -374,7 +352,6 @@ func startSparkOrchestrationJob(job *sparkOrchestrationJob) {
 }
 
 type sparkOrchestrationJob struct {
-	//instanceId string // use serviceInfo.
 
 	cancelled   bool
 	cancelChan  chan struct{}
@@ -386,8 +363,7 @@ type sparkOrchestrationJob struct {
 	planNumWorkers int
 
 	masterResources *sparkResources_Master
-	//slavesResources   *sparkResources_Workers
-	//zeppelinResources   *sparkResources_Zeppelin
+
 }
 
 func (job *sparkOrchestrationJob) cancel() {
@@ -557,9 +533,6 @@ func loadSparkResources_Master(instanceID, serviceBrokerNamespace, sparkSecret s
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
 		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -605,9 +578,6 @@ func loadSparkResources_Workers(instanceID, serviceBrokerNamespace, sparkSecret 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
 		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
-	//println("========= HA yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -658,9 +628,6 @@ func loadSparkResources_Zeppelin(instanceID, serviceBrokerNamespace, sparkSecret
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
 		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
 
-	//println("========= HA yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -960,11 +927,6 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
 
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
