@@ -3,32 +3,16 @@ package anaconda3
 import (
 	"errors"
 	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"github.com/pivotal-cf/brokerapi"
-	//"time"
 	"bytes"
 	"encoding/json"
 	"strconv"
 	"strings"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
 	"io/ioutil"
 	"os"
-	//"sync"
-
 	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	"net/http"
 )
