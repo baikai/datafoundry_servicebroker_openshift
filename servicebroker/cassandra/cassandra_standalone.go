@@ -358,66 +358,6 @@ func (job *cassandraOrchestrationJob) run() {
 
 	serviceInfo := job.serviceInfo
 
-	/*
-		uri := "/namespaces/" + serviceInfo.Database + "/pods/" + job.bootResources.pod.Name
-		statuses, cancel, err := oshandler.OC().KWatch (uri)
-		if err != nil {
-			logger.Error("start watching boot pod", err)
-			job.isProvisioning = false
-			destroyCassandraResources_Boot (job.bootResources, serviceInfo.Database)
-			return
-		}
-
-		for {
-			var status oshandler.WatchStatus
-			select {
-			case <- job.cancelChan:
-				close(cancel)
-				return
-			case status, _ = <- statuses:
-				break
-			}
-
-			if status.Err != nil {
-				close(cancel)
-
-				logger.Error("watch boot pod error", status.Err)
-				job.isProvisioning = false
-				destroyCassandraResources_Boot (job.bootResources, serviceInfo.Database)
-				return
-			} else {
-				//logger.Debug("watch cassandra pod, status.Info: " + string(status.Info))
-			}
-
-			var wps watchPodStatus
-			if err := json.Unmarshal(status.Info, &wps); err != nil {
-				close(cancel)
-
-				logger.Error("parse boot pod status", err)
-				job.isProvisioning = false
-				destroyCassandraResources_Boot (job.bootResources, serviceInfo.Database)
-				return
-			}
-
-			if wps.Object.Status.Phase != kapi.PodPending {
-				println("watch pod phase: ", wps.Object.Status.Phase)
-
-				if wps.Object.Status.Phase != kapi.PodRunning {
-					close(cancel)
-
-					logger.Debug("pod phase is neither pending nor running")
-					job.isProvisioning = false
-					destroyCassandraResources_Boot (job.bootResources, serviceInfo.Database)
-					return
-				}
-
-				// running now, to create HA resources
-				close(cancel)
-				break
-			}
-		}
-	*/
-
 	if job.bootResources.rc.Spec.Replicas == nil { // shouldn't
 		return
 	}
