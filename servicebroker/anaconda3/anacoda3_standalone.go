@@ -1,20 +1,20 @@
 package anaconda3
 
 import (
-	"errors"
-	"fmt"
-	"github.com/pivotal-cf/brokerapi"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"net/http"
+	"os"
 	"strconv"
 	"strings"
-	"io/ioutil"
-	"os"
-	"github.com/pivotal-golang/lager"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
-	"net/http"
 )
 
 //==============================================================
@@ -109,8 +109,8 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		output, err := createAnacodaResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password)
 
 		if err != nil {
+			logger.Error("createAnacodaResources_Master error ", err)
 			destroyAnacodaResources_Master(output, serviceBrokerNamespace)
-
 			return
 		}
 
@@ -119,6 +119,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	var input anacodaResources_Master
 	err := loadAnacodaResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password, &input)
 	if err != nil {
+		logger.Error("loadAnacodaResources_Master error ", err)
 		return serviceSpec, serviceInfo, err
 	}
 
@@ -146,7 +147,6 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 		return n >= *rc.Spec.Replicas
 	}
-
 
 	// todo: check if http get dashboard request is ok
 
@@ -189,6 +189,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var master_res anacodaResources_Master
 	err := loadAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, &master_res)
 	if err != nil {
+		logger.Error("getCredentialsOnPrivision loadAnacodaResources_Master error ", err)
 		return oshandler.Credentials{}
 	}
 
@@ -216,6 +217,7 @@ func (handler *Anacoda_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bin
 
 	master_res, err := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
 	if err != nil {
+		logger.Error("DoBind getAnacodaResources_Master error ", err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
@@ -258,6 +260,7 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 	if AnacondaTemplateData_Master == nil {
 		f, err := os.Open("anaconda3.yaml")
 		if err != nil {
+			logger.Error("open yaml error ", err)
 			return err
 		}
 		AnacondaTemplateData_Master, err = ioutil.ReadAll(f)
@@ -316,6 +319,7 @@ func createAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacondaU
 	var input anacodaResources_Master
 	err := loadAnacodaResources_Master(instanceId, anacondaUser, anacondaPassword, &input)
 	if err != nil {
+		logger.Error("createAnacodaResources_Master loadAnacodaResources_Master error ", err)
 		return nil, err
 	}
 
