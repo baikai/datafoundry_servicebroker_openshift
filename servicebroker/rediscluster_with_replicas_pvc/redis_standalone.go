@@ -17,7 +17,7 @@ import (
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RedisClusterServcieBrokerName_Standalone = "Redis_volumes_cluster_with_replicas"
@@ -67,7 +67,7 @@ func (handler *RedisCluster_freeHandler) DoUnbind(myServiceInfo *oshandler.Servi
 }
 
 //==============================================================
-//
+//挂卷配置
 //==============================================================
 
 func volumeBaseName(instanceId string) string {
@@ -224,10 +224,8 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		}
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Redis Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
+
 
 	// ...
 
@@ -261,6 +259,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		serviceInfo.Database,
 	)
 	if err != nil {
+		logger.Error("createRedisClusterResources_NodePorts error",err)
 		peers := make([]*redisResources_Peer, len(templates))
 		for i := range templates {
 			peers[i] = &templates[i]
@@ -309,7 +308,6 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			announceInfos,
 		)
 		if err != nil {
-			println(" redis createRedisClusterResources_Peer error: ", err)
 			logger.Error("redis createRedisClusterResources_Peer error", err)
 
 			destroyRedisClusterResources_Peers(outputs, serviceInfo.Database)
@@ -320,7 +318,6 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 		err = waitAllRedisPodsAreReady(nodePorts, outputs)
 		if err != nil {
-			println(" redis waitAllRedisPodsAreReady error: ", err)
 			logger.Error("redis waitAllRedisPodsAreReady error", err)
 			return
 		}
@@ -328,7 +325,6 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		// run redis-trib.rb: create cluster
 		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numMasters, numReplicas, redisPassword)
 		if err != nil {
-			println(" redis initRedisMasterSlots error: ", err)
 			logger.Error("redis initRedisMasterSlots error", err)
 			return
 		}
@@ -454,7 +450,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		}
 		
 		// get new number of nodes (masters)
-		//oldNumMasters := len(myServiceInfo.Volumes)
 		oldNumMasters, err := oshandler.ParseInt64(myServiceInfo.Miscs[oshandler.Nodes])
 		if err != nil {
 			return err
@@ -613,8 +608,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		err = waitAllRedisPodsAreReady(nodePorts, outputs)
 		if err != nil {
-			println("DoUpdate: redis waitAllRedisPodsAreReady error: ", err.Error())
-			fmt.Println("DoUpdate: redis waitAllRedisPodsAreReady error:", err)
 			logger.Error("DoUpdate: redis waitAllRedisPodsAreReady error", err)
 			return err
 		}
@@ -628,8 +621,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			nodePorts, oldPeers,
 			int(oldNumMasters), newNumMasters, int(oldNumReplicas), newNumReplicas)
 		if err != nil {
-			println("DoUpdate: redis addRedisNewPeersAndRebalance error: ", err.Error())
-			fmt.Println("DoUpdate: redis addRedisNewPeersAndRebalance error:", err)
 			logger.Error("DoUpdate: redis addRedisNewPeersAndRebalance error", err)
 			return err
 		}
@@ -969,7 +960,6 @@ func loadRedisClusterResources_Peer(instanceID, peerID, redisPassword string, co
 		"Arguments":       args,
 		"RedisImage":      oshandler.RedisClusterImage(),
 		"ContainerMemory": containerMemory, // "Mi"
-		//"Password":        redisPassword,
 	}
 
 	var buf bytes.Buffer
