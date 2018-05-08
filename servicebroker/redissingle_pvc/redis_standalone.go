@@ -1,23 +1,23 @@
 package redissingle_pvc
 
 import (
-	"errors"
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/pivotal-cf/brokerapi"
-	"io/ioutil"
-	"os"
-	"github.com/pivotal-golang/lager"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RedisSingleServcieBrokerName_Standalone = "Redis_volumes_single"
@@ -62,7 +62,7 @@ func (handler *RedisSingle_freeHandler) DoUnbind(myServiceInfo *oshandler.Servic
 }
 
 //==============================================================
-//
+//挂卷配置
 //==============================================================
 
 func volumeBaseName(instanceId string) string {
@@ -108,10 +108,7 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 		},
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Redis Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	// ...
 
@@ -174,7 +171,6 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" redis createRedisSingleResources_Master error: ", err)
 			logger.Error("redis createRedisSingleResources_Master error", err)
 
 			destroyRedisSingleResources_Master(output, serviceInfo.Database)
@@ -228,7 +224,6 @@ func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.Ser
 		println("n =", n)
 		return n >= *rc.Spec.Replicas
 	}
-
 
 	if ok(&master_res.rc) {
 		return brokerapi.LastOperation{
@@ -316,7 +311,6 @@ func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo,
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-
 	mycredentials := getCredentialsOnPrivision(myServiceInfo, master_res)
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
@@ -368,7 +362,6 @@ func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes [
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****master"), []byte(masterPvcName), -1)
-
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -500,7 +493,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Redis rc", osr.Err)
 		return
 	}
 
@@ -508,7 +501,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Redis rc", err)
 		return
 	}
 
@@ -517,7 +510,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA redis rc error", status.Err)
+				logger.Error("Watch  Redis rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -526,7 +519,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+				logger.Error("Parse Master Redis rc status", err)
 				close(cancel)
 				return
 			}
