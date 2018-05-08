@@ -470,10 +470,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 				logger.Error("watch HA anaconda rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch anaconda HA rc, status.Info: " + string(status.Info))
 			}
-
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
 				logger.Error("parse master HA rc status", err)
