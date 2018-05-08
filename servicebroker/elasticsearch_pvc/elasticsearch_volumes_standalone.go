@@ -177,7 +177,7 @@ func (handler *Elasticsearch_handler) DoLastOperation(myServiceInfo *oshandler.S
 	ok := func(dc *dcapi.DeploymentConfig) bool {
 		podCount, err := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
 		if err != nil {
-			fmt.Println("statRunningPodsByLabels err:", err)
+			logger.Error("statRunningPodsByLabels err:", err)
 			return false
 		}
 		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
@@ -227,7 +227,7 @@ func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.Ser
 			}
 		}
 
-		println("to destroy master resources")
+		logger.Info("to destroy master resources")
 
 		ha_res, _ := getESResources_HA(
 			myServiceInfo.Url, myServiceInfo.Database,
@@ -237,12 +237,12 @@ func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.Ser
 		//	return brokerapi.IsAsync(false), err
 		//}
 		destroyESResources_HA(ha_res, myServiceInfo.Database)
-		println("destroy master resources done")
+		logger.Info("destroy master resources done")
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Info("to destroy volumes:")
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
-		println("to destroy volumes done")
+		logger.Info("to destroy volumes done")
 
 	}()
 
