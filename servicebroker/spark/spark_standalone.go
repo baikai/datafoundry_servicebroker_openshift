@@ -1,25 +1,25 @@
 package spark
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"net"
+	"os"
 	"strconv"
 	"strings"
-	"time"
-	"io/ioutil"
-	"os"
 	"sync"
-	"github.com/pivotal-golang/lager"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"time"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const SparkServcieBrokerName_Free = "Spark_One_Worker"
@@ -123,10 +123,7 @@ func (handler *Spark_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	serviceInfo.Password = sparkSecret
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Spark Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	go func() {
 		err := <-etcdSaveResult
@@ -158,6 +155,7 @@ func (handler *Spark_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	var input sparkResources_Master
 	err := loadSparkResources_Master(instanceIdInTempalte, serviceBrokerNamespace, sparkSecret, &input)
 	if err != nil {
+		logger.Error("loadSparkResources_Master error", err)
 		return serviceSpec, serviceInfo, err
 	}
 
@@ -259,12 +257,14 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var master_res sparkResources_Master
 	err := loadSparkResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password, &master_res)
 	if err != nil {
+		logger.Error("loadSparkResources_Master error", err)
 		return oshandler.Credentials{}
 	}
 
 	var zeppelin_res sparkResources_Zeppelin
 	err = loadSparkResources_Zeppelin(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password, &zeppelin_res)
 	if err != nil {
+		logger.Error("loadSparkResources_Zeppelin error", err)
 		return oshandler.Credentials{}
 	}
 
@@ -352,7 +352,6 @@ func startSparkOrchestrationJob(job *sparkOrchestrationJob) {
 }
 
 type sparkOrchestrationJob struct {
-
 	cancelled   bool
 	cancelChan  chan struct{}
 	cancelMetex sync.Mutex
@@ -363,7 +362,6 @@ type sparkOrchestrationJob struct {
 	planNumWorkers int
 
 	masterResources *sparkResources_Master
-
 }
 
 func (job *sparkOrchestrationJob) cancel() {
@@ -382,7 +380,7 @@ func (job *sparkOrchestrationJob) run() {
 	uri := "/namespaces/" + serviceInfo.Database + "/replicationcontrollers/" + rc.Name
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching master rc", err)
+		logger.Error("Start Watching Master rc", err)
 		job.isProvisioning = false
 		destroySparkResources_Master(job.masterResources, serviceInfo.Database)
 		return
@@ -401,7 +399,7 @@ func (job *sparkOrchestrationJob) run() {
 		if status.Err != nil {
 			close(cancel)
 
-			logger.Error("watch master rc error", status.Err)
+			logger.Error("Watch Master rc error", status.Err)
 			job.isProvisioning = false
 			destroySparkResources_Master(job.masterResources, serviceInfo.Database)
 			return
@@ -413,7 +411,7 @@ func (job *sparkOrchestrationJob) run() {
 		if err := json.Unmarshal(status.Info, &wrcs); err != nil {
 			close(cancel)
 
-			logger.Error("parse master rc status", err)
+			logger.Error("Parse Master rc status", err)
 			job.isProvisioning = false
 			destroySparkResources_Master(job.masterResources, serviceInfo.Database)
 			return
@@ -422,7 +420,7 @@ func (job *sparkOrchestrationJob) run() {
 		if wrcs.Object.Spec.Replicas == nil { // should not happen
 			close(cancel)
 
-			logger.Error("master rc error", err)
+			logger.Error("Master rc error", err)
 			job.isProvisioning = false
 			destroySparkResources_Master(job.masterResources, serviceInfo.Database)
 			return
@@ -531,8 +529,7 @@ func loadSparkResources_Master(instanceID, serviceBrokerNamespace, sparkSecret s
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(sparkSecret), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
-
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -576,8 +573,7 @@ func loadSparkResources_Workers(instanceID, serviceBrokerNamespace, sparkSecret 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(sparkSecret), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("num-workers-place-holder"), []byte(strconv.Itoa(numWorkers)), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
-
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -626,8 +622,7 @@ func loadSparkResources_Zeppelin(instanceID, serviceBrokerNamespace, sparkSecret
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(sparkSecret), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
-
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -927,7 +922,6 @@ RETRY:
 	return nil
 }
 
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -945,7 +939,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Spark rc", osr.Err)
 		return
 	}
 
@@ -953,7 +947,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Spark rc", err)
 		return
 	}
 
@@ -962,7 +956,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA spark rc error", status.Err)
+				logger.Error("Watch Spark rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -971,7 +965,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+				logger.Error("Parse Master Spark rc status", err)
 				close(cancel)
 				return
 			}
