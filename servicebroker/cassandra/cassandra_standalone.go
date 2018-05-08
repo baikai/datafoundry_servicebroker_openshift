@@ -713,18 +713,8 @@ type cassandraResources_HA struct {
 	service kapi.Service
 }
 
-//func (bootRes *cassandraResources_Boot) endpoint() (string, string, string) {
-//	//port := "80" // strconv.Itoa(bootRes.service.Spec.Ports[0].Port)
-//	//host := bootRes.route.Spec.Host
-//	//return "http://" + net.JoinHostPort(host, port), host, port
-//}
 
 func (bootRes *cassandraResources_HA) ServiceHostPort(serviceBrokerNamespace string) (string, int, error) {
-
-	//client_port := oshandler.GetServicePortByName(&masterRes.service, "client")
-	//if client_port == nil {
-	//	return "", "", errors.New("client port not found")
-	//}
 
 	client_port := &bootRes.service.Spec.Ports[0]
 
@@ -786,12 +776,7 @@ func getCassandraResources_Boot(instanceId, serviceBrokerNamespace string) (*cas
 func destroyCassandraResources_Boot(bootRes *cassandraResources_Boot, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	//go func() {odel (serviceBrokerNamespace, "routes", bootRes.route.Name)}()
-
-	//go func() {kdel (serviceBrokerNamespace, "services", bootRes.service.Name)}()
-	//go func() {kdel (serviceBrokerNamespace, "pods", bootRes.pod.Name)}()
 	kdel(serviceBrokerNamespace, "services", bootRes.service.Name)
-	//kdel (serviceBrokerNamespace, "pods", bootRes.pod.Name)
 	kdel_rc(serviceBrokerNamespace, &bootRes.rc)
 }
 
@@ -804,19 +789,6 @@ func (job *cassandraOrchestrationJob) createCassandraResources_HA(instanceId, se
 
 	var output cassandraResources_HA
 
-	/*
-		osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
-		prefix := "/namespaces/" + serviceBrokerNamespace
-		osr.
-			KPost(prefix + "/replicationcontrollers", &input.rc, &output.rc)
-
-		if osr.Err != nil {
-			logger.Error("createCassandraResources_HA", osr.Err)
-		}
-
-		return osr.Err
-	*/
 	go func() {
 		if err := job.kpost(serviceBrokerNamespace, "replicationcontrollers", &input.rc, &output.rc); err != nil {
 			return
@@ -856,7 +828,6 @@ func destroyCassandraResources_HA(haRes *cassandraResources_HA, serviceBrokerNam
 	// todo: add to retry queue on fail
 
 	kdel(serviceBrokerNamespace, "services", haRes.service.Name)
-	//go func() {kdel_rc (serviceBrokerNamespace, &haRes.rc)}()
 	kdel_rc(serviceBrokerNamespace, &haRes.rc)
 }
 
