@@ -3,32 +3,18 @@ package cassandra
 import (
 	"errors"
 	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"bytes"
 	"encoding/json"
 	"github.com/pivotal-cf/brokerapi"
 	"strconv"
 	"strings"
 	"time"
-	//"text/template"
-	//"io"
 	"io/ioutil"
 	"os"
 	"sync"
-
 	cassandra "github.com/gocql/gocql"
 	"github.com/pivotal-golang/lager"
-	//"golang.org/x/net/context"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-	//routeapi "github.com/openshift/origin/route/api/v1"
-
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
