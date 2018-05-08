@@ -61,9 +61,10 @@ func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string
 
 	//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
 
+	logger.Debug("dfRequest(), status code=" + strconv.Itoa(res.StatusCode) + ", data=" + string(data))
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
 		err = errors.New(string(data))
-		logger.Error("dfRequest(), unknown status code", err)
+		logger.Error("dfRequest(), unknown status code "+strconv.Itoa(res.StatusCode), err)
 		return err
 	} else {
 		if into != nil {
@@ -127,15 +128,20 @@ func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error 
 
 	url := DfProxyApiPrefix() + "/namespaces/" + namespace + "/volumes"
 
-	logger.Debug("ExpandVolume(), uri=" + url)
 	options := &VolumnUpdateOptions{
 		Name:    volumnName,
 		OldSize: oldSize,
 		NewSize: newSize,
 	}
 
-	err := dfRequestWithTimeout(time.Minute * 3, "PUT", url, oc.BearerToken(), options, nil)
+	logger.Debug("ExpandVolume(), send request to " + url)
+	err := dfRequestWithTimeout(time.Minute*3, "PUT", url, oc.BearerToken(), options, nil)
 
+	if err != nil {
+		logger.Error("ExpandVolume(), failed", err)
+	} else {
+		logger.Debug("ExpandVolume(), it seems everything goes well")
+	}
 	return err
 }
 
@@ -402,13 +408,14 @@ func (job *ExpandPvcVolumnJob) run(c chan<- error) {
 			err := ExpandVolumn(job.namespace, name, oldSize, newSize)
 			if err != nil {
 				println("ExpandVolumn error:", err.Error())
-				logger.Error("ExpandVolume, failed", err)
+				logger.Error("ExpandVolume, failed expand volume "+name, err)
 				errChan <- err
 				return
 			}
 
 			// ...
 
+			logger.Debug("ExpandVolume succeed: volume " + name)
 			println("ExpandVolumn succeeded: name=", name, ", oldSize=", oldSize, ", newSize =", newSize)
 
 		}(vol.Volume_name, vol.Volume_size, job.newVolueSize)
