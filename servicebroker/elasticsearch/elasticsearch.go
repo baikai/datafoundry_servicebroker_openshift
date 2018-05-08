@@ -248,19 +248,34 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 		return err
 	}
 
-	if (*esRes.sts.Spec.Replicas) > int32(upReplicas) && upReplicas > 0 {
-		logger.Debug("DoUpdate(), updated replicas is " + paras.replicas +
-			" and less than current replicas " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)))
-		return errors.New("specified replicas is less than current replicas")
-	}
-
 	if upReplicas > 0 {
-		*esRes.sts.Spec.Replicas = int32(upReplicas)
+		if (*esRes.sts.Spec.Replicas) > int32(upReplicas) {
+			logger.Debug("DoUpdate(), updated replicas is " + paras.replicas +
+				" and less than current replicas " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)))
+			return errors.New("specified replicas is less than current replicas")
+		} else if (*esRes.sts.Spec.Replicas) < int32(upReplicas) {
+			*esRes.sts.Spec.Replicas = int32(upReplicas)
 
-		osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
-		if osr.Err != nil {
-			logger.Error("DoUpdate(), scale statefulset failed.", osr.Err)
-			return osr.Err
+			osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
+			if osr.Err != nil {
+				logger.Error("DoUpdate(), scale statefulset failed.", osr.Err)
+				return osr.Err
+			}
+			// wait until increase nodes completed
+			for {
+				n, _ := countRunningPodsByLabels(myServiceInfo.Database, esRes.sts.Labels)
+
+				logger.Debug("DoUpdate(), pods already running is " + strconv.Itoa(int(n)))
+
+				if n < *esRes.sts.Spec.Replicas {
+					time.Sleep(10 * time.Second)
+				} else {
+					logger.Debug("DoUpdate(), increased nodes number to " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)))
+					break
+				}
+			}
+		} else {
+			logger.Info("DoUpdate, nodes number is not chnaged.")
 		}
 	}
 
@@ -274,6 +289,7 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 
 			if osr.Err != nil {
 				logger.Error("DoUpdate(), refetch pvcs failed", osr.Err)
+				return err
 			}
 		}
 
