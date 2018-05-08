@@ -292,18 +292,10 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 		return oshandler.Credentials{}
 	}
 
-	//if err != nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
-	//}
 	if ha_res.route.Name == "" {
 		return oshandler.Credentials{}
 	}
 
-	//if len(boot_res.service.Spec.Ports) == 0 {
-	//	err := errors.New("no ports in boot service")
-	//	logger.Error("", err)
-	//	return brokerapi.Binding{}, Credentials{}, err
-	//}
 
 	etcd_addr, host, port := ha_res.endpoint()
 	println("etcd addr: ", etcd_addr)
@@ -325,18 +317,10 @@ func (handler *Etcd_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, 
 		myServiceInfo.Url, myServiceInfo.Database,
 		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
 
-	//if err != nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
-	//}
 	if ha_res.route.Name == "" {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	//if len(boot_res.service.Spec.Ports) == 0 {
-	//	err := errors.New("no ports in boot service")
-	//	logger.Error("", err)
-	//	return brokerapi.Binding{}, Credentials{}, err
-	//}
 
 	etcd_addr, host, port := ha_res.endpoint()
 	println("etcd addr: ", etcd_addr)
