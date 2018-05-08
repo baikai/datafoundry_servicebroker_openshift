@@ -50,9 +50,6 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
 	//instanceIdInTempalte   := instanceID // todo: ok?
@@ -157,18 +154,10 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 		return oshandler.Credentials{}
 	}
 
-	//if err != nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
-	//}
 	if ha_res.route.Name == "" {
 		return oshandler.Credentials{}
 	}
 
-	//if len(boot_res.service.Spec.Ports) == 0 {
-	//	err := errors.New("no ports in boot service")
-	//	logger.Error("", err)
-	//	return brokerapi.Binding{}, Credentials{}, err
-	//}
 
 	etcd_addr, host, port := ha_res.endpoint()
 	println("etcd addr: ", etcd_addr)
@@ -190,18 +179,9 @@ func (handler *Etcd_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, 
 		myServiceInfo.Url, myServiceInfo.Database,
 		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password)
 
-	//if err != nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
-	//}
 	if ha_res.route.Name == "" {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
-
-	//if len(boot_res.service.Spec.Ports) == 0 {
-	//	err := errors.New("no ports in boot service")
-	//	logger.Error("", err)
-	//	return brokerapi.Binding{}, Credentials{}, err
-	//}
 
 	etcd_addr, host, port := ha_res.endpoint()
 	println("etcd addr: ", etcd_addr)
@@ -291,9 +271,6 @@ func loadEtcdResources_HA(instanceID, rootPassword, user, password string, res *
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDUSERNAME#"), []byte(user), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDUSERPASSWORD#"), []byte(password), -1)
 
-	//println("========= HA yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -519,11 +496,6 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
 
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
