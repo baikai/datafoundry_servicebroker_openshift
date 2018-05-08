@@ -362,7 +362,7 @@ func (job *cassandraOrchestrationJob) run() {
 		return
 	}
 
-CHECK_POD_STATE_0:
+CHECK_POD_STATE_0:  // todo: check if seed pod is running
 
 	if job.cancelled {
 		return
@@ -381,9 +381,7 @@ CHECK_POD_STATE_0:
 
 	println("seed pod is running now")
 
-	// todo: check if seed pod is running
-
-CHECK_POD_STATE_1:
+CHECK_POD_STATE_1:   // todo: check if Cassandra pods fully init
 
 	if job.cancelled {
 		return
@@ -421,7 +419,7 @@ CHECK_POD_STATE_1:
 		return
 	}
 
-CHECK_POD_STATE_2:
+CHECK_POD_STATE_2:  // todo: start runing pod by labels
 
 	time.Sleep(10 * time.Second)
 
@@ -445,7 +443,7 @@ CHECK_POD_STATE_2:
 
 	println("cassandra ha pods are all running now")
 
-CHECK_POD_STATE_3:
+CHECK_POD_STATE_3:   // todo: check if Cassandra pods fully init
 
 	if job.cancelled {
 		return
@@ -474,7 +472,7 @@ CHECK_POD_STATE_3:
 
 	time.Sleep(5 * time.Minute) // wait cluster fully formed.
 
-RETRY_CREATE_NEW_USER:
+RETRY_CREATE_NEW_USER:   // todo: create new super user
 
 	if job.cancelled {
 		return
@@ -515,7 +513,7 @@ RETRY_CREATE_NEW_USER:
 		goto RETRY_CREATE_NEW_USER
 	}
 
-RETRY_DELETE_DEFAULT_USER:
+RETRY_DELETE_DEFAULT_USER:   // todo: delete user cassandra
 
 	time.Sleep(30 * time.Second)
 
