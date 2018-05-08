@@ -1,20 +1,20 @@
 package etcd
 
 import (
-	"fmt"
-	"github.com/pivotal-cf/brokerapi"
-	"net"
-	"time"
 	"bytes"
 	"encoding/json"
-	"strings"
-	"io/ioutil"
-	"os"
-	etcd "github.com/coreos/etcd/client"
-	"github.com/pivotal-golang/lager"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	etcd "github.com/coreos/etcd/client"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"net"
+	"os"
+	"strings"
+	"time"
 )
 
 //==============================================================
@@ -158,7 +158,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 		return oshandler.Credentials{}
 	}
 
-
 	etcd_addr, host, port := ha_res.endpoint()
 	println("etcd addr: ", etcd_addr)
 	//etcd_addrs := []string{etcd_addr}
@@ -270,7 +269,6 @@ func loadEtcdResources_HA(instanceID, rootPassword, user, password string, res *
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDROOTPASSWORD#"), []byte(rootPassword), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDUSERNAME#"), []byte(user), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDUSERPASSWORD#"), []byte(password), -1)
-
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -496,7 +494,6 @@ RETRY:
 	return nil
 }
 
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -534,8 +531,6 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 				logger.Error("watch HA etcd rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch etcd HA rc, status.Info: " + string(status.Info))
 			}
 
 			var wrcs watchReplicationControllerStatus
