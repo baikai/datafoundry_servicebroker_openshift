@@ -100,20 +100,6 @@ func (handler *Cassandra_sampleHandler) DoLastOperation(myServiceInfo *oshandler
 			Description: "In progress .",
 		}, nil
 	}
-
-	// assume in provisioning
-
-	// the job may be finished or interrupted or running in another instance.
-
-	// check boot route, if it doesn't exist, return failed
-	//boot_res, _ := getCassandraResources_Boot (myServiceInfo.Url, myServiceInfo.Database)
-	//if boot_res.route.Name == "" {
-	//	return brokerapi.LastOperation{
-	//		State:       brokerapi.Failed,
-	//		Description: "Failed!",
-	//	}, nil
-	//}
-
 	// only check the statuses of 3 ReplicationControllers. The cassandra pods may be not running well.
 
 	ok := func(rc *kapi.ReplicationController) bool {
@@ -128,8 +114,6 @@ func (handler *Cassandra_sampleHandler) DoLastOperation(myServiceInfo *oshandler
 	}
 
 	ha_res, _ := getCassandraResources_HA(myServiceInfo.Url, myServiceInfo.Database)
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if !ok(&ha_res.rc) {
 		return brokerapi.LastOperation{
