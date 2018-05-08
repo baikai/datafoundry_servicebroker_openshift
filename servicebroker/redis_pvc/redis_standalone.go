@@ -1,39 +1,24 @@
 package redis_pvc
 
 import (
-	"fmt"
-	"errors"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
-	"time"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
 	"sync"
-
-	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	//routeapi "github.com/openshift/origin/route/api/v1"
-
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"time"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RedisServcieBrokerName_Standalone = "Redis_volumes_standalone"
@@ -126,16 +111,10 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	//redisUser := oshandler.NewElevenLengthID()
 	redisPassword := oshandler.GenGUID()
 
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
@@ -156,16 +135,12 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		},
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Redis Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	// ...
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	//serviceInfo.User = redisUser
 	serviceInfo.Password = redisPassword
 
 	serviceInfo.Volumes = volumes
@@ -203,8 +178,6 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" redis createRedisResources_Master error: ", err)
-			logger.Error("redis createRedisResources_Master error", err)
 
 			destroyRedisResources_Master(output, serviceInfo.Database)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
@@ -220,7 +193,6 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 			serviceInfo:     &serviceInfo,
 			masterResources: output,
-			//moreResources:   nil,
 		})
 	}()
 
@@ -234,63 +206,6 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	return serviceSpec, serviceInfo, nil
 }
-
-/*
-func (handler *Redis_Handler) DoProvision(instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	//初始化到openshift的链接
-
-	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
-	serviceInfo := oshandler.ServiceInfo{}
-
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
-	serviceSpec.IsAsync = true
-
-	//instanceIdInTempalte   := instanceID // todo: ok?
-	instanceIdInTempalte   := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
-	serviceBrokerNamespace := oshandler.OC().Namespace()
-	//redisUser := oshandler.NewElevenLengthID()
-	redisPassword := oshandler.GenGUID()
-
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
-
-	// master redis
-
-	output, err := createRedisResources_Master(instanceIdInTempalte, serviceBrokerNamespace, redisPassword)
-
-	if err != nil {
-		destroyRedisResources_Master(output, serviceBrokerNamespace)
-
-		return serviceSpec, serviceInfo, err
-	}
-
-	// todo: maybe it is better to create a new job
-
-	serviceInfo.Url = instanceIdInTempalte
-	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	//serviceInfo.User = redisUser
-	serviceInfo.Password = redisPassword
-
-	// todo: improve watch. Pod may be already running before watching!
-	startRedisOrchestrationJob(&redisOrchestrationJob{
-		cancelled:  false,
-		cancelChan: make(chan struct{}),
-
-		serviceInfo:     &serviceInfo,
-		masterResources: output,
-		//moreResources:   nil,
-	})
-
-	serviceSpec.DashboardURL = ""
-
-	return serviceSpec, serviceInfo, nil
-}
-*/
 
 func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 
@@ -308,14 +223,7 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
-	//if err == oshandler.NotFound {
-	//	return brokerapi.LastOperation{
-	//		State:       brokerapi.InProgress,
-	//		Description: "In progress .",
-	//	}, nil
-	//} else if err != nil {
-	//	return return brokerapi.LastOperation{}, err
-	//}
+
 	if err != nil {
 		return brokerapi.LastOperation{
 			State:       brokerapi.Failed,
@@ -336,7 +244,6 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 
 	// the job may be finished or interrupted or running in another instance.
 
-	//master_res, _ := getRedisResources_Master (myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 	more_res, _ := getRedisResources_More(
 		myServiceInfo.Url,
 		myServiceInfo.Database,
@@ -344,12 +251,6 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		myServiceInfo.Volumes,
 	)
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(rc *kapi.ReplicationController) bool {
 		println("rc.Name =", rc.Name)
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -359,8 +260,6 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		println("n =", n)
 		return n >= *rc.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&more_res.rc1) && ok(&more_res.rc2) && ok(&more_res.rcSentinel) {
 		return brokerapi.LastOperation{
@@ -445,6 +344,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var more_res redisResources_More
 	err := loadRedisResources_More(myServiceInfo.Url, myServiceInfo.Password, myServiceInfo.Volumes, &more_res)
 	if err != nil {
+		logger.Error("loadRedisResources_More error", err)
 		return oshandler.Credentials{}
 	}
 
@@ -453,8 +353,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	cluser_name := "cluster-" + more_res.serviceSentinel.Name
 	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(client_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	return oshandler.Credentials{
 		Uri:      "",
@@ -482,21 +380,15 @@ func (handler *Redis_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 	}
 
 	client_port := &more_res.serviceSentinel.Spec.Ports[0]
-	//if client_port == nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
-	//}
 
 	cluser_name := "cluster-" + more_res.serviceSentinel.Name
 	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(client_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	mycredentials := oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
 		Port:     port,
-		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 		Name:     cluser_name,
 	}
@@ -518,111 +410,6 @@ func (handler *Redis_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, myc
 
 // todo: it is best to save jobs in mysql firstly, ...
 // now, when the server instance is terminated, jobs are lost.
-/*
-var redisCreatePvcVolumnJobs = map[string]*redisCreatePvcVolumnJob{}
-var redisCreatePvcVolumnJobsMutex sync.Mutex
-
-func getCreatePvcVolumnJob (volumeName string) *redisCreatePvcVolumnJob {
-	redisCreatePvcVolumnJobsMutex.Lock()
-	job := redisCreatePvcVolumnJobs[volumeName]
-	redisCreatePvcVolumnJobsMutex.Unlock()
-
-	return job
-}
-
-func startRedisCreatePvcVolumnJob (job *redisCreatePvcVolumnJob) {
-	redisCreatePvcVolumnJobsMutex.Lock()
-	defer redisCreatePvcVolumnJobsMutex.Unlock()
-
-	if redisCreatePvcVolumnJobs[job.volumeName] == nil {
-		redisCreatePvcVolumnJobs[job.volumeName] = job
-		go func() {
-			job.run()
-
-			redisCreatePvcVolumnJobsMutex.Lock()
-			delete(redisCreatePvcVolumnJobs, job.volumeName)
-			redisCreatePvcVolumnJobsMutex.Unlock()
-		}()
-	}
-}
-
-type redisCreatePvcVolumnJob struct {
-	cancelled bool
-	cancelChan chan struct{}
-	cancelMetex sync.Mutex
-
-	volumeName  string
-	volumeSize  int
-	serviceInfo *oshandler.ServiceInfo
-}
-
-func (job *redisCreatePvcVolumnJob) cancel() {
-	job.cancelMetex.Lock()
-	defer job.cancelMetex.Unlock()
-
-	if ! job.cancelled {
-		job.cancelled = true
-		close (job.cancelChan)
-	}
-}
-
-func (job *redisCreatePvcVolumnJob) run() {
-	println("startRedisCreatePvcVolumnJob ...")
-
-	println("CreateVolumn ...")
-
-	err := oshandler.CreateVolumn(job.volumeName, job.volumeSize)
-	if err != nil {
-		println(" redis oshandler.CreateVolumn error: ", err)
-		return
-	}
-
-	println("WaitUntilPvcIsBound ...")
-
-	// watch pvc until bound
-
-	err = oshandler.WaitUntilPvcIsBound(job.serviceInfo.Database, job.volumeName, job.cancelChan)
-	if err != nil {
-		println(" redis WaitUntilPvcIsBound error: ", err)
-
-		// todo: on error
-		oshandler.DeleteVolumn(job.volumeName)
-
-		return
-	}
-
-	println("volume created ...")
-
-	println("createRedisResources_Master ...")
-
-	// create master res
-
-	output, err := createRedisResources_Master(
-			job.serviceInfo.Url,
-			job.serviceInfo.Database,
-			job.serviceInfo.Password,
-			job.serviceInfo.Volume_type == oshandler.VolumeType_PVC,
-	)
-	if err != nil {
-		println(" redis createRedisResources_Master error: ", err)
-
-		destroyRedisResources_Master(output, job.serviceInfo.Database)
-		oshandler.DeleteVolumn(job.volumeName)
-
-		return
-	}
-
-	// todo: improve watch. Pod may be already running before watching!
-	startRedisOrchestrationJob(&redisOrchestrationJob{
-		cancelled:  false,
-		cancelChan: make(chan struct{}),
-
-		serviceInfo:     job.serviceInfo,
-		masterResources: output,
-		//moreResources:   nil,
-	})
-}
-*/
 
 //==============
 
@@ -663,7 +450,6 @@ type redisOrchestrationJob struct {
 	serviceInfo *oshandler.ServiceInfo
 
 	masterResources *redisResources_Master
-	//moreResources   *redisResources_More
 }
 
 func (job *redisOrchestrationJob) cancel() {
@@ -676,19 +462,12 @@ func (job *redisOrchestrationJob) cancel() {
 	}
 }
 
-type watchPodStatus struct {
-	// The type of watch update contained in the message
-	Type string `json:"type"`
-	// Pod details
-	Object kapi.Pod `json:"object"`
-}
-
 func (job *redisOrchestrationJob) run() {
 
 	println("startRedisOrchestrationJob ...")
 
 	serviceInfo := job.serviceInfo
-	//pod := job.masterResources.pod
+
 	rc := &job.masterResources.rc
 
 	for {
@@ -766,13 +545,8 @@ func loadRedisResources_Master(instanceID, redisPassword string, volumes []oshan
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****master"), []byte(masterPvcName), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
-		//Decode(&res.pod)
 		Decode(&res.rc)
 
 	return decoder.Err
@@ -816,10 +590,6 @@ func loadRedisResources_More(instanceID, redisPassword string, volumes []oshandl
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****slave1"), []byte(slavePvcName1), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****slave2"), []byte(slavePvcName2), -1)
 
-	//println("========= More yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.serviceSentinel).
@@ -831,7 +601,6 @@ func loadRedisResources_More(instanceID, redisPassword string, volumes []oshandl
 }
 
 type redisResources_Master struct {
-	//pod      kapi.Pod
 	rc kapi.ReplicationController
 }
 
@@ -846,6 +615,7 @@ func createRedisResources_Master(instanceId, serviceBrokerNamespace, redisPasswo
 	var input redisResources_Master
 	err := loadRedisResources_Master(instanceId, redisPassword, volumes, &input)
 	if err != nil {
+		logger.Error("loadRedisResources_Master error", err)
 		return nil, err
 	}
 
@@ -856,7 +626,6 @@ func createRedisResources_Master(instanceId, serviceBrokerNamespace, redisPasswo
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		//KPost(prefix + "/pods", &input.pod, &output.pod)
 		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
 
 	if osr.Err != nil {
@@ -872,6 +641,7 @@ func getRedisResources_Master(instanceId, serviceBrokerNamespace, redisPassword 
 	var input redisResources_Master
 	err := loadRedisResources_Master(instanceId, redisPassword, volumes, &input)
 	if err != nil {
+		logger.Error("loadRedisResources_Master error", err)
 		return &output, err
 	}
 
@@ -879,7 +649,6 @@ func getRedisResources_Master(instanceId, serviceBrokerNamespace, redisPassword 
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		//KGet(prefix + "/pods/" + input.pod.Name, &output.pod)
 		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc)
 
 	if osr.Err != nil {
@@ -905,21 +674,6 @@ func (job *redisOrchestrationJob) createRedisResources_More(instanceId, serviceB
 
 	var output redisResources_More
 
-	/*
-		osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
-		// here, not use job.post
-		prefix := "/namespaces/" + serviceBrokerNamespace
-		osr.
-			KPost(prefix + "/services", &input.serviceSentinel, &output.serviceSentinel).
-			KPost(prefix + "/replicationcontrollers", &input.rc, &output.rc).
-			KPost(prefix + "/replicationcontrollers", &input.rcSentinel, &output.rcSentinel)
-
-		if osr.Err != nil {
-			logger.Error("createRedisResources_More", osr.Err)
-		}
-	*/
-
 	go func() {
 		if err := job.kpost(serviceBrokerNamespace, "services", &input.serviceSentinel, &output.serviceSentinel); err != nil {
 			return
@@ -944,6 +698,7 @@ func getRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword st
 	var input redisResources_More
 	err := loadRedisResources_More(instanceId, redisPassword, volumes, &input)
 	if err != nil {
+		logger.Error("loadRedisResources_More error", err)
 		return &output, err
 	}
 
@@ -1057,39 +812,6 @@ RETRY:
 	return nil
 }
 
-func odel(serviceBrokerNamespace, typeName, resName string) error {
-	if resName == "" {
-		return nil
-	}
-
-	println("to delete ", typeName, "/", resName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
-	i, n := 0, 5
-RETRY:
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).ODelete(uri, nil)
-	if osr.Err == nil {
-		logger.Info("delete " + uri + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -1107,7 +829,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Redis rc", osr.Err)
 		return
 	}
 
@@ -1115,7 +837,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Redis rc", err)
 		return
 	}
 
@@ -1124,11 +846,9 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA redis rc error", status.Err)
+				logger.Error("Watch Redis rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch redis HA rc, status.Info: " + string(status.Info))
 			}
 
 			var wrcs watchReplicationControllerStatus
