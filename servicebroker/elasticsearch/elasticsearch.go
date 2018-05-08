@@ -100,7 +100,6 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	serviceInfo.Url = instanceIDInTemplate
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 
-
 	var paras podParas
 	if replicas, ok := details.Parameters["replicas"].(string); ok {
 		logger.Debug("DoProvision(), replicas=" + replicas)
