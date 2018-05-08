@@ -333,6 +333,15 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 				[]byte(ES_image),
 				-1)
 		}
+		//endpoint_postfix := oshandler.EndPointSuffix()
+		//endpoint_postfix = strings.TrimSpace(endpoint_postfix)
+		//if len(endpoint_postfix) > 0 {
+		//	EtcdTemplateData_HA = bytes.Replace(
+		//		EtcdTemplateData_HA,
+		//		[]byte("endpoint-postfix-place-holder"),
+		//		[]byte(endpoint_postfix),
+		//		-1)
+		//}
 	}
 
 	peerPvcName0 := peerPvcName0(volumes)
@@ -346,6 +355,10 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace0"), []byte(peerPvcName0), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace1"), []byte(peerPvcName1), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace2"), []byte(peerPvcName2), -1)
+
+	//println("========= HA yamlTemplates ===========")
+	//println(string(yamlTemplates))
+	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -387,6 +400,7 @@ func createESResources_HA(instanceId, serviceBrokerNamespace string, volumes []o
 	var input esResources_HA
 	err := loadESResources_HA(instanceId, volumes, &input)
 	if err != nil {
+		logger.Error("createESResources_HA load error ",err)
 		return nil, err
 	}
 
@@ -417,6 +431,7 @@ func getESResources_HA(instanceId, serviceBrokerNamespace, rootPassword, user, p
 	var input esResources_HA
 	err := loadESResources_HA(instanceId, volumes, &input)
 	if err != nil {
+		logger.Error("getESResources_HA load error ",err)
 		return &output, err
 	}
 
@@ -657,6 +672,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
 	if osr.Err != nil {
+		logger.Error("statRunningPodsByLabels NewOpenshiftREST error ",err)
 		return 0, osr.Err
 	}
 
@@ -684,7 +700,7 @@ func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]stri
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &rcs)
 	if osr.Err != nil {
-		fmt.Println("get rc list err:", osr.Err)
+		logger.Error("get rc list err:", osr.Err)
 		return nil, osr.Err
 	}
 
