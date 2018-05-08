@@ -349,12 +349,6 @@ func (job *cassandraOrchestrationJob) cancel() {
 	}
 }
 
-type watchPodStatus struct {
-	// The type of watch update contained in the message
-	Type string `json:"type"`
-	// Pod details
-	Object kapi.Pod `json:"object"`
-}
 
 func (job *cassandraOrchestrationJob) run() {
 	start_time := time.Now()
