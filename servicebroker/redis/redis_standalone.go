@@ -1,40 +1,23 @@
 package redis_pvc
 
 import (
-	"fmt"
-	//"errors"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/pivotal-cf/brokerapi"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
 	"sync"
-
-	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	//routeapi "github.com/openshift/origin/route/api/v1"
-
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"time"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RedisServcieBrokerName_Standalone = "Redis_standalone"
@@ -95,27 +78,17 @@ func (handler *Redis_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	//redisUser := oshandler.NewElevenLengthID()
 	redisPassword := oshandler.GenGUID()
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	//serviceInfo.User = redisUser
 	serviceInfo.Password = redisPassword
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Redis Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	go func() {
 		err := <-etcdSaveResult
@@ -172,12 +145,6 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	//master_res, _ := getRedisResources_Master (myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 	more_res, _ := getRedisResources_More(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(rc *kapi.ReplicationController) bool {
 		println("rc.Name =", rc.Name)
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -190,8 +157,6 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		println("n =", n)
 		return n >= *rc.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&more_res.rc) && ok(&more_res.rcSentinel) {
 		return brokerapi.LastOperation{
@@ -245,6 +210,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	err := loadRedisResources_More(myServiceInfo.Url, myServiceInfo.Password, &more_res)
 
 	if err != nil {
+		logger.Error("loadRedisResources_More error", err)
 		return oshandler.Credentials{}
 	}
 
@@ -253,14 +219,11 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	cluser_name := "cluster-" + more_res.serviceSentinel.Name
 	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(client_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	return oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
 		Port:     port,
-		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 		Name:     cluser_name,
 	}
@@ -277,21 +240,15 @@ func (handler *Redis_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 	}
 
 	client_port := &more_res.serviceSentinel.Spec.Ports[0]
-	//if client_port == nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
-	//}
 
 	cluser_name := "cluster-" + more_res.serviceSentinel.Name
 	host := fmt.Sprintf("%s.%s.%s", more_res.serviceSentinel.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(client_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	mycredentials := oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
 		Port:     port,
-		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 		Name:     cluser_name,
 	}
@@ -361,79 +318,6 @@ func (job *redisOrchestrationJob) cancel() {
 	}
 }
 
-type watchPodStatus struct {
-	// The type of watch update contained in the message
-	Type string `json:"type"`
-	// Pod details
-	Object kapi.Pod `json:"object"`
-}
-
-/*
-func (job *redisOrchestrationJob) run() {
-	serviceInfo := job.serviceInfo
-	pod := job.masterResources.pod
-	uri := "/namespaces/" + serviceInfo.Database + "/pods/" + pod.Name
-	statuses, cancel, err := oshandler.OC().KWatch (uri)
-	if err != nil {
-		logger.Error("start watching boot pod", err)
-		destroyRedisResources_Master (job.masterResources, serviceInfo.Database)
-		return
-	}
-
-	for {
-		var status oshandler.WatchStatus
-		select {
-		case <- job.cancelChan:
-			close(cancel)
-			return
-		case status, _ = <- statuses:
-			break
-		}
-
-		if status.Err != nil {
-			close(cancel)
-
-			logger.Error("watch boot pod error", status.Err)
-			destroyRedisResources_Master (job.masterResources, serviceInfo.Database)
-			return
-		} else {
-			//logger.Debug("watch etcd pod, status.Info: " + string(status.Info))
-		}
-
-		var wps watchPodStatus
-		if err := json.Unmarshal(status.Info, &wps); err != nil {
-			close(cancel)
-
-			logger.Error("parse boot pod status", err)
-			destroyRedisResources_Master (job.masterResources, serviceInfo.Database)
-			return
-		}
-
-		if wps.Object.Status.Phase != kapi.PodPending {
-			println("watch pod phase: ", wps.Object.Status.Phase)
-
-			if wps.Object.Status.Phase != kapi.PodRunning {
-				close(cancel)
-
-				logger.Debug("pod phase is neither pending nor running")
-				destroyRedisResources_Master (job.masterResources, serviceInfo.Database)
-				return
-			}
-
-			// running now, to create HA resources
-			close(cancel)
-			break
-		}
-	}
-
-	time.Sleep(5 * time.Second)
-
-	// create more resources
-
-	job.createRedisResources_More (serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
-}
-*/
-
 func (job *redisOrchestrationJob) run() {
 	serviceInfo := job.serviceInfo
 	//pod := job.masterResources.pod
@@ -502,13 +386,8 @@ func loadRedisResources_Master(instanceID, redisPassword string, res *redisResou
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
-		//Decode(&res.pod)
 		Decode(&res.rc)
 
 	return decoder.Err
@@ -544,10 +423,6 @@ func loadRedisResources_More(instanceID, redisPassword string, res *redisResourc
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
 
-	//println("========= More yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.serviceSentinel).
@@ -558,7 +433,6 @@ func loadRedisResources_More(instanceID, redisPassword string, res *redisResourc
 }
 
 type redisResources_Master struct {
-	//pod      kapi.Pod
 	rc kapi.ReplicationController
 }
 
@@ -572,6 +446,7 @@ func createRedisResources_Master(instanceId, serviceBrokerNamespace, redisPasswo
 	var input redisResources_Master
 	err := loadRedisResources_Master(instanceId, redisPassword, &input)
 	if err != nil {
+		logger.Error("loadRedisResources_Master error", err)
 		return nil, err
 	}
 
@@ -631,21 +506,6 @@ func (job *redisOrchestrationJob) createRedisResources_More(instanceId, serviceB
 
 	var output redisResources_More
 
-	/*
-		osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
-		// here, not use job.post
-		prefix := "/namespaces/" + serviceBrokerNamespace
-		osr.
-			KPost(prefix + "/services", &input.serviceSentinel, &output.serviceSentinel).
-			KPost(prefix + "/replicationcontrollers", &input.rc, &output.rc).
-			KPost(prefix + "/replicationcontrollers", &input.rcSentinel, &output.rcSentinel)
-
-		if osr.Err != nil {
-			logger.Error("createRedisResources_More", osr.Err)
-		}
-	*/
-
 	go func() {
 		if err := job.kpost(serviceBrokerNamespace, "services", &input.serviceSentinel, &output.serviceSentinel); err != nil {
 			return
@@ -667,6 +527,7 @@ func getRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword st
 	var input redisResources_More
 	err := loadRedisResources_More(instanceId, redisPassword, &input)
 	if err != nil {
+		logger.Error("loadRedisResources_Master error", err)
 		return &output, err
 	}
 
@@ -778,39 +639,6 @@ RETRY:
 	return nil
 }
 
-func odel(serviceBrokerNamespace, typeName, resName string) error {
-	if resName == "" {
-		return nil
-	}
-
-	println("to delete ", typeName, "/", resName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
-	i, n := 0, 5
-RETRY:
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).ODelete(uri, nil)
-	if osr.Err == nil {
-		logger.Info("delete " + uri + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -828,7 +656,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Redis rc", osr.Err)
 		return
 	}
 
@@ -836,7 +664,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Redis rc", err)
 		return
 	}
 
@@ -845,7 +673,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA redis rc error", status.Err)
+				logger.Error("Watch Redis rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -854,7 +682,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+				logger.Error("Parse Master Redis rc status", err)
 				close(cancel)
 				return
 			}
