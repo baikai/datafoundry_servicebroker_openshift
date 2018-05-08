@@ -45,20 +45,12 @@ func (handler *Cassandra_sampleHandler) DoProvision(etcdSaveResult chan error, i
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
 	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace      // may be not needed
@@ -95,11 +87,6 @@ func (handler *Cassandra_sampleHandler) DoProvision(etcdSaveResult chan error, i
 	}()
 
 	serviceSpec.DashboardURL = ""
-
-	//>>>
-	// the credentials are created on binding cassandra
-	// serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
-	//<<<
 
 	return serviceSpec, serviceInfo, nil
 }
