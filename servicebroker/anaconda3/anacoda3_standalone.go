@@ -373,54 +373,6 @@ func destroyAnacodaResources_Master(masterRes *anacodaResources_Master, serviceB
 //
 //===============================================================
 
-func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).OPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
 func kdel(serviceBrokerNamespace, typeName, resName string) error {
 	if resName == "" {
 		return nil
