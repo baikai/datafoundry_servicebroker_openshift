@@ -2,33 +2,18 @@ package etcd
 
 import (
 	"fmt"
-	//"errors"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
 	"github.com/pivotal-cf/brokerapi"
 	"net"
 	"time"
-	//"strconv"
 	"bytes"
 	"encoding/json"
 	"strings"
-	//"text/template"
-	//"io"
 	"io/ioutil"
 	"os"
-	//"sync"
-
 	etcd "github.com/coreos/etcd/client"
 	"github.com/pivotal-golang/lager"
-	//"golang.org/x/net/context"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
