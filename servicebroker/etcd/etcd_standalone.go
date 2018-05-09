@@ -1,35 +1,20 @@
 package etcd
 
 import (
-	"fmt"
-	//"errors"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	"github.com/pivotal-cf/brokerapi"
-	"net"
-	"time"
-	//"strconv"
 	"bytes"
 	"encoding/json"
-	"strings"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
-	//"sync"
-
-	etcd "github.com/coreos/etcd/client"
-	"github.com/pivotal-golang/lager"
-	//"golang.org/x/net/context"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-
+	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	etcd "github.com/coreos/etcd/client"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"net"
+	"os"
+	"strings"
+	"time"
 )
 
 //==============================================================
@@ -65,9 +50,6 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
 	//instanceIdInTempalte   := instanceID // todo: ok?
@@ -172,18 +154,9 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 		return oshandler.Credentials{}
 	}
 
-	//if err != nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
-	//}
 	if ha_res.route.Name == "" {
 		return oshandler.Credentials{}
 	}
-
-	//if len(boot_res.service.Spec.Ports) == 0 {
-	//	err := errors.New("no ports in boot service")
-	//	logger.Error("", err)
-	//	return brokerapi.Binding{}, Credentials{}, err
-	//}
 
 	etcd_addr, host, port := ha_res.endpoint()
 	println("etcd addr: ", etcd_addr)
@@ -205,18 +178,9 @@ func (handler *Etcd_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, 
 		myServiceInfo.Url, myServiceInfo.Database,
 		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password)
 
-	//if err != nil {
-	//	return brokerapi.Binding{}, oshandler.Credentials{}, err
-	//}
 	if ha_res.route.Name == "" {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
-
-	//if len(boot_res.service.Spec.Ports) == 0 {
-	//	err := errors.New("no ports in boot service")
-	//	logger.Error("", err)
-	//	return brokerapi.Binding{}, Credentials{}, err
-	//}
 
 	etcd_addr, host, port := ha_res.endpoint()
 	println("etcd addr: ", etcd_addr)
@@ -305,10 +269,6 @@ func loadEtcdResources_HA(instanceID, rootPassword, user, password string, res *
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDROOTPASSWORD#"), []byte(rootPassword), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDUSERNAME#"), []byte(user), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("#ETCDUSERPASSWORD#"), []byte(password), -1)
-
-	//println("========= HA yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -534,12 +494,6 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -577,8 +531,6 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 				logger.Error("watch HA etcd rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch etcd HA rc, status.Info: " + string(status.Info))
 			}
 
 			var wrcs watchReplicationControllerStatus

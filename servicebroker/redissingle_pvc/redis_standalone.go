@@ -1,40 +1,23 @@
 package redissingle_pvc
 
 import (
-	"errors"
-	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/pivotal-cf/brokerapi"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
-	//"sync"
-
-	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	//routeapi "github.com/openshift/origin/route/api/v1"
-
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RedisSingleServcieBrokerName_Standalone = "Redis_volumes_single"
@@ -79,7 +62,7 @@ func (handler *RedisSingle_freeHandler) DoUnbind(myServiceInfo *oshandler.Servic
 }
 
 //==============================================================
-//
+//挂卷配置
 //==============================================================
 
 func volumeBaseName(instanceId string) string {
@@ -110,16 +93,10 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	//redisUser := oshandler.NewElevenLengthID()
 	redisPassword := oshandler.GenGUID()
 
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
@@ -131,16 +108,12 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 		},
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Redis Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	// ...
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	//serviceInfo.User = redisUser
 	serviceInfo.Password = redisPassword
 
 	serviceInfo.Volumes = volumes
@@ -198,7 +171,6 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" redis createRedisSingleResources_Master error: ", err)
 			logger.Error("redis createRedisSingleResources_Master error", err)
 
 			destroyRedisSingleResources_Master(output, serviceInfo.Database)
@@ -235,14 +207,7 @@ func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.Ser
 		myServiceInfo.Password,
 		myServiceInfo.Volumes,
 	)
-	//if err == oshandler.NotFound {
-	//	return brokerapi.LastOperation{
-	//		State:       brokerapi.InProgress,
-	//		Description: "In progress .",
-	//	}, nil
-	//} else if err != nil {
-	//	return return brokerapi.LastOperation{}, err
-	//}
+
 	if err != nil {
 		return brokerapi.LastOperation{
 			State:       brokerapi.Failed,
@@ -250,12 +215,6 @@ func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.Ser
 		}, err
 	}
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(rc *kapi.ReplicationController) bool {
 		println("rc.Name =", rc.Name)
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -265,8 +224,6 @@ func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.Ser
 		println("n =", n)
 		return n >= *rc.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&master_res.rc) {
 		return brokerapi.LastOperation{
@@ -321,11 +278,6 @@ func (handler *RedisSingle_Handler) DoDeprovision(myServiceInfo *oshandler.Servi
 
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *redisResources_Master) oshandler.Credentials {
-	//var master_res redisResources_Master
-	//err := loadRedisSingleResources_Master(myServiceInfo.Url, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
-	//if err != nil {
-	//	return oshandler.Credentials{}
-	//}
 
 	ndhost := oshandler.RandomNodeAddress()
 	var svchost, svcport, ndport string
@@ -340,9 +292,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *r
 		Uri:      fmt.Sprintf("internal address: %s:%s", svchost, svcport),
 		Hostname: ndhost,
 		Port:     ndport,
-		//Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
-		//Name:     cluser_name,
 	}
 }
 
@@ -360,34 +310,6 @@ func (handler *RedisSingle_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo,
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
-
-	/*
-		client_port := &master_res.service.Spec.Ports[0]
-		//if client_port == nil {
-		//	return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("client port not found")
-		//}
-
-		//cluser_name := "cluster-" + master_res.service.Name
-		svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-		svcport := strconv.Itoa(client_port.Port)
-		//host := master_res.routeMQ.Spec.Host
-		//port := "80"
-
-		ndhost := oshandler.RandomNodeAddress()
-		var ndport string = ""
-		if len(master_res.serviceNodePort.Spec.Ports) > 0 {
-			ndport = strconv.Itoa(master_res.serviceNodePort.Spec.Ports[0].NodePort)
-		}
-
-		mycredentials := oshandler.Credentials{
-			Uri:      fmt.Sprintf("internal address: %s:%s", svchost, svcport),
-			Hostname: ndhost,
-			Port:     ndport,
-			//Username: myServiceInfo.User,
-			Password: myServiceInfo.Password,
-			//Name:     cluser_name,
-		}
-	*/
 
 	mycredentials := getCredentialsOnPrivision(myServiceInfo, master_res)
 
@@ -441,13 +363,8 @@ func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes [
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****master"), []byte(masterPvcName), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
-		//Decode(&res.service).
 		Decode(&res.serviceNodePort).
 		Decode(&res.rc)
 
@@ -455,7 +372,6 @@ func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes [
 }
 
 type redisResources_Master struct {
-	//service         kapi.Service
 	serviceNodePort kapi.Service
 	rc              kapi.ReplicationController
 }
@@ -474,7 +390,6 @@ func createRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redis
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		//KPost(prefix+"/services", &input.service, &output.service).
 		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
 
 	if osr.Err != nil {
@@ -513,7 +428,6 @@ func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPas
 
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.
-		//KGet(prefix+"/services/"+input.service.Name, &output.service).
 		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort).
 		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc)
 
@@ -527,7 +441,6 @@ func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPas
 func destroyRedisSingleResources_Master(masterRes *redisResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
 }
@@ -535,54 +448,6 @@ func destroyRedisSingleResources_Master(masterRes *redisResources_Master, servic
 //===============================================================
 //
 //===============================================================
-
-func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).OPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
 
 func kdel(serviceBrokerNamespace, typeName, resName string) error {
 	if resName == "" {
@@ -611,39 +476,6 @@ RETRY:
 	return nil
 }
 
-func odel(serviceBrokerNamespace, typeName, resName string) error {
-	if resName == "" {
-		return nil
-	}
-
-	println("to delete ", typeName, "/", resName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
-	i, n := 0, 5
-RETRY:
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).ODelete(uri, nil)
-	if osr.Err == nil {
-		logger.Info("delete " + uri + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -661,7 +493,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Redis rc", osr.Err)
 		return
 	}
 
@@ -669,7 +501,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Redis rc", err)
 		return
 	}
 
@@ -678,7 +510,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA redis rc error", status.Err)
+				logger.Error("Watch  Redis rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -687,7 +519,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+				logger.Error("Parse Master Redis rc status", err)
 				close(cancel)
 				return
 			}

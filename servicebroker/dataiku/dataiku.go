@@ -247,6 +247,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var master_res dataikuResources_Master
 	err := loadDataikuResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, &master_res)
 	if err != nil {
+		logger.Error("getCredentialsOnPrivision loadDataikuResources_Master error ", err)
 		return oshandler.Credentials{}
 	}
 
@@ -271,6 +272,7 @@ func createDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUs
 	var input dataikuResources_Master
 	err := loadDataikuResources_Master(instanceId, dataikuUser, dataikuPassword, &input)
 	if err != nil {
+		logger.Error("createDataikuResources_Master loadDataikuResources_Master error ", err)
 		return nil, err
 	}
 
@@ -298,10 +300,12 @@ func loadDataikuResources_Master(instanceID, dataikuUser, dataikuPassword string
 	if DataikuTemplateData_Master == nil {
 		f, err := os.Open("dataiku.yaml")
 		if err != nil {
+			logger.Error("loadDataikuResources_Master open yaml error ", err)
 			return err
 		}
 		DataikuTemplateData_Master, err = ioutil.ReadAll(f)
 		if err != nil {
+			logger.Error("loadDataikuResources_Master ReadAll error ", err)
 			return err
 		}
 		endpoint_postfix := oshandler.EndPointSuffix()
@@ -345,6 +349,7 @@ func getDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUser,
 	var input dataikuResources_Master
 	err := loadDataikuResources_Master(instanceId, dataikuUser, dataikuPassword, &input)
 	if err != nil {
+		logger.Error("loadDataikuResources_Master error ", err)
 		return &output, err
 	}
 
