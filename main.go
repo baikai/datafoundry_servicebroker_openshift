@@ -405,13 +405,13 @@ func (myBroker *myServiceBroker) Update(
 	if err != nil {
 		//logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
 		//return false, errors.New("Internal Error!!")
-		println("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
+		logger.Info(fmt.Sprint("findServicePlanInfo service "+service_name+" plan "+plan_name, err))
 		//} else {
 		//	volumeSize = 0
 		//	connections = 0
 	}
 
-	println("volumeSize =", volumeSize, ", connections=", connections)
+	logger.Info(fmt.Sprint("volumeSize =", volumeSize, ", connections=", connections))
 
 	//if len(myServiceInfo.Volumes) == 0 {
 	//	reason := "can not get volume info from the old plan."
@@ -777,7 +777,7 @@ RETRY:
 	}
 }
 
-// A robust way to get an item from ETCD.
+// A robust way to query an item from ETCD.
 func etcdset(key string, value string) (*client.Response, error) {
 	n := 5
 
