@@ -150,18 +150,19 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 		//开始取service级别除了ID以外的其他参数
 		for j := 0; j < len(resp.Node.Nodes[i].Nodes); j++ {
 			if !resp.Node.Nodes[i].Nodes[j].Dir {
+				lowerkey := strings.ToLower(resp.Node.Nodes[i].Key)
 				switch strings.ToLower(resp.Node.Nodes[i].Nodes[j].Key) {
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/name":
+				case lowerkey + "/name":
 					myService.Name = resp.Node.Nodes[i].Nodes[j].Value
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/description":
+				case lowerkey + "/description":
 					myService.Description = resp.Node.Nodes[i].Nodes[j].Value
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/bindable":
+				case lowerkey + "/bindable":
 					myService.Bindable, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Value)
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/tags":
+				case lowerkey + "/tags":
 					myService.Tags = strings.Split(resp.Node.Nodes[i].Nodes[j].Value, ",")
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/planupdatable":
+				case lowerkey + "/planupdatable":
 					myService.PlanUpdatable, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Value)
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/metadata":
+				case lowerkey + "/metadata":
 					json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Value), &myService.Metadata)
 				}
 			} else if strings.HasSuffix(strings.ToLower(resp.Node.Nodes[i].Nodes[j].Key), "plan") {
@@ -170,16 +171,17 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 					logger.Debug("Start to Parse Plan " + resp.Node.Nodes[i].Nodes[j].Nodes[k].Key)
 					myPlan.ID = strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/")[len(strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/"))-1]
 					for n := 0; n < len(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes); n++ {
+						lowernodekey := strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key)
 						switch strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Key) {
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/name":
+						case lowernodekey + "/name":
 							myPlan.Name = resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/description":
+						case lowernodekey + "/description":
 							myPlan.Description = resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/free":
+						case lowernodekey + "/free":
 							//这里没有搞懂为什么brokerapi里面的这个bool要定义为传指针的模式
 							myPlanfree, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value)
 							myPlan.Free = brokerapi.FreeValue(myPlanfree)
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/metadata":
+						case lowernodekey + "/metadata":
 							json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value), &myPlan.Metadata)
 						}
 					}
