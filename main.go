@@ -290,7 +290,10 @@ func (myBroker *myServiceBroker) Provision(
 
 	//写入etcd 话说如果这个时候写入失败，那不就出现数据不一致的情况了么！todo
 	//先创建instanceid目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, "", &client.SetOptions{Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Set(context.Background(), 
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		"",
+		&client.SetOptions{Dir: true})
 	if err != nil {
 		etcdSaveResult <- errors.New("etcdapi.Set instance Error!")
 		logger.Error("Can not create instance "+instanceID+" in etcd", err) //todo都应该改为日志key
@@ -311,7 +314,10 @@ func (myBroker *myServiceBroker) Provision(
 	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/_info", string(tmpval))
 
 	//创建绑定目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding", "", &client.SetOptions{Dir: true})
+	_, err = etcdapi.Set(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding",
+		"",
+		&client.SetOptions{Dir: true})
 	if err != nil {
 		etcdSaveResult <- errors.New("etcdapi.Set binding Error!")
 		logger.Error("Can not create banding directory of  "+instanceID+" in etcd", err) //todo都应该改为日志key
@@ -335,8 +341,9 @@ func (myBroker *myServiceBroker) Update(
 	var myServiceInfo handler.ServiceInfo
 
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true})
-
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.IsAsync(false), brokerapi.ErrInstanceDoesNotExist
@@ -464,7 +471,9 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 	var myServiceInfo handler.ServiceInfo
 	var lastOperation brokerapi.LastOperation
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.LastOperation{}, brokerapi.ErrInstanceDoesNotExist
@@ -485,8 +494,6 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 
 	//执行handler中的命令
 	lastOperation, err = myHandler.DoLastOperation(&myServiceInfo)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.LastOperation{}, errors.New("Internal Error!!")
@@ -502,8 +509,9 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 	var myServiceInfo handler.ServiceInfo
 
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true})
-
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.IsAsync(false), brokerapi.ErrInstanceDoesNotExist
@@ -555,7 +563,9 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 	}
 
 	//然后删除etcd里面的纪录，这里也有可能有不一致的情况
-	_, err = etcdapi.Delete(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.DeleteOptions{Recursive: true, Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Delete(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.DeleteOptions{Recursive: true, Dir: true})
 	if err != nil {
 		logger.Error("Can not delete instance "+instanceID+" in etcd", err) //todo都应该改为日志key
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
@@ -592,7 +602,9 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 	var servcie_id, plan_id string
 
 	//从etcd中取得参数。
-	resp, err = etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
+	resp, err = etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil {
 		logger.Error("Can not get instance information from etcd", err) //所有这些出错消息最好命名为常量，放到开始的时候
 		return brokerapi.Binding{}, brokerapi.ErrInstanceDoesNotExist
@@ -623,7 +635,6 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 
 	//如果没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
-
 	if err != nil {
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.Binding{}, errors.New("Internal Error!!")
@@ -631,8 +642,6 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 
 	//执行handler中的命令
 	myBinding, mycredentials, err = myHandler.DoBind(&myServiceInfo, bindingID, details)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.Binding{}, err
@@ -640,7 +649,10 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 
 	//把信息存储到etcd里面，同样这里有同步性的问题 todo怎么解决呢？
 	//先创建bindingID目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID, "", &client.SetOptions{Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Set(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID,
+		"",
+		&client.SetOptions{Dir: true})
 	if err != nil {
 		logger.Error("Can not create binding "+bindingID+" in etcd", err) //todo都应该改为日志key
 		return brokerapi.Binding{}, err
@@ -666,7 +678,9 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 	var mycredentials handler.Credentials
 	var myServiceInfo handler.ServiceInfo
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.ErrInstanceDoesNotExist //这几个错误返回为空，是detele操作的要求吗？
@@ -729,7 +743,9 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 	}
 
 	//然后删除etcd里面的纪录，这里也有可能有不一致的情况
-	_, err = etcdapi.Delete(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID, &client.DeleteOptions{Recursive: true, Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Delete(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID,
+		&client.DeleteOptions{Recursive: true, Dir: true})
 	if err != nil {
 		logger.Error("Can not delete binding "+bindingID+" in etcd", err) //todo都应该改为日志key
 		return errors.New("Can not delete binding " + bindingID + " in etcd")
@@ -1070,7 +1086,9 @@ func getBsiInfo(w http.ResponseWriter, r *http.Request) {
 	{
 		instancesPrefix := "/servicebroker/" + servcieBrokerName + "/instance/"
 
-		resp, err := etcdapi.Get(context.Background(), instancesPrefix[:len(instancesPrefix)-1], &client.GetOptions{Recursive: true}) //改为环境变量
+		resp, err := etcdapi.Get(context.Background(),
+			instancesPrefix[:len(instancesPrefix)-1],
+			&client.GetOptions{Recursive: true})
 		if err != nil {
 			w.Write([]byte("list instanceid error: " + err.Error()))
 			return
