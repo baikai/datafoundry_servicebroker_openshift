@@ -1012,7 +1012,7 @@ func getenv(env string) string {
 	if env_value == "" {
 		fmt.Println("FATAL: NEED ENV", env)
 		fmt.Println("Exit...........")
-		os.Exit(2)
+		os.Exit(1)
 	}
 	fmt.Println("ENV:", env, env_value)
 	return env_value
