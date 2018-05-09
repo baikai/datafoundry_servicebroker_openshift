@@ -386,7 +386,15 @@ func (myBroker *myServiceBroker) Update(
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.IsAsync(false), err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.IsAsync(false), err
+	}
 
 	//生成具体的handler对象
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
@@ -433,7 +441,7 @@ func (myBroker *myServiceBroker) Update(
 		}
 	}
 
-	println("to update plan ...")
+	// to update plan ...
 
 	planInfo := handler.PlanInfo{
 		Volume_size: volumeSize,
@@ -480,7 +488,15 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.LastOperation{}, err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.LastOperation{}, err
+	}
 
 	//如果没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
@@ -542,7 +558,15 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.IsAsync(false), err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.IsAsync(false), err
+	}
 
 	//生成具体的handler对象
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
@@ -630,7 +654,15 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 	//隐藏属性不得不单独获取。取得当时绑定服务得到信息
 	var myServiceInfo handler.ServiceInfo
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.Binding{}, err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.Binding{}, err
+	}
 
 	//如果没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
@@ -722,11 +754,27 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/binding/" + bindingID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &mycredentials)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &mycredentials)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
 
 	//没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
