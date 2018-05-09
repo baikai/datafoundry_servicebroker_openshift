@@ -127,12 +127,6 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 		}
 	*/
 
-	//初始化一系列所需要的结构体
-	myServices := []brokerapi.Service{}
-	myService := brokerapi.Service{}
-	myPlans := []brokerapi.ServicePlan{}
-	myPlan := brokerapi.ServicePlan{}
-	var myPlanfree bool
 	//todo还需要考虑对于service和plan的隐藏参数，status，比如可以用，不可用，已经删除等。删除应该是软删除，后两者不予以显示，前者表示还有数据
 	//获取catalog信息
 	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/catalog", &client.GetOptions{Recursive: true}) //改为环境变量
@@ -143,9 +137,11 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 		logger.Debug("Successful get catalog information from etcd. NodeInfo is " + resp.Node.Key)
 	}
 
+	myServices := []brokerapi.Service{}
 	for i := 0; i < len(resp.Node.Nodes); i++ {
 		logger.Debug("Start to Parse Service " + resp.Node.Nodes[i].Key)
 		//在下一级循环外设置id，因为他是目录名字，注意，如果按照这个逻辑，id一定要是uuid，中间一定不能有目录符号"/"
+		myService := brokerapi.Service{}
 		myService.ID = strings.Split(resp.Node.Nodes[i].Key, "/")[len(strings.Split(resp.Node.Nodes[i].Key, "/"))-1]
 		//开始取service级别除了ID以外的其他参数
 		for j := 0; j < len(resp.Node.Nodes[i].Nodes); j++ {
@@ -167,8 +163,10 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 				}
 			} else if strings.HasSuffix(strings.ToLower(resp.Node.Nodes[i].Nodes[j].Key), "plan") {
 				//开始解析套餐目录中的套餐计划plan。上述判断也不是太严谨，比如有目录如果是xxxxplan怎么办？
+				myPlans := []brokerapi.ServicePlan{}
 				for k := 0; k < len(resp.Node.Nodes[i].Nodes[j].Nodes); k++ {
 					logger.Debug("Start to Parse Plan " + resp.Node.Nodes[i].Nodes[j].Nodes[k].Key)
+					myPlan := brokerapi.ServicePlan{}
 					myPlan.ID = strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/")[len(strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/"))-1]
 					for n := 0; n < len(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes); n++ {
 						lowernodekey := strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key)
@@ -179,7 +177,7 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 							myPlan.Description = resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value
 						case lowernodekey + "/free":
 							//这里没有搞懂为什么brokerapi里面的这个bool要定义为传指针的模式
-							myPlanfree, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value)
+							myPlanfree, _ := strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value)
 							myPlan.Free = brokerapi.FreeValue(myPlanfree)
 						case lowernodekey + "/metadata":
 							json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value), &myPlan.Metadata)
@@ -187,22 +185,15 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 					}
 					//装配plan需要返回的值，按照有多少个plan往里面装
 					myPlans = append(myPlans, myPlan)
-					//重置myPlan
-					myPlan = brokerapi.ServicePlan{}
 				}
 				//将装配好的Plan对象赋值给Service
 				myService.Plans = myPlans
-				//重置myPlans
-				myPlans = []brokerapi.ServicePlan{}
 
 			}
 		}
 
 		//装配catalog需要返回的值，按照有多少个服务往里面装
 		myServices = append(myServices, myService)
-		//重置服务变量
-		myService = brokerapi.Service{}
-
 	}
 
 	return myServices
