@@ -5,23 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
 	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/pivotal-golang/lager"
-
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
-	"net/http"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const ZeppelinServcieBrokerName_Standalone = "Zeppelin_standalone"
@@ -92,10 +89,7 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Zeppelin Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
@@ -122,6 +116,7 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 	var input zeppelinResources_Master
 	err := loadZeppelinResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password, &input)
 	if err != nil {
+		logger.Error("loadZeppelinResources_Master error", err)
 		return serviceSpec, serviceInfo, err
 	}
 
@@ -201,8 +196,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	return oshandler.Credentials{
 		Uri:      "",
@@ -228,8 +221,6 @@ func (handler *Zeppelin_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	mycredentials := oshandler.Credentials{
 		Uri:      "",
@@ -422,12 +413,6 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -445,7 +430,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Zeppelin rc", osr.Err)
 		return
 	}
 
@@ -453,7 +438,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Zeppelin rc", err)
 		return
 	}
 
@@ -462,11 +447,9 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA anaconda rc error", status.Err)
+				logger.Error("Watch Zeppelin rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch anaconda HA rc, status.Info: " + string(status.Info))
 			}
 
 			var wrcs watchReplicationControllerStatus
