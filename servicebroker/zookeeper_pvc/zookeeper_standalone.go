@@ -1,26 +1,26 @@
 package zookeeper_pvc
 
 import (
-	"errors"
-	"fmt"
 	"bytes"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/pivotal-cf/brokerapi"
-	"io/ioutil"
-	"os"
-	"github.com/pivotal-golang/lager"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const ZookeeperServcieBrokerName_Standalone = "ZooKeeper_volumes_standalone"
@@ -65,7 +65,7 @@ func (handler *Zookeeper_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceI
 }
 
 //==============================================================
-//
+//挂卷配置
 //==============================================================
 
 func volumeBaseName(instanceId string) string {
@@ -202,7 +202,6 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 		)
 
 		if err != nil {
-			println(" zookeeper createZookeeperResources_Master error: ", err)
 			logger.Error("zookeeper createZookeeperResources_Master error", err)
 
 			DestroyZookeeperResources_Master(output, serviceBrokerNamespace)
@@ -220,7 +219,6 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 
 	return serviceSpec, serviceInfo, nil
 }
-
 
 func (handler *Zookeeper_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
 
@@ -245,7 +243,6 @@ func (handler *Zookeeper_Handler) DoLastOperation(myServiceInfo *oshandler.Servi
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 		return n >= *rc.Spec.Replicas
 	}
-
 
 	if ok(&master_res.rc1) && ok(&master_res.rc2) && ok(&master_res.rc3) {
 		return brokerapi.LastOperation{
@@ -366,7 +363,6 @@ func WatchZookeeperOrchestration(instanceId, serviceBrokerNamespace, zookeeperUs
 		return
 	}
 
-
 	var output ZookeeperResources_Master
 	err = getZookeeperResources_Master(serviceBrokerNamespace, &input, &output)
 	if err != nil {
@@ -421,7 +417,6 @@ func WatchZookeeperOrchestration(instanceId, serviceBrokerNamespace, zookeeperUs
 				// so need this case
 				continue
 			}
-
 
 			if !valid {
 				theresult <- false
@@ -493,7 +488,6 @@ func loadZookeeperResources_Master(instanceID, serviceBrokerNamespace, zookeeper
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****peer1"), []byte(peerPvcName0), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****peer2"), []byte(peerPvcName1), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****peer3"), []byte(peerPvcName2), -1)
-
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -692,7 +686,6 @@ RETRY:
 	return nil
 }
 
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -710,7 +703,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Zookeeper rc", osr.Err)
 		return
 	}
 
@@ -718,7 +711,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Zookeeper rc", err)
 		return
 	}
 
@@ -727,7 +720,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA zookeeper rc error", status.Err)
+				logger.Error("Watch Zookeeper rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -736,7 +729,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+				logger.Error("Parse Master Zookeeper rc status", err)
 				close(cancel)
 				return
 			}
