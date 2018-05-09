@@ -1,26 +1,26 @@
 package storm_pvc
 
 import (
-	"errors"
-	"fmt"
 	"bytes"
 	"encoding/json"
-	"github.com/pivotal-cf/brokerapi"
-	"strconv"
-	"strings"
-	"time"
-	"io/ioutil"
-	"os"
-	"sync"
-	"github.com/pivotal-golang/lager"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"errors"
+	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	"github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/zookeeper_pvc"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 // WAERNING: the development of this service broker is not finished yet!
@@ -97,13 +97,11 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	logger.Info("Storm Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
-
 	go func() {
 		err := <-etcdSaveResult
 		if err != nil {
 			return
 		}
-
 
 		// nimbus zookeeper
 		output, err := zookeeper_pvc.CreateZookeeperResources_Master(instanceIdInTempalte, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, nil)
@@ -125,7 +123,6 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	}()
 
 	serviceSpec.DashboardURL = ""
-
 
 	return serviceSpec, serviceInfo, nil
 }
@@ -241,7 +238,6 @@ func (handler *Storm_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 
 	host := fmt.Sprintf("%s.%s.%s", nimbus_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(storm_nimbus_port.Port)
-
 
 	mycredentials := oshandler.Credentials{
 		Uri:      fmt.Sprintf("storm-nimbus: %s:%s storm-UI: %s:%s zookeeper: %s:%s", host, port, ui_host, ui_port, zk_host, zk_port),
@@ -439,9 +435,8 @@ func loadStormResources_Nimbus(instanceID, serviceBrokerNamespace /*, stormUser,
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("dnsmasq*****"), []byte(oshandler.DnsmasqServer()), -1)
-
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -489,8 +484,7 @@ func loadStormResources_UiSuperviser(instanceID, serviceBrokerNamespace /*, stor
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
-
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -525,7 +519,6 @@ func (job *stormOrchestrationJob) createStormResources_Nimbus(instanceId, servic
 	var output stormResources_Nimbus
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
 
 	err = job.kpost(serviceBrokerNamespace, "services", &input.service, &output.service)
 	if err != nil {
@@ -745,7 +738,6 @@ RETRY:
 	return nil
 }
 
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -763,7 +755,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Storm rc", osr.Err)
 		return
 	}
 
@@ -771,7 +763,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Storm rc", err)
 		return
 	}
 
@@ -780,7 +772,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA storm rc error", status.Err)
+				logger.Error("Watch Storm rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -789,7 +781,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse nimbus HA rc status", err)
+				logger.Error("Parse nimbus Storm rc status", err)
 				close(cancel)
 				return
 			}
