@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	//"time"
+	"time"
 
 	"github.com/pivotal-cf/brokerapi"
 	//"crypto/sha1"
@@ -513,6 +513,9 @@ func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBroke
 			},
 			PropagationPolicy: &policy,
 		}
+		del(serviceBrokerNamespace, "statefulsets", masterRes.statefulset.Name, "/apis/apps/v1beta1", opt)
+		// sometimes, one pod and the statefulset ifself will not be deleted. Retry?
+		time.Sleep(time.Second * 15)
 		del(serviceBrokerNamespace, "statefulsets", masterRes.statefulset.Name, "/apis/apps/v1beta1", opt)
 	}()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicePma.Name) }()

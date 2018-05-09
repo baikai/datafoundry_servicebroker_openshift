@@ -127,7 +127,7 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 		}
 	*/
 
-	//初始化一系列所需要的结构体，好累啊
+	//初始化一系列所需要的结构体
 	myServices := []brokerapi.Service{}
 	myService := brokerapi.Service{}
 	myPlans := []brokerapi.ServicePlan{}
@@ -144,7 +144,6 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 	}
 
 	for i := 0; i < len(resp.Node.Nodes); i++ {
-		//为旗下发现的每一个service进行迭代
 		logger.Debug("Start to Parse Service " + resp.Node.Nodes[i].Key)
 		//在下一级循环外设置id，因为他是目录名字，注意，如果按照这个逻辑，id一定要是uuid，中间一定不能有目录符号"/"
 		myService.ID = strings.Split(resp.Node.Nodes[i].Key, "/")[len(strings.Split(resp.Node.Nodes[i].Key, "/"))-1]
@@ -214,7 +213,6 @@ func (myBroker *myServiceBroker) Provision(
 	asyncAllowed bool,
 ) (brokerapi.ProvisionedServiceSpec, error) {
 
-	//初始化
 	var provsiondetail brokerapi.ProvisionedServiceSpec
 	var myServiceInfo handler.ServiceInfo
 
@@ -280,8 +278,6 @@ func (myBroker *myServiceBroker) Provision(
 
 	//执行handler中的命令
 	provsiondetail, myServiceInfo, err = myHandler.DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
-
-	//如果出错
 	if err != nil {
 		etcdSaveResult <- errors.New("DoProvision Error!")
 		logger.Error("Error do handler for service "+service_name+" plan "+plan_name, err)
@@ -453,8 +449,6 @@ func (myBroker *myServiceBroker) Update(
 
 	//执行handler中的命令
 	err = myHandler.DoUpdate(&myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+service_name+" plan "+plan_name, err)
 		return false, errors.New("Internal Error!!")
@@ -471,7 +465,6 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 	var lastOperation brokerapi.LastOperation
 	//判断实例是否已经存在，如果不存在就报错
 	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
-
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.LastOperation{}, brokerapi.ErrInstanceDoesNotExist
@@ -483,10 +476,8 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
 	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
 
-	//生成具体的handler对象
+	//如果没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
-
-	//没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	if err != nil {
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.LastOperation{}, errors.New("Internal Error!!")
@@ -558,8 +549,6 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 
 	//执行handler中的命令
 	isasync, err := myHandler.DoDeprovision(&myServiceInfo, asyncAllowed)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
@@ -632,10 +621,9 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
 	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
 
-	//生成具体的handler对象
+	//如果没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
 
-	//没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	if err != nil {
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.Binding{}, errors.New("Internal Error!!")
@@ -726,10 +714,8 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/binding/" + bindingID + "/_info")
 	json.Unmarshal([]byte(resp.Node.Value), &mycredentials)
 
-	//生成具体的handler对象
-	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
-
 	//没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
+	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
 	if err != nil {
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return errors.New("Internal Error!!")
@@ -737,8 +723,6 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 
 	//执行handler中的命令
 	err = myHandler.DoUnbind(&myServiceInfo, &mycredentials)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return err
@@ -978,9 +962,6 @@ var serviceBrokerPort string
 var brokerCredentials brokerapi.BrokerCredentials
 
 func main() {
-	//初始化参数，参数应该从环境变量中获取
-	var username, password string
-	//todo参数应该改为从环境变量中获取
 	//需要以下环境变量
 	etcdEndPoint = getenv("ETCDENDPOINT") //etcd的路径
 	etcdUser = getenv("ETCDUSER")
@@ -1010,6 +991,8 @@ func main() {
 	serviceBroker := &myServiceBroker{}
 
 	//取得用户名和密码
+	var username, password string
+	
 	resp, err := etcdget("/servicebroker/" + servcieBrokerName + "/username")
 	if err != nil {
 		logger.Error("Can not init username,Progrom Exit!", err)
@@ -1026,7 +1009,6 @@ func main() {
 		password = resp.Node.Value
 	}
 
-	//装配用户名和密码
 	brokerCredentials := brokerapi.BrokerCredentials{
 		Username: username,
 		Password: password,
