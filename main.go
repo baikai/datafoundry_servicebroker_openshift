@@ -1079,7 +1079,7 @@ func main() {
 		Password: password,
 	}
 
-	fmt.Println("START SERVICE BROKER WITH THE FOLLOWING SERVICES PROVIDED", servcieBrokerName)
+	fmt.Println("Start service broker with the following services provided", servcieBrokerName)
 	handler.ListHandler()
 	brokerAPI := brokerapi.New(serviceBroker, logger, brokerCredentials)
 	http.HandleFunc("/bsiinfo", getBsiInfo)
