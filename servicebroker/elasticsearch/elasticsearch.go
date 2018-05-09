@@ -86,43 +86,21 @@ type podParas struct {
 
 // DoProvision required interface for service broker handler
 func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
-	// initialize connection to openshift firstly
 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	logger.Debug("DoProvision(), instanceID is " + instanceID)
 	instanceIDInTemplate := strings.ToLower(oshandler.NewThirteenLengthID())
 
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	//srvUser := oshandler.NewElevenLengthID()
-	//srvPassword := oshandler.GenGUID()
 
 	serviceInfo.Url = instanceIDInTemplate
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	//serviceInfo.User = srvUser
-
-	// retrieve parameters for constructing the cluster
 
 	var paras podParas
-	/*
-		if cpu, ok := details.Parameters["cpu"].(string); ok {
-			logger.Debug("DoProvision(), cpu=" + cpu)
-		} else {
-			logger.Debug("DoProvision(), cpu information missed")
-		}
-		if mem, ok := details.Parameters["mem"].(string); ok {
-			logger.Debug("DoProvision(), mem=" + mem)
-		} else {
-			logger.Debug("DoProvision(), memory information missed")
-		}
-	*/
 	if replicas, ok := details.Parameters["replicas"].(string); ok {
 		logger.Debug("DoProvision(), replicas=" + replicas)
 		paras.replicas = replicas
@@ -455,13 +433,6 @@ func (job *srvOrchestrationJob) cancel() {
 		job.cancelled = true
 		close(job.cancelChan)
 	}
-}
-
-type watchPodStatus struct {
-	// The type of watch update contained in the message
-	Type string `json:"type"`
-	// Pod details
-	Object kapiv1.Pod `json:"object"`
 }
 
 func (job *srvOrchestrationJob) run() {

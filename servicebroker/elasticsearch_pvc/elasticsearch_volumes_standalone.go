@@ -1,36 +1,20 @@
 package etcd
 
 import (
-	"fmt"
-	//"errors"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	"github.com/pivotal-cf/brokerapi"
-	"time"
-	//"strconv"
 	"bytes"
 	"encoding/json"
-	"strings"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
-	//"sync"
-
-	"github.com/pivotal-golang/lager"
-	//"golang.org/x/net/context"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	dcapi "github.com/openshift/origin/deploy/api/v1"
-	//routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-
 	"errors"
+	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	dcapi "github.com/openshift/origin/deploy/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
 //==============================================================
@@ -193,7 +177,7 @@ func (handler *Elasticsearch_handler) DoLastOperation(myServiceInfo *oshandler.S
 	ok := func(dc *dcapi.DeploymentConfig) bool {
 		podCount, err := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
 		if err != nil {
-			fmt.Println("statRunningPodsByLabels err:", err)
+			logger.Error("statRunningPodsByLabels err:", err)
 			return false
 		}
 		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
@@ -243,7 +227,7 @@ func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.Ser
 			}
 		}
 
-		println("to destroy master resources")
+		logger.Info("to destroy master resources")
 
 		ha_res, _ := getESResources_HA(
 			myServiceInfo.Url, myServiceInfo.Database,
@@ -253,12 +237,12 @@ func (handler *Elasticsearch_handler) DoDeprovision(myServiceInfo *oshandler.Ser
 		//	return brokerapi.IsAsync(false), err
 		//}
 		destroyESResources_HA(ha_res, myServiceInfo.Database)
-		println("destroy master resources done")
+		logger.Info("destroy master resources done")
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Info("to destroy volumes:")
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
-		println("to destroy volumes done")
+		logger.Info("to destroy volumes done")
 
 	}()
 
@@ -270,11 +254,13 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var ha_res esResources_HA
 	err := loadESResources_HA(myServiceInfo.Url, myServiceInfo.Volumes, &ha_res)
 	if err != nil {
+		logger.Error("getCredentialsOnPrivision loadESResources_HA error ", err)
 		return oshandler.Credentials{}
 	}
 
 	es_host, es_port, err := ha_res.ServiceHostPort(myServiceInfo.Database)
 	if err != nil {
+		logger.Error("ServiceHostPort error ", err)
 		return oshandler.Credentials{}
 	}
 	es_uri := fmt.Sprintf("http://%s:%s", es_host, es_port)
@@ -292,11 +278,13 @@ func (handler *Elasticsearch_handler) DoBind(myServiceInfo *oshandler.ServiceInf
 		myServiceInfo.Url, myServiceInfo.Database,
 		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
 	if err != nil {
+		logger.Error("DoBind() getESResources_HA error ", err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
 	es_host, es_port, err := ha_res.ServiceHostPort(myServiceInfo.Database)
 	if err != nil {
+		logger.Error("DoBind() ServiceHostPort error ", err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 	es_uri := fmt.Sprintf("http://%s:%s", es_host, es_port)
@@ -327,10 +315,12 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 	if ESTemplateData_HA == nil {
 		f, err := os.Open("elasticsearch-pvc.yaml")
 		if err != nil {
+			logger.Error("open yaml error ", err)
 			return err
 		}
 		ESTemplateData_HA, err = ioutil.ReadAll(f)
 		if err != nil {
+			logger.Error("ioutil.ReadAll error ", err)
 			return err
 		}
 
@@ -343,15 +333,6 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 				[]byte(ES_image),
 				-1)
 		}
-		//endpoint_postfix := oshandler.EndPointSuffix()
-		//endpoint_postfix = strings.TrimSpace(endpoint_postfix)
-		//if len(endpoint_postfix) > 0 {
-		//	EtcdTemplateData_HA = bytes.Replace(
-		//		EtcdTemplateData_HA,
-		//		[]byte("endpoint-postfix-place-holder"),
-		//		[]byte(endpoint_postfix),
-		//		-1)
-		//}
 	}
 
 	peerPvcName0 := peerPvcName0(volumes)
@@ -365,10 +346,6 @@ func loadESResources_HA(instanceID string, volumes []oshandler.Volume, res *esRe
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace0"), []byte(peerPvcName0), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace1"), []byte(peerPvcName1), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvc-name-replace2"), []byte(peerPvcName2), -1)
-
-	//println("========= HA yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -410,6 +387,7 @@ func createESResources_HA(instanceId, serviceBrokerNamespace string, volumes []o
 	var input esResources_HA
 	err := loadESResources_HA(instanceId, volumes, &input)
 	if err != nil {
+		logger.Error("createESResources_HA load error ", err)
 		return nil, err
 	}
 
@@ -440,6 +418,7 @@ func getESResources_HA(instanceId, serviceBrokerNamespace, rootPassword, user, p
 	var input esResources_HA
 	err := loadESResources_HA(instanceId, volumes, &input)
 	if err != nil {
+		logger.Error("getESResources_HA load error ", err)
 		return &output, err
 	}
 
@@ -680,6 +659,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
 	if osr.Err != nil {
+		logger.Error("statRunningPodsByLabels NewOpenshiftREST error ", osr.Err)
 		return 0, osr.Err
 	}
 
@@ -707,7 +687,7 @@ func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]stri
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &rcs)
 	if osr.Err != nil {
-		fmt.Println("get rc list err:", osr.Err)
+		logger.Error("get rc list err:", osr.Err)
 		return nil, osr.Err
 	}
 
