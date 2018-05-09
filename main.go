@@ -84,6 +84,7 @@ type myCredentials struct {
 	Name     string `json:"name,omitempty"`
 }
 
+// Services returns the information of all available backing services.
 func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 	/*
 		//free := true
@@ -200,6 +201,7 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 
 }
 
+// Provision tries to create a new backing service instance according the settings provided by client.
 func (myBroker *myServiceBroker) Provision(
 	instanceID string,
 	details brokerapi.ProvisionDetails,
@@ -324,7 +326,8 @@ func (myBroker *myServiceBroker) Provision(
 	return provsiondetail, nil
 }
 
-// Update only support volume expanding now.
+// Update tries to modify a new backing service instance according the settings provided by client.
+// For volume size modification request, Update only support volume expanding now.
 func (myBroker *myServiceBroker) Update(
 	instanceID string,
 	details brokerapi.UpdateDetails,
@@ -457,6 +460,7 @@ func (myBroker *myServiceBroker) Update(
 	return true, nil
 }
 
+// LastOperation returns the progress of a creation of backing service instance.
 func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.LastOperation, error) {
 	// If the broker provisions asynchronously, the Cloud Controller will poll this endpoint
 	// for the status of the provisioning operation.
@@ -497,6 +501,7 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 	return lastOperation, nil
 }
 
+// Deprovision destroys a backing service instance.
 func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerapi.DeprovisionDetails, asyncAllowed bool) (brokerapi.IsAsync, error) {
 
 	var myServiceInfo handler.ServiceInfo
@@ -570,6 +575,7 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 	return isasync, nil
 }
 
+// Bind adds a binding information for a backing service instance.
 func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, error) {
 	var mycredentials handler.Credentials
 	var myBinding brokerapi.Binding
@@ -666,6 +672,7 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 	return myBinding, nil
 }
 
+// Unbind removes a binding information for a backing service instance.
 func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details brokerapi.UnbindDetails) error {
 
 	var mycredentials handler.Credentials
@@ -750,7 +757,7 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 	return nil
 }
 
-//定义工具函数
+// A robust way to get an item from ETCD.
 func etcdget(key string) (*client.Response, error) {
 	n := 5
 
@@ -770,6 +777,7 @@ RETRY:
 	}
 }
 
+// A robust way to get an item from ETCD.
 func etcdset(key string, value string) (*client.Response, error) {
 	n := 5
 
