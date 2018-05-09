@@ -12,20 +12,8 @@ import (
 	//kapi "k8s.io/kubernetes/pkg/api/v1"
 )
 
-
-var httpClientA = &http.Client{
-	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	},
-	Timeout:   0,
-}
-var httpClientB = &http.Client{
-	Transport: httpClientA.Transport,
-	Timeout:   DfRequestTimeout,
-}
-var httpClientC = &http.Client{
-	Transport: httpClientA.Transport,
-	Timeout:   GeneralRequestTimeout,
+var transport =  &http.Transport{
+	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 }
 
 func request(timeout time.Duration, method, url, bearerToken string, body []byte) (*http.Response, error) {
@@ -46,29 +34,12 @@ func request(timeout time.Duration, method, url, bearerToken string, body []byte
 	//}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+bearerToken)
-
-	//transCfg := &http.Transport{
-	//	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	//}
-	//client := &http.Client{
-	//	Transport: transCfg,
-	//	Timeout:   timeout,
-	//}
-
-	switch timeout {
-	case GeneralRequestTimeout:
-		return httpClientC.Do(req)
-	case DfRequestTimeout:
-		return httpClientB.Do(req)
-	case 0:
-		return httpClientA.Do(req)
-	default:
-		c := &http.Client{
-			Transport: httpClientA.Transport,
-			Timeout:   timeout,
-		}
-		return c.Do(req)
+	
+	c := &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
 	}
+	return c.Do(req)
 }
 
 //===================================================
