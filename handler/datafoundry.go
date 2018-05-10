@@ -78,6 +78,7 @@ type VolumnUpdateOptions struct {
 	NewSize int    `json:"new-size,omitempty"`
 }
 
+// DeleteVolumn makes an API call to delete a volume.
 func CreateVolumn(namespace, volumnName string, size int) error {
 	oc := OC()
 
@@ -98,6 +99,7 @@ func CreateVolumn(namespace, volumnName string, size int) error {
 	return err
 }
 
+// DeleteVolumn makes an API call to delete a volume.
 func DeleteVolumn(namespace, volumnName string) error {
 	oc := OC()
 
@@ -108,7 +110,7 @@ func DeleteVolumn(namespace, volumnName string) error {
 	return err
 }
 
-// oldSize is not really used, however, it's required in df volume
+// ExpandVolumn makes an API call to expend a volume.
 func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error {
 	oc := OC()
 
@@ -135,7 +137,7 @@ func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error 
 //
 //=======================================================================
 
-// todo: need improving
+// DeleteVolumns starts some goroutines to delete some volumes concurrently.
 func DeleteVolumns(namespace string, volumes []Volume) <-chan error {
 	println("DeleteVolumns", volumes, "...")
 
@@ -158,7 +160,7 @@ func DeleteVolumns(namespace string, volumes []Volume) <-chan error {
 var pvcVolumnCreatingJobs = map[string]*CreatePvcVolumnJob{}
 var pvcVolumnCreatingJobsMutex sync.Mutex
 
-// todo: change to HasCreatePvcVolumnJob(jobName string) bool
+// GetCreatePvcVolumnJob returns the ongoing volumn creating (or expending) job with the specified name.
 func GetCreatePvcVolumnJob(jobName string) *CreatePvcVolumnJob {
 	pvcVolumnCreatingJobsMutex.Lock()
 	job := pvcVolumnCreatingJobs[jobName]
@@ -167,6 +169,7 @@ func GetCreatePvcVolumnJob(jobName string) *CreatePvcVolumnJob {
 	return job
 }
 
+// StartCreatePvcVolumnJob starts some goroutines which create some volumes concurrently.
 func StartCreatePvcVolumnJob(
 	jobName string,
 	namespace string,
@@ -210,6 +213,7 @@ type CreatePvcVolumnJob struct {
 	volumes   []Volume
 }
 
+// Cancel cancels a volumn creating job.
 func (job *CreatePvcVolumnJob) Cancel() {
 	job.cancelMetex.Lock()
 	defer job.cancelMetex.Unlock()
@@ -324,10 +328,13 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 
 // todo: Volumn -> volume
 
+// HasExpandPvcVolumnJob returns whether or not there is 
+// a volume expending (or creating) job with the specified name ongoing.
 func HasExpandPvcVolumnJob(jobName string) bool {
 	return GetCreatePvcVolumnJob(jobName) != nil
 }
 
+// StartExpandPvcVolumnJob creates some goroutines which expend some volumes concurrently.
 func StartExpandPvcVolumnJob(
 	jobName string,
 	namespace string,
@@ -463,6 +470,7 @@ type watchPvcStatus struct {
 	Object kapi.PersistentVolumeClaim `json:"object"`
 }
 
+// WaitUntilPvcIsBound watches the status of a pvc until it is bound or errors happen.
 func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}) error {
 	select {
 	case <-stopWatching:
