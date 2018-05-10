@@ -26,7 +26,7 @@ func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string
 	if bodyParams != nil {
 		body, err = json.Marshal(bodyParams)
 		if err != nil {
-			logger.Error("dfRequest(), failed to parse body", err)
+			logger.Error("dfRequest(), failed to parse body", err)erros
 			return err
 		}
 	}
@@ -78,7 +78,7 @@ type VolumnUpdateOptions struct {
 	NewSize int    `json:"new-size,omitempty"`
 }
 
-// DeleteVolumn makes an API call to delete a volume.
+// CreateVolumn makes an API call to create a volume.
 func CreateVolumn(namespace, volumnName string, size int) error {
 	oc := OC()
 
@@ -276,7 +276,7 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 	wg.Wait()
 	close(errChan)
 
-	println("CreateVolumn done. number erros: ", len(errChan))
+	println("CreateVolumn done. number errors: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil
