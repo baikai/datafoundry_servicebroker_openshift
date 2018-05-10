@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -278,6 +279,10 @@ func StorageClassName() string {
 	return storageClassName
 }
 
+func DfProxyApiPrefix() string {
+	return dfProxyApiPrefix
+}
+
 func DnsmasqServer() string {
 	return dnsmasqServer
 }
@@ -471,6 +476,7 @@ var endpointSuffix string
 var svcDomainSuffixWithDot string
 
 var storageClassName string
+var dfProxyApiPrefix string
 
 var dnsmasqServer string // may be useless now.
 
@@ -535,6 +541,11 @@ func init() {
 	endpointSuffix = getenv("ENDPOINTSUFFIX")
 	
 	storageClassName = getenv("STORAGECLASSNAME")
+	dfProxyApiPrefix = os.Getenv("DATAFOUNDRYPROXYADDR")
+	if dfProxyApiPrefix == "" {
+		logger.Error("int dfProxyApiPrefix error:", errors.New("DATAFOUNDRYPROXYADDR env is not set"))
+	}
+	dfProxyApiPrefix = "http://" + dfProxyApiPrefix + "/lapi/v1"
 	
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
@@ -581,3 +592,4 @@ func init() {
 
 	esclusterImage = getenv("ESCLUSTERIMAGE")
 }
+

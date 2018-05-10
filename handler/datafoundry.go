@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
+	//"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,20 +14,6 @@ import (
 	//"fmt"
 	"sync"
 )
-
-var dfProxyApiPrefix string
-
-func DfProxyApiPrefix() string {
-	if dfProxyApiPrefix == "" {
-		addr := os.Getenv("DATAFOUNDRYPROXYADDR")
-		if addr == "" {
-			logger.Error("int dfProxyApiPrefix error:", errors.New("DATAFOUNDRYPROXYADDR env is not set"))
-		}
-
-		dfProxyApiPrefix = "http://" + addr + "/lapi/v1"
-	}
-	return dfProxyApiPrefix
-}
 
 const DfRequestTimeout = time.Duration(8) * time.Second
 
