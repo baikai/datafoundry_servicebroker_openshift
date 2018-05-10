@@ -26,7 +26,7 @@ func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string
 	if bodyParams != nil {
 		body, err = json.Marshal(bodyParams)
 		if err != nil {
-			logger.Error("dfRequest(), failed to parse body", err)erros
+			logger.Error("dfRequest(), failed to parse body", err)
 			return err
 		}
 	}

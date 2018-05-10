@@ -94,7 +94,12 @@ func (oc *OpenshiftClient) setBearerToken(token string) {
 }
 
 func newOpenshiftClient(host, username, password, defaultNamespace string) *OpenshiftClient {
-	host = "https://" + host
+	switch {
+	default: host = "https://" + host
+	case strings.HasPrefix(host, "https://"):
+	case strings.HasPrefix(host, "http://"):
+	}
+	
 	oc := &OpenshiftClient{
 		host: host,
 		//authUrl: host + "/oauth/authorize?response_type=token&client_id=openshift-challenging-client",
