@@ -507,7 +507,7 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 	}()
 
 	// avoid waiting too long time
-	timer := time.NewTimer(50 * time.Hour)
+	timer := time.NewTimer(25 * time.Hour)
 	defer timer.Stop()
 
 	for {
