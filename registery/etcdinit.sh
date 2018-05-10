@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ETCD_USER=xxx
 ETCD_PASSWORD=xxx
 ETCD_ADDRESS=http://xxx:2379
