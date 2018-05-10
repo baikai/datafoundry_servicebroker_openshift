@@ -388,7 +388,24 @@ $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/A9537ABE-BD33-11E6-A969-13A2D25B7667/free true
 
 
+###创建服务 Elasticsearch cluster
+$ETCDCTL mkdir /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52
 
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/name "EsCluster"
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/description "Elasticsearch Cluster on openshit"
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/bindable true
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/planupdatable false
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/tags 'escluster,openshift'
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/metadata '{"displayName":"Elasticsearch Cluster","imageUrl":"pub/assets/ElasticSearch.png","longDescription":"Managed, highly available etcd clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://coreos.com/etcd/docs/latest","supportUrl":"https://coreos.com"}'
+
+###创建套餐目录
+$ETCDCTL mkdir /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/plan
+###创建套餐(pvc)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/name "vol"
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/description "Elasticsearch Cluster on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["20 GB of Disk","3 replicas"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/b90ade4c-52a2-11e8-b6b7-fa163e3e1b52/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/free true
 
 
 
