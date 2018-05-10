@@ -1,4 +1,9 @@
 
+### 数据库软件和版本
+
+本程序使用ETCD做为存储数据库。
+ETCD版本需兼容ETCD API v2。
+
 ### API接口
 
 #### GET /v2/catalog
