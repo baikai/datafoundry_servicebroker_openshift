@@ -1736,6 +1736,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			}
 
 			if wrcs.Object.Status.Replicas <= 0 {
+				close(cancel)
 				break
 			}
 		}
