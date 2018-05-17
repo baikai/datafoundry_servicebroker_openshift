@@ -26,7 +26,7 @@ import (
 )
 
 // EsClusterServiceBrokerName : broker name should be service name + '_' + plan name
-const EsClusterServiceBrokerName = "EsCluster_vol"
+const EsClusterServiceBrokerName = "Elasticsearch_Cluster"
 
 func init() {
 	oshandler.Register(EsClusterServiceBrokerName, &SrvBrokerFreeHandler{})
