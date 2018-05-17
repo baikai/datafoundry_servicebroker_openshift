@@ -25,7 +25,6 @@ metadata:
   annotations:
     openshift.io/host.generated: 'true'
   name: es-route-instanceid
-  namespace: brokers
 spec:
   host: es-cluster-instanceid.endpoint-postfix-place-holder
   port:
