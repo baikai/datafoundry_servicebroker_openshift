@@ -82,7 +82,7 @@ spec:
   - metadata:
       name: data
       annotations:
-          volume.beta.kubernetes.io/storage-class: gluster-dyn
+          volume.beta.kubernetes.io/storage-class: storage-class-name
     spec:
       accessModes: [ "ReadWriteMany" ]
       persistentVolumeReclaimPolicy: delete
@@ -92,7 +92,7 @@ spec:
   - metadata:
       name: logs
       annotations:
-          volume.beta.kubernetes.io/storage-class: gluster-dyn
+          volume.beta.kubernetes.io/storage-class: storage-class-name
     spec:
       accessModes: [ "ReadWriteMany" ]
       persistentVolumeReclaimPolicy: delete

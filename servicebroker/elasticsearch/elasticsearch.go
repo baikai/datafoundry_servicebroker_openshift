@@ -568,6 +568,16 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 				-1)
 		}
 
+		storageClsN := oshandler.StorageClassName()
+		storageClsN = strings.TrimSpace(storageClsN)
+		if len(storageClsN) > 0 {
+			EsTemplateData = bytes.Replace(
+				EsTemplateData,
+				[]byte("storage-class-name"),
+				[]byte(storageClsN),
+				-1)
+		}
+
 		if paras == nil {
 			paras = &podParas{"1", "1Gi"}
 			logger.Debug("loadSrvResources(), initialize paras for pass decode check")
