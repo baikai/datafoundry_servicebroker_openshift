@@ -2,8 +2,12 @@
 # Script to set configurations for elasticsearch.
 set -x
 # get ip address firstly
-ip_addr=$(getent hosts $(hostname).${SRVNAME}.brokers.svc.cluster.local | cut -d' ' -f1)
+while [ "${ip_addr}"x = ""x ] 
+do
+  ip_addr=$(getent hosts $(hostname).${SRVNAME} | cut -d' ' -f1)
+done
 
+names=$(getent hosts $(hostname).${SRVNAME} | awk -F' ' '{print $NF}' | cut -d'.' -f2-6)
 
 sed -i "s/NETWORKHOST/${ip_addr}/g" /usr/share/elasticsearch/config/elasticsearch.yml
 
@@ -22,6 +26,6 @@ fi
 
 while [ $i -lt ${NODES_NUM} ]
 do
-  echo " - "${PREFIX}"-"${i}.${SRVNAME}.brokers.svc.cluster.local >> /usr/share/elasticsearch/config/elasticsearch.yml
+  echo " - "${PREFIX}"-"${i}.${names} >> /usr/share/elasticsearch/config/elasticsearch.yml
   i=$(($i+1))
 done
