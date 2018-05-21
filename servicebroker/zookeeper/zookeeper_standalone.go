@@ -88,6 +88,11 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 	zookeeperUser := "super" // oshandler.NewElevenLengthID()
 	zookeeperPassword := oshandler.GenGUID()
 
+	serviceInfo.Url = instanceIdInTempalte
+	serviceInfo.Database = serviceBrokerNamespace // may be not needed
+	serviceInfo.User = zookeeperUser
+	serviceInfo.Password = zookeeperPassword
+
 	logger.Info("Zookeeper Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	go func() {
@@ -104,12 +109,6 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 
 			return
 		}
-
-		serviceInfo.Url = instanceIdInTempalte
-		serviceInfo.Database = serviceBrokerNamespace // may be not needed
-		serviceInfo.User = zookeeperUser
-		serviceInfo.Password = zookeeperPassword
-
 	}()
 
 	serviceSpec.DashboardURL = "" // "http://" + net.JoinHostPort(output.route.Spec.Host, "80")
