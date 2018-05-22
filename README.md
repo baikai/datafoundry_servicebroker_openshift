@@ -1,4 +1,5 @@
 
+
 ### 数据库软件和版本
 
 本程序使用ETCD做为存储数据库。
@@ -263,6 +264,10 @@ curl -i -X DELETE \
 }
 ```
 
+### 支持的Backing Services和它们的Plans
+
+[详见etcd registry](registery/etcdinit.sh)
+
 ### 需要的环境变量
 
 Open Shift集群访问凭证：
@@ -305,10 +310,10 @@ Service Broker Instance Pod Images
 * OCSPIMAGE: OCSP 镜像
 * PYSPIDERIMAGE: PySpider 镜像
 * RABBITMQIMAGE: RabbitMQ 镜像
-* REDISIMAGE: Redis 镜像
+* REDISIMAGE: Redis高可用（带哨兵）镜像
 * REDIS32IMAGE: Redis 单Master镜像
-* REDISCLUSTERIMAGE: Redis Cluster 镜像
-* REDISCLUSTERTRIBIMAGE: Redis Cluster trib.rb 镜像
+* REDISCLUSTERIMAGE: Redis分布式Cluster镜像
+* REDISCLUSTERTRIBIMAGE: Redis Cluster trib.rb 镜像 （已不再需要）
 * SIMPLEFILEUPLOADERIMAGE: Simple File Uploader 镜像
 * STORMIMAGE: Storm 镜像
 * STORMEXTERNALIMAGE: Storm With External ZooKeeper 镜像
@@ -317,6 +322,8 @@ Service Broker Instance Pod Images
 * ZEPPLINIMAGE: Zepplin 镜像
 * ZOOKEEPERIMAGE: ZooKeeper 镜像
 * ZOOKEEPEREXHIBITORIMAGE: ZooKeeper Exhibitor 镜像
+* MARIADBIMAGE, PHPMYADMINIMAGE, PROMETHEUSMYSQLEXPORTERIMAGE: MySQL Maria高可用多Master集群所需镜像。
+* ESCLUSTERIMAGE: Elastic集群镜像。
 
 ### Supported API Parameters And Custom Options For `Redis_volumes_cluster_with_replicas` and `Redis_volumes_cluster` Plans
 
