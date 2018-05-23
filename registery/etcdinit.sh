@@ -395,7 +395,7 @@ $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF
 $ETCDCTL mkdir /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/name "Cluster"
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/description "Elasticsearch (6.2.2) Cluster on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["20 GB of Disk","3 replicas"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1,"desc":"Elasticsearch集群实例数量"},"volume":{"default":10,"unit":"GB","step":1,"desc":"单个实例存储容量设置"}} }'
+$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["20 GB of Disk","3 replicas"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1, "max": 30, "desc":"Elasticsearch集群实例数量"},"volume":{"default":10,"unit":"GB","step":1, "max":100, "desc":"单个实例存储容量设置"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/free true
 
 ###创建服务 Dataku
