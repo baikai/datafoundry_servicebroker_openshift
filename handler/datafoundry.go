@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
+	//"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,51 +15,51 @@ import (
 	"sync"
 )
 
-var dfProxyApiPrefix string
-
-func DfProxyApiPrefix() string {
-	if dfProxyApiPrefix == "" {
-		addr := os.Getenv("DATAFOUNDRYPROXYADDR")
-		if addr == "" {
-			logger.Error("int dfProxyApiPrefix error:", errors.New("DATAFOUNDRYPROXYADDR env is not set"))
-		}
-
-		dfProxyApiPrefix = "http://" + addr + "/lapi/v1"
-	}
-	return dfProxyApiPrefix
-}
-
 const DfRequestTimeout = time.Duration(8) * time.Second
 
 func dfRequest(method, url, bearerToken string, bodyParams interface{}, into interface{}) (err error) {
+	return dfRequestWithTimeout(DfRequestTimeout, method, url, bearerToken, bodyParams, into)
+}
+
+func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string, bodyParams interface{}, into interface{}) (err error) {
 	var body []byte
 	if bodyParams != nil {
 		body, err = json.Marshal(bodyParams)
 		if err != nil {
-			return
+			logger.Error("dfRequest(), failed to parse body", err)
+			return err
 		}
 	}
 
-	res, err := request(DfRequestTimeout, method, url, bearerToken, body)
+	logger.Debug("dfRequest(), method=" + method + ",url=" + url + ", token=" + bearerToken)
+	res, err := request(timeout, method, url, bearerToken, body)
 	if err != nil {
-		return
+		logger.Error("dfRequest(), request failed", err)
+		return err
 	}
 	defer res.Body.Close()
 
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return
+		logger.Error("dfRequest(), read data from response failed", err)
+		return err
 	}
 
 	//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
 
+	logger.Debug("dfRequest(), status code=" + strconv.Itoa(res.StatusCode) + ", data=" + string(data))
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
 		err = errors.New(string(data))
+		logger.Error("dfRequest(), unknown status code "+strconv.Itoa(res.StatusCode), err)
+		return err
 	} else {
 		if into != nil {
 			//println("into data = ", string(data), "\n")
 
 			err = json.Unmarshal(data, into)
+			if err != nil {
+				logger.Error("dfRequest(), parse response data failed", err)
+			}
 		}
 	}
 
@@ -77,6 +78,7 @@ type VolumnUpdateOptions struct {
 	NewSize int    `json:"new-size,omitempty"`
 }
 
+// CreateVolumn makes an API call to create a volume.
 func CreateVolumn(namespace, volumnName string, size int) error {
 	oc := OC()
 
@@ -97,6 +99,7 @@ func CreateVolumn(namespace, volumnName string, size int) error {
 	return err
 }
 
+// DeleteVolumn makes an API call to delete a volume.
 func DeleteVolumn(namespace, volumnName string) error {
 	oc := OC()
 
@@ -107,7 +110,7 @@ func DeleteVolumn(namespace, volumnName string) error {
 	return err
 }
 
-// oldSize is not used here.
+// ExpandVolumn makes an API call to expend a volume.
 func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error {
 	oc := OC()
 
@@ -119,8 +122,14 @@ func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error 
 		NewSize: newSize,
 	}
 
-	err := dfRequest("PUT", url, oc.BearerToken(), options, nil)
+	logger.Debug("ExpandVolume(), send request to " + url)
+	err := dfRequestWithTimeout(time.Minute*3, "PUT", url, oc.BearerToken(), options, nil)
 
+	if err != nil {
+		logger.Error("ExpandVolume(), failed", err)
+	} else {
+		logger.Debug("ExpandVolume(), it seems everything goes well")
+	}
 	return err
 }
 
@@ -128,7 +137,7 @@ func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error 
 //
 //=======================================================================
 
-// todo: need improving
+// DeleteVolumns starts some goroutines to delete some volumes concurrently.
 func DeleteVolumns(namespace string, volumes []Volume) <-chan error {
 	println("DeleteVolumns", volumes, "...")
 
@@ -151,6 +160,7 @@ func DeleteVolumns(namespace string, volumes []Volume) <-chan error {
 var pvcVolumnCreatingJobs = map[string]*CreatePvcVolumnJob{}
 var pvcVolumnCreatingJobsMutex sync.Mutex
 
+// GetCreatePvcVolumnJob returns the ongoing volumn creating (or expending) job with the specified name.
 func GetCreatePvcVolumnJob(jobName string) *CreatePvcVolumnJob {
 	pvcVolumnCreatingJobsMutex.Lock()
 	job := pvcVolumnCreatingJobs[jobName]
@@ -159,6 +169,7 @@ func GetCreatePvcVolumnJob(jobName string) *CreatePvcVolumnJob {
 	return job
 }
 
+// StartCreatePvcVolumnJob starts some goroutines which create some volumes concurrently.
 func StartCreatePvcVolumnJob(
 	jobName string,
 	namespace string,
@@ -202,6 +213,7 @@ type CreatePvcVolumnJob struct {
 	volumes   []Volume
 }
 
+// Cancel cancels a volumn creating job.
 func (job *CreatePvcVolumnJob) Cancel() {
 	job.cancelMetex.Lock()
 	defer job.cancelMetex.Unlock()
@@ -251,7 +263,7 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 				// todo: on error
 				//DeleteVolumn(name)
 
-				c <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
+				errChan <- fmt.Errorf("WaitUntilPvcIsBound (%s, %s), error: %s", job.namespace, name, err)
 				return
 			}
 
@@ -263,6 +275,8 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 	}
 	wg.Wait()
 	close(errChan)
+
+	println("CreateVolumn done. number errors: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil
@@ -314,6 +328,13 @@ func (job *CreatePvcVolumnJob) run(c chan<- error) {
 
 // todo: Volumn -> volume
 
+// HasExpandPvcVolumnJob returns whether or not there is 
+// a volume expending (or creating) job with the specified name ongoing.
+func HasExpandPvcVolumnJob(jobName string) bool {
+	return GetCreatePvcVolumnJob(jobName) != nil
+}
+
+// StartExpandPvcVolumnJob creates some goroutines which expend some volumes concurrently.
 func StartExpandPvcVolumnJob(
 	jobName string,
 	namespace string,
@@ -375,22 +396,27 @@ func (job *ExpandPvcVolumnJob) run(c chan<- error) {
 
 			println("ExpandVolumn: name=", name, ", oldSize=", oldSize, ", newSize =", newSize)
 
+			logger.Debug("ExpandVolume, name=" + name + ", oldsize=" + strconv.Itoa(oldSize) +
+				", newSize=" + strconv.Itoa(newSize))
 			err := ExpandVolumn(job.namespace, name, oldSize, newSize)
 			if err != nil {
 				println("ExpandVolumn error:", err.Error())
-
+				logger.Error("ExpandVolume, failed expand volume "+name, err)
 				errChan <- err
 				return
 			}
 
 			// ...
 
+			logger.Debug("ExpandVolume succeed: volume " + name)
 			println("ExpandVolumn succeeded: name=", name, ", oldSize=", oldSize, ", newSize =", newSize)
 
 		}(vol.Volume_name, vol.Volume_size, job.newVolueSize)
 	}
 	wg.Wait()
 	close(errChan)
+
+	println("ExpandVolumn done. number erros: ", len(errChan))
 
 	if len(errChan) == 0 {
 		c <- nil
@@ -444,6 +470,7 @@ type watchPvcStatus struct {
 	Object kapi.PersistentVolumeClaim `json:"object"`
 }
 
+// WaitUntilPvcIsBound watches the status of a pvc until it is bound or errors happen.
 func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}) error {
 	select {
 	case <-stopWatching:
@@ -454,7 +481,7 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 	uri := "/namespaces/" + namespace + "/persistentvolumeclaims/" + pvcName
 	statuses, cancel, err := OC().KWatch(uri)
 	if err != nil {
-		return err
+		return errors.New("WaitUntilPvcIsBound KWatch error:" + err.Error())
 	}
 	defer close(cancel)
 
@@ -474,12 +501,13 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 				getPvcChan <- pvc
 			} else {
 				getPvcChan <- nil
+				println("WaitUntilPvcIsBound KGet error: " + err.Error())
 			}
 		}
 	}()
 
 	// avoid waiting too long time
-	timer := time.NewTimer(1 * time.Hour)
+	timer := time.NewTimer(25 * time.Hour)
 	defer timer.Stop()
 
 	for {
@@ -492,12 +520,13 @@ func WaitUntilPvcIsBound(namespace, pvcName string, stopWatching <-chan struct{}
 		case pvc = <-getPvcChan:
 		case status, _ := <-statuses:
 			if status.Err != nil {
-				return status.Err
+				return errors.New("WaitUntilPvcIsBound statuses error: " + status.Err.Error() + ", status.Info=" + string(status.Info))
 			}
 
 			var wps watchPvcStatus
 			if err := json.Unmarshal(status.Info, &wps); err != nil {
-				return err
+				fmt.Println("WaitUntilPvcIsBound status.Info =", string(status.Info))
+				return errors.New("WaitUntilPvcIsBound Unmarshal error: " + err.Error())
 			}
 
 			pvc = &wps.Object

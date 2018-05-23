@@ -5,22 +5,40 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"github.com/pivotal-cf/brokerapi"
 	"io"
+	"math"
 	mathrand "math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pivotal-cf/brokerapi"
 )
 
 func init() {
 	mathrand.Seed(time.Now().UnixNano())
 }
 
+//const (
+//	VolumeType_EmptyDir = ""    // DON'T change
+//	VolumeType_PVC      = "pvc" // DON'T change
+//)
+
+// Some service common parameters.
 const (
-	VolumeType_EmptyDir = ""    // DON'T change
-	VolumeType_PVC      = "pvc" // DON'T change
+	// pvc plans
+	VolumeSize = "volumeSize"
+	// ... never used
+	Connections = "connections"
+	// redis cluster, ...
+	Nodes = "nodes"
+	// redis cluster, storem external, ...
+	Memory = "memory"
+	// redis cluster, ...
+	Replicas = "replicas"
 )
 
 type ServiceInfo struct {
@@ -55,6 +73,9 @@ type PlanInfo struct {
 	Volume_size int `json:"volume_type"`
 	Connections int `json:"connections"`
 	//Customize   map[string]CustomParams `json:"customize"`
+
+	MoreParameters    map[string]interface{}
+	ParameterSettings map[string]CustomParams
 }
 
 type Credentials struct {
@@ -101,6 +122,12 @@ func Register(name string, handler HandlerDriver) {
 	handlers[name] = handler
 }
 
+func ListHandler() {
+	for k, _ := range handlers {
+		fmt.Println(k)
+	}
+}
+
 func New(name string) (*Handler, error) {
 	handler, ok := handlers[name]
 	if !ok {
@@ -133,6 +160,78 @@ func (handler *Handler) DoUnbind(myServiceInfo *ServiceInfo, mycredentials *Cred
 	return handler.driver.DoUnbind(myServiceInfo, mycredentials)
 }
 
+//=========================================================
+
+func (cus CustomParams) Validate(param float64) float64 {
+	if param < cus.Default {
+		param = cus.Default
+	}
+	if param > cus.Max {
+		param = cus.Default // cus.Max
+	}
+	param = cus.Default + cus.Step*math.Ceil((param-cus.Default)/cus.Step)
+	if param > cus.Max {
+		param = cus.Max
+	}
+	return param
+}
+
+func ParseInt64(v interface{}) (int64, error) {
+	str2int64 := func(s string) (int64, error) {
+		return strconv.ParseInt(s, 10, 64)
+	}
+
+	switch v := v.(type) {
+	case int64:
+		return v, nil
+	case int:
+		return int64(v), nil
+	case float32:
+		return int64(v), nil
+	case float64:
+		return int64(v), nil
+	case string:
+		return str2int64(v)
+	default:
+		//return str2int64(fmt.Sprint(v))
+		return 0, fmt.Errorf("invalid v: %v", v)
+	}
+}
+
+func ParseFloat64(v interface{}) (float64, error) {
+	str2float64 := func(s string) (float64, error) {
+		return strconv.ParseFloat(s, 64)
+	}
+
+	switch v := v.(type) {
+	case int64:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case float32:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	case string:
+		return str2float64(v)
+	default:
+		//return str2float64(fmt.Sprint(v))
+		return 0, fmt.Errorf("invalid v: %v", v)
+	}
+}
+
+func ParseString(v interface{}) (string, error) {
+	switch v := v.(type) {
+	case string:
+		return v, nil
+	default:
+		//return fmt.Sprint(v)
+		return "", fmt.Errorf("v is not string: %v", v)
+	}
+}
+
+//=========================================================
+
 func getmd5string(s string) string {
 	h := md5.New()
 	h.Write([]byte(s))
@@ -147,6 +246,8 @@ func GenGUID() string {
 	}
 	return getmd5string(base64.URLEncoding.EncodeToString(b))
 }
+
+//=========================================================
 
 func getenv(env string) string {
 	env_value := os.Getenv(env)
@@ -172,6 +273,14 @@ func ServiceDomainSuffix(prefixedWithDot bool) string {
 
 func EndPointSuffix() string {
 	return endpointSuffix
+}
+
+func StorageClassName() string {
+	return storageClassName
+}
+
+func DfProxyApiPrefix() string {
+	return dfProxyApiPrefix
 }
 
 func DnsmasqServer() string {
@@ -244,6 +353,14 @@ func Redis32Image() string {
 	return redis32Image
 }
 
+func RedisClusterImage() string {
+	return redisClusterImage
+}
+
+//func RedisClusterTribImage() string {
+//	return redisClusterTribImage
+//}
+
 func KafkaImage() string {
 	return kafkaImage
 }
@@ -308,10 +425,49 @@ func StormExternalImage() string {
 	return stormExternalImage
 }
 
+func DataikuImage() string {
+	return dataikuImage
+}
+
+func OcspImage() string {
+	return ocspImage
+}
+
+func OcspOcm() string {
+	return ocspOcm
+}
+
+func OcspOcmPort() string {
+	return ocspOcmPort
+}
+func OcspHdpVersion() string {
+	return ocspHdpVersion
+}
+
+func AnacodaImage() string {
+	return anacondaImage
+}
+
+func MariadbImage() string {
+	return mariadbImage
+}
+
+func PrometheusMysqldExporterImage() string {
+	return prometheusMysqldExporterImage
+}
+
+func PhpMyAdminImage() string {
+	return phpMyAdminImage
+}
+
+// EsclusterImage return image name for elastic search cluster
+func EsclusterImage() string {
+	return esclusterImage
+}
+
 //func DfExternalIPs() string {
 //	return externalIPs
 //}
-
 
 var theOC *OpenshiftClient
 
@@ -319,11 +475,18 @@ var svcDomainSuffix string
 var endpointSuffix string
 var svcDomainSuffixWithDot string
 
+var storageClassName string
+var dfProxyApiPrefix string
+
 var dnsmasqServer string // may be useless now.
 
 var nodeAddresses []string
 var nodeDemains []string
 var externalZookeeperServers []string
+
+var ocspOcm string
+var ocspOcmPort string
+var ocspHdpVersion string
 
 var etcdImage string
 var etcdVolumeImage string
@@ -332,6 +495,8 @@ var zookeeperImage string
 var zookeeperexhibitorImage string
 var redisImage string
 var redis32Image string
+var redisClusterImage string
+//var redisClusterTribImage string // merged into redisClusterImage
 var redisphpadminImage string
 var kafkaImage string
 var stormImage string
@@ -349,6 +514,15 @@ var mongoVolumeImage string
 var kafkaVolumeImage string
 var neo4jVolumeImage string
 var stormExternalImage string
+var ocspImage string
+var dataikuImage string
+var anacondaImage string
+var mariadbImage string
+var prometheusMysqldExporterImage string
+var phpMyAdminImage string
+
+// added by Jared
+var esclusterImage string
 
 func init() {
 	theOC = newOpenshiftClient(
@@ -363,13 +537,25 @@ func init() {
 		svcDomainSuffix = "svc.cluster.local"
 	}
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
-	
+
 	endpointSuffix = getenv("ENDPOINTSUFFIX")
+	
+	storageClassName = getenv("STORAGECLASSNAME")
+	dfProxyApiPrefix = os.Getenv("DATAFOUNDRYPROXYADDR")
+	if dfProxyApiPrefix == "" {
+		logger.Error("int dfProxyApiPrefix error:", errors.New("DATAFOUNDRYPROXYADDR env is not set"))
+	}
+	dfProxyApiPrefix = "http://" + dfProxyApiPrefix + "/lapi/v1"
+	
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
 	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
 	nodeDemains = strings.Split(getenv("NODE_DOMAINS"), ",")
 	externalZookeeperServers = strings.Split(getenv("EXTERNALZOOKEEPERSERVERS"), ",")
+
+	ocspOcm = getenv("OCSP_OCM")
+	ocspOcmPort = getenv("OCSP_OCM_PORT")
+	ocspHdpVersion = getenv("OCSP_HDP_VERSION")
 
 	etcdImage = getenv("ETCDIMAGE")
 	etcdbootImage = getenv("ETCDBOOTIMAGE")
@@ -377,6 +563,8 @@ func init() {
 	zookeeperexhibitorImage = getenv("ZOOKEEPEREXHIBITORIMAGE")
 	redisImage = getenv("REDISIMAGE")
 	redis32Image = getenv("REDIS32IMAGE")
+	redisClusterImage = getenv("REDISCLUSTERIMAGE")
+	//redisClusterTribImage = getenv("REDISCLUSTERTRIBIMAGE")
 	redisphpadminImage = getenv("REDISPHPADMINIMAGE")
 	kafkaImage = getenv("KAFKAIMAGE")
 	stormImage = getenv("STORMIMAGE")
@@ -395,4 +583,13 @@ func init() {
 	kafkaVolumeImage = getenv("KAFKAVOLUMEIMAGE")
 	neo4jVolumeImage = getenv("NEO4JVOLUMEIMAGE")
 	stormExternalImage = getenv("STORMEXTERNALIMAGE")
+	ocspImage = getenv("OCSPIMAGE")
+	dataikuImage = getenv("DATAIKUIMAGE")
+	anacondaImage = getenv("ANACONDAIMAGE")
+	mariadbImage = getenv("MARIADBIMAGE")
+	prometheusMysqldExporterImage = getenv("PROMETHEUSMYSQLEXPORTERIMAGE")
+	phpMyAdminImage = getenv("PHPMYADMINIMAGE")
+
+	esclusterImage = getenv("ESCLUSTERIMAGE")
 }
+

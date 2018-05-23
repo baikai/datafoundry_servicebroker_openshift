@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  labels:
+    servicebroker: sb-instanceid-zeppelin
+  name: sb-instanceid-zeppelin
+spec:
+  replicas: 1
+  selector:
+    servicebroker: sb-instanceid-zeppelin
+  template:
+    metadata:
+      labels:
+        servicebroker: sb-instanceid-zeppelin
+    spec:
+      containers:
+      - image: http://zeppelin-image-place-holder/zeppelin-openshift-orchestration
+        imagePullPolicy: IfNotPresent
+        name: sb-instanceid-zeppelin
+        ports:
+        - containerPort: 8080
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Route
+metadata:
+  annotations:
+    openshift.io/host.generated: "true"
+  name: sb-instanceid-zeppelin
+  labels:
+    servicebroker: sb-instanceid-zeppelin
+spec:
+  host: sb-instanceid-zeppelin.endpoint-postfix-place-holder
+  port:
+    targetPort: 8080
+  to:
+    kind: Service
+    name: sb-instanceid-zeppelin
+---
+apiVersion: v1
+kind: Service  #表明是Kubernetes Service
+metadata:
+  labels:
+    servicebroker: sb-instanceid-zeppelin
+  name: sb-instanceid-zeppelin  #全局唯一名称
+spec:
+  ports:
+  - port: 8080
+    name: web
+  selector:
+    servicebroker: sb-instanceid-zeppelin

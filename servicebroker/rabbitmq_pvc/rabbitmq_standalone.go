@@ -1,40 +1,26 @@
 package rabbitmq_pvc
 
 import (
-	"errors"
-	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pivotal-cf/brokerapi"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
-	//"sync"
-
-	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const RabbitmqServcieBrokerName_Standalone = "RabbitMQ_volumes_standalone"
@@ -79,7 +65,7 @@ func (handler *Rabbitmq_freeHandler) DoUnbind(myServiceInfo *oshandler.ServiceIn
 }
 
 //==============================================================
-//
+//挂卷
 //==============================================================
 
 // version 1:
@@ -113,14 +99,9 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 	rabbitmqUser := oshandler.NewElevenLengthID()
 	rabbitmqPassword := oshandler.GenGUID()
@@ -134,10 +115,7 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 		},
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Rabbitmq Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	// master rabbitmq
 
@@ -157,6 +135,7 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 		serviceInfo.Volumes,
 		&template)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error", err)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 	//<<
@@ -203,8 +182,6 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" rabbitmq createRabbitmqResources_Master error: ", err)
-			logger.Error("rabbitmq createRabbitmqResources_Master error", err)
 
 			destroyRabbitmqResources_Master(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
@@ -244,12 +221,6 @@ func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 		myServiceInfo.Volumes,
 	)
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
@@ -257,8 +228,6 @@ func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 		return n >= *rc.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&master_res.rc) {
 		return brokerapi.LastOperation{
@@ -321,6 +290,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *r
 	var master_res rabbitmqResources_Master
 	err := loadRabbitmqResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, &master_res)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error", err)
 		return oshandler.Credentials{}
 	}
 
@@ -331,8 +301,6 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *r
 
 	svchost := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	svcport := strconv.Itoa(mq_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	ndhost := oshandler.RandomNodeAddress()
 	var ndport string = ""
@@ -371,10 +339,6 @@ func (handler *Rabbitmq_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bi
 
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(mq_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
-
-	// todo: return NodePort?
 
 	mycredentials := oshandler.Credentials{
 		Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, host, port),
@@ -442,15 +406,10 @@ func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword str
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****node"), []byte(peerPvcName0), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
-
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
 		Decode(&res.rc).
 		Decode(&res.routeAdmin).
-		//Decode(&res.routeMQ).
 		Decode(&res.service).
 		Decode(&res.serviceNodePort)
 
@@ -458,9 +417,8 @@ func loadRabbitmqResources_Master(instanceID, rabbitmqUser, rabbitmqPassword str
 }
 
 type rabbitmqResources_Master struct {
-	rc         kapi.ReplicationController
-	routeAdmin routeapi.Route
-	//routeMQ    routeapi.Route
+	rc              kapi.ReplicationController
+	routeAdmin      routeapi.Route
 	service         kapi.Service
 	serviceNodePort kapi.Service
 }
@@ -469,6 +427,7 @@ func createRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmq
 	var input rabbitmqResources_Master
 	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error", err)
 		return nil, err
 	}
 
@@ -481,7 +440,6 @@ func createRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmq
 	osr.
 		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc).
 		OPost(prefix+"/routes", &input.routeAdmin, &output.routeAdmin).
-		//OPost(prefix + "/routes", &input.routeMQ, &output.routeMQ).
 		KPost(prefix+"/services", &input.service, &output.service)
 
 	if osr.Err != nil {
@@ -513,6 +471,7 @@ func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUse
 	var input rabbitmqResources_Master
 	err := loadRabbitmqResources_Master(instanceId, rabbitmqUser, rabbitmqPassword, volumes, &input)
 	if err != nil {
+		logger.Error("loadRabbitmqResources_Master error", err)
 		return &output, err
 	}
 
@@ -522,7 +481,6 @@ func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUse
 	osr.
 		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc).
 		OGet(prefix+"/routes/"+input.routeAdmin.Name, &output.routeAdmin).
-		//OGet(prefix + "/routes/" + input.routeMQ.Name, &output.routeMQ).
 		KGet(prefix+"/services/"+input.service.Name, &output.service).
 		KGet(prefix+"/services/"+input.serviceNodePort.Name, &output.serviceNodePort)
 
@@ -538,7 +496,6 @@ func destroyRabbitmqResources_Master(masterRes *rabbitmqResources_Master, servic
 
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
-	//go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
 }
@@ -546,54 +503,6 @@ func destroyRabbitmqResources_Master(masterRes *rabbitmqResources_Master, servic
 //===============================================================
 //
 //===============================================================
-
-func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).OPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
 
 func kdel(serviceBrokerNamespace, typeName, resName string) error {
 	if resName == "" {
@@ -649,12 +558,6 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -672,7 +575,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Rabbitmq rc", osr.Err)
 		return
 	}
 
@@ -680,7 +583,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Rabbitmq rc", err)
 		return
 	}
 
@@ -689,7 +592,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA rabbitmq rc error", status.Err)
+				logger.Error("Watch Rabbitmq rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -698,7 +601,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+				logger.Error("Parse Master Rabbitmq rc status", err)
 				close(cancel)
 				return
 			}

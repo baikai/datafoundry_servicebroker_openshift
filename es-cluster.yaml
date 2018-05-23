@@ -1,0 +1,100 @@
+# headless service for node discovery and client connecting
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:
+    app: es-cluster-instanceid
+  name: es-cluster-instanceid
+spec:
+  selector:
+    app: es-node-instanceid
+  ports:
+  - name: transport
+    port: 9300
+  - name: client
+    port: 9200
+  clusterIP: None
+
+---
+# route for client service
+apiVersion: v1
+kind: Route
+metadata:
+  annotations:
+    openshift.io/host.generated: 'true'
+  name: es-route-instanceid
+spec:
+  host: es-cluster-instanceid.endpoint-postfix-place-holder
+  port:
+    targetPort: client
+  to:
+    kind: Service
+    name: es-cluster-instanceid
+
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: es-instanceid
+  labels:
+    app: es-node-instanceid
+spec:
+  replicas: replica-num
+  selector:
+    matchLabels:
+      app: es-node-instanceid
+  #noted: serviceName is the real service name
+  serviceName: "es-cluster-instanceid"
+  template:
+    metadata:
+      labels:
+        app: es-node-instanceid
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      containers:
+      - name: elasticsearch
+        image: http://docker-registry/es-cluster-image
+        imagePullPolicy: Always
+        env:
+        - name: CLUSTER_NAME
+          value: es-instanceid
+        - name: NODES_NUM
+          value: "replica-num"
+        - name: SRVNAME
+          value: es-cluster-instanceid
+        ports:
+        - containerPort: 9200
+          protocol: TCP
+          name: http
+        - containerPort: 9300
+          protocol: TCP
+          name: transport
+        volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: data
+            - mountPath: /usr/share/elasticsearch/logs
+              name: logs
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      annotations:
+          volume.beta.kubernetes.io/storage-class: storage-class-name
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      persistentVolumeReclaimPolicy: delete
+      resources:
+        requests:
+          storage: disk-size
+  - metadata:
+      name: logs
+      annotations:
+          volume.beta.kubernetes.io/storage-class: storage-class-name
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      persistentVolumeReclaimPolicy: delete
+      resources:
+        requests:
+          storage: disk-size

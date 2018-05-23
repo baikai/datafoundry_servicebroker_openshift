@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    redis-cluster-instance-id: {{ .InstanceID }}
+    redis-trib: {{ .InstanceID }}
+  name: redis-trib-{{ .InstanceID }}{{ .PodNameSuffix }}
+  # changes of the name format should be reflected into code of DoDeprovision.
+spec:
+  containers:
+  - name: redis-trib
+    command:
+    - {{ .Command }}
+    args:
+    {{- range .Arguments }}
+    - '{{- . }}'
+    {{- end}}
+    env:
+      - name: SCRIPT_CONTENT
+        value: "{{ .ScriptContent }}"
+    image: {{ .Image }}
+    imagePullPolicy: IfNotPresent
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+  schedulerName: default-scheduler
+  securityContext: {}
+  terminationGracePeriodSeconds: 30
+

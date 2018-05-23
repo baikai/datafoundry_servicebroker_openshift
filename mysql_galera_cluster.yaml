@@ -1,0 +1,328 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sb-{{ .InstanceID }}-conf-d
+data:
+  datadir.cnf: |
+    [mysqld]
+    datadir=/data/db
+  galera.cnf: |
+    #
+    # * Galera-related settings
+    #
+    # https://mariadb.com/kb/en/mariadb/galera-cluster-system-variables/
+    #
+    [galera]
+    # Mandatory settings
+    wsrep_on=ON
+    wsrep_provider="/usr/lib/galera/libgalera_smm.so"
+    #init-new-cluster#wsrep_new_cluster=TRUE
+    #init-recover#wsrep_recover=TRUE
+    wsrep_cluster_address="gcomm://sb-{{ .InstanceID }}-mariadb-0.sb-{{ .InstanceID }}-mariadb,sb-{{ .InstanceID }}-mariadb-1.sb-{{ .InstanceID }}-mariadb,sb-{{ .InstanceID }}-mariadb-2.sb-{{ .InstanceID }}-mariadb"
+    binlog_format=ROW
+    default_storage_engine=InnoDB
+    innodb_autoinc_lock_mode=2
+    wsrep-sst-method=rsync
+    #
+    # Allow server to accept connections on all interfaces.
+    #
+    bind-address=0.0.0.0
+    #
+    # Optional setting
+    #wsrep_slave_threads=1
+    #innodb_flush_log_at_trx_commit=0
+  utf8.cnf: |
+    [client-server]
+    # This will be passed to all mysql clients
+    [client]
+    default-character-set = utf8mb4
+    # The MySQL server
+    [mysqld]
+    character-set-server = utf8mb4
+    collation-server = utf8mb4_unicode_ci
+    [mysql]
+    default-character-set = utf8mb4
+    [mysqldump]
+    # This group is only read by MariaDB servers, not by MySQL.
+    # If you use the same .cnf file for MySQL and MariaDB,
+    # you can put MariaDB-only options here
+    [mariadb]
+    [mariadb-10.1]
+    [mariadb-10.2]
+  init.sh: |
+    #!/bin/bash
+    set -x
+    HOST_ID=${HOSTNAME##*-}
+    STATEFULSET_SERVICE=$(dnsdomainname -d)
+    POD_FQDN=$(dnsdomainname -A)
+    echo "This is pod $HOST_ID ($POD_FQDN) for statefulset $STATEFULSET_SERVICE"
+    [ -z "$DATADIR" ] && exit "Missing DATADIR variable" && exit 1
+    SUGGEST_EXEC_COMMAND="kubectl --namespace=$POD_NAMESPACE exec -c init-config $POD_NAME --"
+    function wsrepNewCluster {
+      sed -i 's|^#init-new-cluster#||' /etc/mysql/conf.d/galera.cnf
+    }
+    function wsrepRecover {
+      sed -i 's|^#init-recover#||' /etc/mysql/conf.d/galera.cnf
+    }
+    [[ $STATEFULSET_SERVICE = sb-{{ .InstanceID }}-mariadb.* ]] || echo "WARNING: unexpected service name $STATEFULSET_SERVICE, Peer detection below may fail falsely."
+    if [ $HOST_ID -eq 0 ]; then
+      echo "This is the 1st statefulset pod. Checking if the statefulset is down ..."
+      getent hosts sb-{{ .InstanceID }}-mariadb
+      [ $? -eq 2 ] && {
+        # https://github.com/docker-library/mariadb/commit/f76084f0f9dc13f29cce48c727440eb79b4e92fa#diff-b0fa4b30392406b32de6b8ffe36e290dR80
+        if [ ! -d "$DATADIR/mysql" ]; then
+          echo "No database in $DATADIR; configuring $POD_NAME for initial start"
+          wsrepNewCluster
+        else
+          set +x
+          echo "----- ACTION REQUIRED -----"
+          echo "No peers found, but data exists. To start in wsrep_new_cluster mode, run:"
+          echo "  $SUGGEST_EXEC_COMMAND touch /tmp/confirm-new-cluster"
+          echo "Or to start in recovery mode, to see replication state, run:"
+          echo "  $SUGGEST_EXEC_COMMAND touch /tmp/confirm-recover"
+          echo "Or to try a regular start (for example after recovery + manual intervention), run:"
+          echo "  $SUGGEST_EXEC_COMMAND touch /tmp/confirm-resume"
+          echo "Waiting for response ..."
+          while [ ! -f /tmp/confirm-resume ]; do
+            sleep 1
+            if [ "$AUTO_NEW_CLUSTER" = "true" ]; then
+              echo "The AUTO_NEW_CLUSTER env was set to $AUTO_NEW_CLUSTER, will proceed without confirmation"
+              wsrepNewCluster
+              touch /tmp/confirm-resume
+            elif [ -f /tmp/confirm-new-cluster ]; then
+              echo "Confirmation received. Resuming new cluster start ..."
+              wsrepNewCluster
+              touch /tmp/confirm-resume
+            elif [ -f /tmp/confirm-recover ]; then
+              echo "Confirmation received. Resuming in recovery mode."
+              echo "Note: to start the other pods you need to edit OrderedReady and add a command: --wsrep-recover"
+              wsrepRecover
+              touch /tmp/confirm-resume
+            fi
+          done
+          rm /tmp/confirm-*
+          set -x
+        fi
+      }
+    fi
+    # https://github.com/docker-library/mariadb/blob/master/10.2/docker-entrypoint.sh#L62
+    mysqld --verbose --help --log-bin-index="$(mktemp -u)" | tee /tmp/mariadb-start-config | grep -e ^version -e ^datadir -e ^wsrep -e ^binlog -e ^character-set -e ^collation
+
+---
+
+# the "Headless Service, used to control the network domain"
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sb-{{ .InstanceID }}-mariadb
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "false"
+spec:
+  publishNotReadyAddresses: false
+  clusterIP: None
+  selector:
+    app: sb-{{ .InstanceID }}-mariadb
+  ports:
+    - port: 3306
+      name: mysql
+    - port: 4444
+      name: sst
+    - port: 4567
+      name: replication
+    - protocol: UDP
+      port: 4567
+      name: replicationudp
+    - port: 4568
+      name: ist
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sb-{{ .InstanceID }}-mysql
+spec:
+  type: NodePort
+  ports:
+  - name: mysql
+    port: 3306
+    targetPort: 3306
+  selector:
+    app: sb-{{ .InstanceID }}-mariadb
+
+---
+
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: sb-{{ .InstanceID }}-mariadb
+spec:
+  selector:
+    matchLabels:
+      app: sb-{{ .InstanceID }}-mariadb
+  serviceName: "sb-{{ .InstanceID }}-mariadb"
+  replicas: 3
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: sb-{{ .InstanceID }}-mariadb
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9104"
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+      - name: init-config
+        command: ['/bin/bash', '/etc/mysql/conf.d/init.sh']
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: DATADIR
+          value: /data/db
+        - name: AUTO_NEW_CLUSTER
+          value: "false"
+        volumeMounts:
+        - name: mysql
+          mountPath: /data
+        - name: conf
+          mountPath: /etc/mysql/conf.d
+        - name: initdb
+          mountPath: /docker-entrypoint-initdb.d
+        image: {{ .MariadbImage }}
+      containers:
+      - name: mariadb
+        image: {{ .MariadbImage }}
+        ports:
+        - containerPort: 3306
+          name: mysql
+        - containerPort: 4444
+          name: sst
+        - containerPort: 4567
+          name: replication
+        - containerPort: 4567
+          protocol: UDP
+          name: replicationudp
+        - containerPort: 4568
+          name: ist
+        env:
+        - name: MYSQL_ROOT_HOST
+          value: "localhost"
+        - name: MYSQL_ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        - name: MYSQL_INITDB_SKIP_TZINFO
+          value: "yes"
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -ec
+            - >-
+              '['
+              ON =
+              $(mysql -e "SHOW STATUS LIKE 'wsrep_ready';" -N -B | sed 's/.*ON/ON/')
+              ']'
+          initialDelaySeconds: 30
+        livenessProbe:
+          exec:
+            command:
+            - mysql
+            - -e
+            - "SHOW DATABASES;"
+          # might need to be tweaked for large initial state transfers
+          initialDelaySeconds: 60
+        volumeMounts:
+        - name: mysql
+          mountPath: /data
+        - name: conf
+          mountPath: /etc/mysql/conf.d
+        - name: initdb
+          mountPath: /docker-entrypoint-initdb.d
+      - name: metrics
+        image: {{ .PrometheusMysqldExporterImage }}
+        env:
+        - name: DATA_SOURCE_NAME
+          value: root@(localhost:3306)/
+        ports:
+        - containerPort: 9104
+      volumes:
+      - name: conf
+        configMap:
+          name: sb-{{ .InstanceID }}-conf-d
+      - name: initdb
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{ .StorageClassName }}
+      resources:
+        requests:
+          storage: {{ .MysqlDataDiskSize }}Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sb-{{ .InstanceID }}-myadmin
+spec:
+  ports:
+  - name: admin
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: sb-{{ .InstanceID }}-myadmin
+
+---
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: sb-{{ .InstanceID }}-myadmin
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sb-{{ .InstanceID }}-myadmin
+    spec:
+      containers:
+        - name: phpmyadmin
+          image: {{ .PhpMyAdminImage }}
+          ports:
+            - containerPort: 80
+          env:
+            - name: PMA_HOST
+              value: sb-{{ .InstanceID }}-mysql
+
+---
+
+apiVersion: v1
+kind: Route
+metadata:
+  name: sb-{{ .InstanceID }}-myadmin
+  labels:
+    servicebroker: sb-instanceid-rabbitmq-admin
+spec:
+  host: sb-{{ .InstanceID }}-myadmin.{{ .EndPointSuffix }}
+  port:
+    targetPort: admin
+  to:
+    kind: Service
+    name: sb-{{ .InstanceID }}-myadmin
+

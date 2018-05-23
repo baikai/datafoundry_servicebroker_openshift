@@ -354,3 +354,4 @@ func (apiVersions APIVersions) GoString() string {
 
 // Patch is provided to give a concrete name and type to the Kubernetes PATCH request body.
 type Patch struct{}
+

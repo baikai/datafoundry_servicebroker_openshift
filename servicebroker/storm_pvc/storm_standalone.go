@@ -1,40 +1,26 @@
 package storm_pvc
 
 import (
-	"errors"
-	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"bytes"
 	"encoding/json"
-	"github.com/pivotal-cf/brokerapi"
-	"strconv"
-	"strings"
-	"time"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
-	"sync"
-
-	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-
+	"errors"
+	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	"github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/zookeeper_pvc"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 // WAERNING: the development of this service broker is not finished yet!
@@ -97,31 +83,19 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	//stormUser := oshandler.NewElevenLengthID()
-	//stormPassword := oshandler.GenGUID()
 	zookeeperUser := "super" // oshandler.NewElevenLengthID()
 	zookeeperPassword := oshandler.GenGUID()
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
-	//serviceInfo.User = stormUser
-	//serviceInfo.Password = stormPassword
 	serviceInfo.Admin_user = zookeeperUser
 	serviceInfo.Admin_password = zookeeperPassword
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Storm Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	go func() {
 		err := <-etcdSaveResult
@@ -129,12 +103,6 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			return
 		}
 
-		// nimbus storm
-		//output, err := createStormResources_Nimbus(instanceIdInTempalte, serviceBrokerNamespace, stormUser, stormPassword)
-		//if err != nil {
-		//	destroyStormResources_Nimbus(output, serviceBrokerNamespace)
-		//	return serviceSpec, serviceInfo, err
-		//}
 		// nimbus zookeeper
 		output, err := zookeeper_pvc.CreateZookeeperResources_Master(instanceIdInTempalte, serviceBrokerNamespace, zookeeperUser, zookeeperPassword, nil)
 		if err != nil {
@@ -156,11 +124,6 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	serviceSpec.DashboardURL = ""
 
-	//>>>
-	// storm pvc has not implemented yet.
-	// serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo)
-	//<<<
-
 	return serviceSpec, serviceInfo, nil
 }
 
@@ -181,12 +144,6 @@ func (handler *Storm_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	nimbus_res, _ := getStormResources_Nimbus(myServiceInfo.Url, myServiceInfo.Database)             //, myServiceInfo.User, myServiceInfo.Password)
 	uisuperviser_res, _ := getStormResources_UiSuperviser(myServiceInfo.Url, myServiceInfo.Database) //, myServiceInfo.User, myServiceInfo.Password)
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
@@ -194,8 +151,6 @@ func (handler *Storm_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 		return n >= *rc.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&nimbus_res.rc) && ok(&uisuperviser_res.superviserrc) && ok(&uisuperviser_res.uirc) {
 		return brokerapi.LastOperation{
@@ -283,16 +238,11 @@ func (handler *Storm_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 
 	host := fmt.Sprintf("%s.%s.%s", nimbus_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(storm_nimbus_port.Port)
-	//host := nimbus_res.routeMQ.Spec.Host
-	//port := "80"
 
 	mycredentials := oshandler.Credentials{
 		Uri:      fmt.Sprintf("storm-nimbus: %s:%s storm-UI: %s:%s zookeeper: %s:%s", host, port, ui_host, ui_port, zk_host, zk_port),
 		Hostname: host,
 		Port:     port,
-		//Username: myServiceInfo.User,
-		//Password: myServiceInfo.Password,
-		// todo: need return zookeeper password?
 	}
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
@@ -485,12 +435,8 @@ func loadStormResources_Nimbus(instanceID, serviceBrokerNamespace /*, stormUser,
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("dnsmasq*****"), []byte(oshandler.DnsmasqServer()), -1)
-
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -538,11 +484,7 @@ func loadStormResources_UiSuperviser(instanceID, serviceBrokerNamespace /*, stor
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
-
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -578,18 +520,6 @@ func (job *stormOrchestrationJob) createStormResources_Nimbus(instanceId, servic
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
-	/*
-		// here, not use job.post
-		prefix := "/namespaces/" + serviceBrokerNamespace
-		osr.
-			KPost(prefix + "/services", &input.service, &output.service).
-			KPost(prefix + "/replicationcontrollers", &input.rc, &output.rc)
-
-		if osr.Err != nil {
-			logger.Error("createStormResources_Nimbus", osr.Err)
-		}
-	*/
-
 	err = job.kpost(serviceBrokerNamespace, "services", &input.service, &output.service)
 	if err != nil {
 		return &output, err
@@ -601,18 +531,6 @@ func (job *stormOrchestrationJob) createStormResources_Nimbus(instanceId, servic
 
 	return &output, osr.Err
 
-	/*
-		go func() {
-			if err := job.kpost (serviceBrokerNamespace, "services", &input.service, &output.service); err != nil {
-				return
-			}
-			if err := job.kpost (serviceBrokerNamespace, "replicationcontrollers", &input.rc, &output.rc); err != nil {
-				return
-			}
-		}()
-
-		return nil
-	*/
 }
 
 func getStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string) (*stormResources_Nimbus, error) {
@@ -655,21 +573,7 @@ func (job *stormOrchestrationJob) createStormResources_UiSuperviser(instanceId, 
 	}
 
 	var output stormResources_UiSuperviser
-	/*
-		osr := oshandler.NewOpenshiftREST(oshandler.OC())
 
-		// here, not use job.post
-		prefix := "/namespaces/" + serviceBrokerNamespace
-		osr.
-			KPost(prefix + "/services", &input.service, &output.service).
-			KPost(prefix + "/replicationcontrollers", &input.rc, &output.rc)
-
-		if osr.Err != nil {
-			logger.Error("createStormResources_UiSuperviser", osr.Err)
-		}
-
-		return &output, osr.Err
-	*/
 	go func() {
 		if err := job.kpost(serviceBrokerNamespace, "replicationcontrollers", &input.superviserrc, &output.superviserrc); err != nil {
 			return
@@ -834,12 +738,6 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -857,7 +755,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Storm rc", osr.Err)
 		return
 	}
 
@@ -865,7 +763,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Storm rc", err)
 		return
 	}
 
@@ -874,7 +772,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA storm rc error", status.Err)
+				logger.Error("Watch Storm rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -883,7 +781,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse nimbus HA rc status", err)
+				logger.Error("Parse nimbus Storm rc status", err)
 				close(cancel)
 				return
 			}

@@ -1,33 +1,21 @@
 package kafka
 
 import (
-	"errors"
-	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	//"net"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/pivotal-cf/brokerapi"
-	"strconv"
-	"strings"
-	"time"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/pivotal-golang/lager"
 
-	//"k8s.io/kubernetes/pkg/util/yaml"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-	//routeapi "github.com/openshift/origin/route/api/v1"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	"github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/zookeeper"
@@ -450,7 +438,7 @@ func loadKafkaResources_Master(instanceID, serviceBrokerNamespace /*, kafkaUser,
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
-		[]byte(serviceBrokerNamespace + oshandler.ServiceDomainSuffix(true)), -1)
+		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -692,9 +680,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 				logger.Error("watch HA kafka rc error", status.Err)
 				close(cancel)
 				return
-			} else {
-				//logger.Debug("watch kafka HA rc, status.Info: " + string(status.Info))
-			}
+			} 
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {

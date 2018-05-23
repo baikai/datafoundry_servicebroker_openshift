@@ -1,39 +1,24 @@
 package tensorflow
 
 import (
-	"errors"
-	"fmt"
-	//marathon "github.com/gambol99/go-marathon"
-	//kapi "golang.org/x/build/kubernetes/api"
-	//"golang.org/x/build/kubernetes"
-	//"golang.org/x/oauth2"
-	//"net/http"
-	"github.com/pivotal-cf/brokerapi"
-	"net"
-	//"time"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"net"
+	"os"
 	"strconv"
 	"strings"
-	//"crypto/sha1"
-	//"encoding/base64"
-	//"text/template"
-	//"io"
-	"io/ioutil"
-	"os"
-	//"sync"
-
-	"github.com/pivotal-golang/lager"
-
-	//"k8s.io/kubernetes/pkg/util/yaml"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 )
 
 //==============================================================
-//
+//初始化Log
 //==============================================================
 
 const TensorFlowServcieBrokerName_Standalone = "TensorFlow_standalone"
@@ -94,14 +79,9 @@ func (handler *TensorFlow_Handler) DoProvision(etcdSaveResult chan error, instan
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//if asyncAllowed == false {
-	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
-	//}
 	serviceSpec.IsAsync = true
 
-	//instanceIdInTempalte   := instanceID // todo: ok?
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
-	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
 	tensorflowUser := oshandler.NewElevenLengthID()
 	tensorflowPassword := oshandler.GenGUID()
@@ -111,10 +91,7 @@ func (handler *TensorFlow_Handler) DoProvision(etcdSaveResult chan error, instan
 	serviceInfo.User = tensorflowUser
 	serviceInfo.Password = tensorflowPassword
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Info("Tensorflow Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
 
 	go func() {
 		err := <-etcdSaveResult
@@ -156,12 +133,6 @@ func (handler *TensorFlow_Handler) DoLastOperation(myServiceInfo *oshandler.Serv
 
 	master_res, _ := getTensorFlowResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
 
-	//ok := func(rc *kapi.ReplicationController) bool {
-	//	if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
-	//		return false
-	//	}
-	//	return true
-	//}
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
@@ -169,8 +140,6 @@ func (handler *TensorFlow_Handler) DoLastOperation(myServiceInfo *oshandler.Serv
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 		return n >= *rc.Spec.Replicas
 	}
-
-	//println("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&master_res.rc) {
 		return brokerapi.LastOperation{
@@ -215,15 +184,11 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	return oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
 		Port:     port,
-		//Username: myServiceInfo.User,
-		//Password: myServiceInfo.Password,
 	}
 }
 
@@ -242,15 +207,11 @@ func (handler *TensorFlow_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, 
 
 	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(web_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
 
 	mycredentials := oshandler.Credentials{
 		Uri:      "",
 		Hostname: host,
 		Port:     port,
-		//Username: myServiceInfo.User,
-		//Password: myServiceInfo.Password,
 	}
 
 	myBinding := brokerapi.Binding{Credentials: mycredentials}
@@ -305,12 +266,6 @@ func loadTensorFlowResources_Master(instanceID, tensorflowUser, tensorflowPasswo
 	yamlTemplates := TensorFlowTemplateData_Master
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(tensorflowUser), -1)
-	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(tensorflowPassword), -1)
-
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -388,54 +343,6 @@ func destroyTensorFlowResources_Master(masterRes *tensorflowResources_Master, se
 //
 //===============================================================
 
-func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
-func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
-
-	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
-	i, n := 0, 5
-RETRY:
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).OPost(uri, body, into)
-	if osr.Err == nil {
-		logger.Info("create " + typeName + " succeeded")
-	} else {
-		i++
-		if i < n {
-			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
-			goto RETRY
-		} else {
-			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
-			return osr.Err
-		}
-	}
-
-	return nil
-}
-
 func kdel(serviceBrokerNamespace, typeName, resName string) error {
 	if resName == "" {
 		return nil
@@ -490,12 +397,6 @@ RETRY:
 	return nil
 }
 
-/*
-func kdel_rc (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
-	kdel (serviceBrokerNamespace, "replicationcontrollers", rc.Name)
-}
-*/
-
 func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	// looks pods will be auto deleted when rc is deleted.
 
@@ -513,7 +414,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 	rc.Spec.Replicas = &zero
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
 	if osr.Err != nil {
-		logger.Error("modify HA rc", osr.Err)
+		logger.Error("Modify Tensorflow rc", osr.Err)
 		return
 	}
 
@@ -521,7 +422,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 	statuses, cancel, err := oshandler.OC().KWatch(uri)
 	if err != nil {
-		logger.Error("start watching HA rc", err)
+		logger.Error("Start Watching Tensorflow rc", err)
 		return
 	}
 
@@ -530,7 +431,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 			status, _ := <-statuses
 
 			if status.Err != nil {
-				logger.Error("watch HA tensorflow rc error", status.Err)
+				logger.Error("Watch Tensorflow rc error", status.Err)
 				close(cancel)
 				return
 			} else {
@@ -539,7 +440,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 
 			var wrcs watchReplicationControllerStatus
 			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
-				logger.Error("parse master HA rc status", err)
+				logger.Error("Parse Master Tensorflow rc status", err)
 				close(cancel)
 				return
 			}

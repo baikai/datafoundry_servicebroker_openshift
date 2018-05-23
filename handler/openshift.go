@@ -1,7 +1,7 @@
 package handler
 
 import (
-	//"fmt"
+	"fmt"
 	"errors"
 	//marathon "github.com/gambol99/go-marathon"
 	//"github.com/pivotal-cf/brokerapi"
@@ -9,13 +9,11 @@ import (
 	"bytes"
 	"strings"
 	"time"
-	//"io"
+	"io"
 	"io/ioutil"
 	"os"
 	"sync/atomic"
 	//"crypto/tls"
-	"encoding/base32"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	neturl "net/url"
@@ -27,11 +25,11 @@ import (
 	"github.com/openshift/origin/pkg/cmd/util/tokencmd"
 
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/util/yaml"
 	//"github.com/ghodss/yaml"
-
 	"github.com/pivotal-golang/lager"
 )
+
+var _ = fmt.Print
 
 //==============================================================
 //
@@ -68,6 +66,9 @@ type OpenshiftClient struct {
 	oapiUrl string
 	kapiUrl string
 
+	// url for v1beta1 api
+	kapiV1B1Url string
+
 	namespace string
 	username  string
 	password  string
@@ -89,12 +90,18 @@ func (oc *OpenshiftClient) setBearerToken(token string) {
 }
 
 func newOpenshiftClient(host, username, password, defaultNamespace string) *OpenshiftClient {
-	host = "https://" + host
+	switch {
+	default: host = "https://" + host
+	case strings.HasPrefix(host, "https://"):
+	case strings.HasPrefix(host, "http://"):
+	}
+	
 	oc := &OpenshiftClient{
 		host: host,
 		//authUrl: host + "/oauth/authorize?response_type=token&client_id=openshift-challenging-client",
-		oapiUrl: host + "/oapi/v1",
-		kapiUrl: host + "/api/v1",
+		oapiUrl:     host + "/oapi/v1",
+		kapiUrl:     host + "/api/v1",
+		kapiV1B1Url: host + "/apis/apps/v1beta1",
 
 		namespace: defaultNamespace,
 		username:  username,
@@ -147,39 +154,73 @@ type WatchStatus struct {
 }
 
 func (oc *OpenshiftClient) doWatch(url string) (<-chan WatchStatus, chan<- struct{}, error) {
-	res, err := oc.request("GET", url, nil, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	//if res.Body == nil {
-	//	return nil, nil, errors.New("response.body is nil")
+	//res, err := oc.request("GET", url, nil, 0)
+	//if err != nil {
+	//	return nil, nil, err
 	//}
+	////if res.Body == nil {
+	////	return nil, nil, errors.New("response.body is nil")
+	////}
 
 	statuses := make(chan WatchStatus, 5)
 	canceled := make(chan struct{}, 1)
 
 	go func() {
-		defer func() {
-			close(statuses)
-			res.Body.Close()
-		}()
+		defer close(statuses)
+		
+		for range [100]struct{}{} { // most 99 retries on ErrUnexpectedEOF
+			needRetry := func() bool {
+				res, err := oc.request("GET", url, nil, 0)
+				if err != nil {
+					//return nil, nil, err
+					println("doWatch, oc.request. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
+					
+					if err == io.ErrUnexpectedEOF {
+						return true
+					}
+					
+					statuses <- WatchStatus{nil, err}
+					return false
+				}
+				//if res.Body == nil {
+				
+				defer func() {
+					res.Body.Close()
+				}()
 
-		reader := bufio.NewReader(res.Body)
-		for {
-			select {
-			case <-canceled:
+				reader := bufio.NewReader(res.Body)
+				for {
+					select {
+					case <-canceled:
+						return false
+					default:
+					}
+
+					line, err := reader.ReadBytes('\n')
+					if err != nil {
+						println("doWatch, reader.ReadBytes. error:", err.Error(), ", ", err == io.ErrUnexpectedEOF)
+						if err == io.ErrUnexpectedEOF {
+							return true
+						}
+						
+						statuses <- WatchStatus{line, err}
+						return false
+					}
+
+					statuses <- WatchStatus{line, nil}
+				}
+			}()
+			
+			if needRetry {
+				time.Sleep(time.Second * 5)
+			} else {
 				return
-			default:
 			}
-
-			line, err := reader.ReadBytes('\n')
-			if err != nil {
-				statuses <- WatchStatus{nil, err}
-				return
-			}
-
-			statuses <- WatchStatus{line, nil}
 		}
+		
+		statuses <- WatchStatus{nil, errors.New("too many tires")}
+		
+		return
 	}()
 
 	return statuses, canceled, nil
@@ -337,12 +378,68 @@ func (osr *OpenshiftREST) KDelete(uri string, into interface{}) *OpenshiftREST {
 	return osr.doRequest(false, "DELETE", osr.oc.kapiUrl+uri, &kapi.DeleteOptions{}, into)
 }
 
+func (osr *OpenshiftREST) KDeleteByLabels(uri string, selector map[string]string, into interface{}) *OpenshiftREST {
+	return osr.doRequest(false, "DELETE", osr.oc.kapiUrl+buildUriWithSelector(uri, selector), &kapi.DeleteOptions{}, into)
+}
+
 func (osr *OpenshiftREST) KPost(uri string, body interface{}, into interface{}) *OpenshiftREST {
 	return osr.doRequest(true, "POST", osr.oc.kapiUrl+uri, body, into)
 }
 
 func (osr *OpenshiftREST) KPut(uri string, body interface{}, into interface{}) *OpenshiftREST {
 	return osr.doRequest(true, "PUT", osr.oc.kapiUrl+uri, body, into)
+}
+
+// Kv1b1Get --- api for retrieving information according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Get(uri string, into interface{}) *OpenshiftREST {
+	return osr.doRequest(false, "GET", osr.oc.kapiV1B1Url+uri, nil, into)
+}
+
+// Kv1b1Delete --- api for delete objects according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Delete(uri string, into interface{}) *OpenshiftREST {
+	return osr.doRequest(false, "DELETE", osr.oc.kapiV1B1Url+uri, &kapi.DeleteOptions{}, into)
+}
+
+// Kv1b1Post --- api for create objects according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Post(uri string, body interface{}, into interface{}) *OpenshiftREST {
+	return osr.doRequest(true, "POST", osr.oc.kapiV1B1Url+uri, body, into)
+}
+
+// Kv1b1Put --- api for scale objects according to v1beta1 spec
+func (osr *OpenshiftREST) Kv1b1Put(uri string, body interface{}, into interface{}) *OpenshiftREST {
+	return osr.doRequest(true, "PUT", osr.oc.kapiV1B1Url+uri, body, into)
+}
+
+// Kv1b1Watch --- api for watching objects defined in v1beta1
+func (oc *OpenshiftClient) Kv1b1Watch(uri string) (<-chan WatchStatus, chan<- struct{}, error) {
+	return oc.doWatch(oc.kapiV1B1Url + "/watch" + uri)
+}
+
+
+// custom api group
+
+func (osr *OpenshiftREST) List(uri string, selector map[string]string, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(false, "GET", osr.oc.host + apiGroup + buildUriWithSelector(uri, selector), nil, into)
+}
+
+func (osr *OpenshiftREST) Get(uri string, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(false, "GET", osr.oc.host + apiGroup + uri, nil, into)
+}
+
+func (osr *OpenshiftREST) Delete(uri string, into interface{}, apiGroup string, opt *kapi.DeleteOptions) *OpenshiftREST {
+	//fmt.Println(">>>>>>> opt=", *opt)
+	if opt == nil {
+		opt = &kapi.DeleteOptions{}
+	}
+	return osr.doRequest(false, "DELETE", osr.oc.host + apiGroup + uri, opt, into)
+}
+
+func (osr *OpenshiftREST) Post(uri string, body interface{}, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(true, "POST", osr.oc.host + apiGroup + uri, body, into)
+}
+
+func (osr *OpenshiftREST) Put(uri string, body interface{}, into interface{}, apiGroup string) *OpenshiftREST {
+	return osr.doRequest(true, "PUT", osr.oc.host + apiGroup + uri, body, into)
 }
 
 //===============================================================
@@ -394,110 +491,364 @@ func GetReplicationControllersByLabels(serviceBrokerNamespace string, labels map
 	return rcs.Items, osr.Err
 }
 
-//===============================================================
-//
-//===============================================================
+//===================================================
 
-// maybe the replace order is important, so using slice other than map would be better
+// now this function is moved to each service broker folder
+//func InstancePvcName(instanceId string) string {
+//	return "v" + instanceId // DON'T CHANGE
+//}
+
+//===================================================
+
 /*
-func Yaml2Json(yamlTemplates []byte, replaces map[string]string) ([][]byte, error) {
-	var err error
 
-	for old, rep := range replaces {
-		etcdTemplateData = bytes.Replace(etcdTemplateData, []byte(old), []byte(rep), -1)
-	}
-
-	templates := bytes.Split(etcdTemplateData, []byte("---"))
-	for i := range templates {
-		templates[i] = bytes.TrimSpace(templates[i])
-		println("\ntemplates[", i, "] = ", string(templates[i]))
-	}
-
-	return templates, err
+type watchPodStatus struct {
+	// The type of watch update contained in the message
+	Type string `json:"type"`
+	// Pod details
+	Object kapi.Pod `json:"object"`
 }
-*/
 
-/*
-func Yaml2Json(yamlTemplates []byte, replaces map[string]string) ([][]byte, error) {
-	var err error
-	decoder := yaml.NewYAMLToJSONDecoder(bytes.NewBuffer(yamlData))
-	_ = decoder
+func WaitUntilPodIsRunning(pod *kapi.Pod, stopWatching <-chan struct{}) error {
+	select {
+	case <- stopWatching:
+		return errors.New("cancelled by calleer")
+	default:
+	}
 
+	uri := "/namespaces/" + pod.Namespace + "/pods/" + pod.Name
+	statuses, cancel, err := OC().KWatch (uri)
+	if err != nil {
+		return err
+	}
+	defer close(cancel)
+
+	getPodChan := make(chan *kapi.Pod, 1)
+	go func() {
+		// the pod may be already running initially.
+		// so simulate this get request result as a new watch event.
+
+		interval := 2 * time.Second
+		for {
+			select {
+			case <- stopWatching:
+				return
+			case <- time.After(interval):
+				interval = 15 * time.Second
+			}
+
+			pod := &kapi.Pod{}
+			osr := NewOpenshiftREST(OC()).KGet(uri, pod)
+			if osr.Err == nil {
+				getPodChan <- pod
+			}
+		}
+	}()
 
 	for {
-		var t interface{}
-		err = decoder.Decode(&t)
-		m, ok := v.(map[string]interface{})
-		if ok {
+		var pod *kapi.Pod
+		select {
+		case <- stopWatching:
+			return errors.New("cancelled by calleer")
+		case pod = <- getPodChan:
+		case status, _ := <- statuses:
+			if status.Err != nil {
+				return status.Err
+			}
+			//println("watch etcd pod, status.Info: " + string(status.Info))
 
+			var wps watchPodStatus
+			if err := json.Unmarshal(status.Info, &wps); err != nil {
+				return err
+			}
+
+			pod = &wps.Object
+		}
+
+		if pod.Status.Phase != kapi.PodPending {
+			//println("watch pod phase: ", pod.Status.Phase)
+
+			if pod.Status.Phase != kapi.PodRunning {
+				return errors.New("pod phase is neither pending nor running: " + string(pod.Status.Phase))
+			}
+
+			break
+		}
+	}
+
+	return nil
+}
+
+func WaitUntilPodIsReachable(pod *kapi.Pod, stopChecking <-chan struct{}, reachableFunc func(pod *kapi.Pod) bool, checkingInterval time.Duration) error {
+	for {
+		select {
+		case <- time.After(checkingInterval):
+			break
+		case <- stopChecking:
+			return errors.New("cancelled by calleer")
+		}
+
+		reached := reachableFunc(pod)
+		if reached {
+			break
+		}
+	}
+
+	return nil
+}
+
+func WaitUntilPodsAreReachable(pods []*kapi.Pod, stopChecking <-chan struct{}, reachableFunc func(pod *kapi.Pod) bool, checkingInterval time.Duration) error {
+	startIndex := 0
+	num := len(pods)
+	for {
+		select {
+		case <- time.After(checkingInterval):
+			break
+		case <- stopChecking:
+			return errors.New("cancelled by calleer")
+		}
+
+		reached := true
+		i := 0
+		for ; i < num; i++ {
+			pod := pods[(i + startIndex) % num]
+			if ! reachableFunc(pod) {
+				reached = false
+				break
+			}
+		}
+
+		if reached {
+			break
+		} else {
+			startIndex = i
+		}
+	}
+
+	return nil
+}
+
+type watchReplicationControllerStatus struct {
+	// The type of watch update contained in the message
+	Type string `json:"type"`
+	// RC details
+	Object kapi.ReplicationController `json:"object"`
+}
+
+func QueryPodsByLabels(serviceBrokerNamespace string, labels map[string]string) ([]*kapi.Pod, error) {
+
+	//println("to list pods in", serviceBrokerNamespace)
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
+
+	pods := kapi.PodList{}
+
+	osr := NewOpenshiftREST(OC()).KList(uri, labels, &pods)
+	if osr.Err != nil {
+		return nil, osr.Err
+	}
+
+	returnedPods := make([]*kapi.Pod, len(pods.Items))
+	for i := range pods.Items {
+		returnedPods[i] = &pods.Items[i]
+	}
+
+	return returnedPods, osr.Err
+}
+
+func QueryRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) ([]*kapi.Pod, error) {
+
+	pods, err := QueryPodsByLabels(serviceBrokerNamespace, labels)
+	if err != nil {
+		return pods, err
+	}
+
+	num := 0
+	for i := range pods {
+		pod := pods[i]
+
+		//println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+
+		if pod != nil && pod.Status.Phase == kapi.PodRunning {
+			pods[num], pods[i] = pod, pods[num]
+			num ++
+		}
+	}
+
+	return pods[:num], nil
+}
+
+func GetReachablePodsByLabels(pods []*kapi.Pod, reachableFunc func(pod *kapi.Pod) bool) ([]*kapi.Pod, error) {
+	num := 0
+	for i := range pods {
+		pod := pods[i]
+
+		if pod != nil && pod.Status.Phase == kapi.PodRunning && reachableFunc(pod) {
+			pods[num], pods[i] = pod, pods[num]
+			num ++
+		}
+	}
+
+	return pods[:num], nil
+}
+
+func DeleteReplicationController (serviceBrokerNamespace string, rc *kapi.ReplicationController) {
+	// looks pods will be auto deleted when rc is deleted.
+
+	if rc == nil || rc.Name == "" {
+		return
+	}
+
+	defer KDelWithRetries(serviceBrokerNamespace, "replicationcontrollers", rc.Name)
+
+	println("to delete pods on replicationcontroller", rc.Name)
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
+
+	// modfiy rc replicas to 0
+
+	zero := 0
+	rc.Spec.Replicas = &zero
+	osr := NewOpenshiftREST(OC()).KPut(uri, rc, nil)
+	if osr.Err != nil {
+		logger.Error("modify rc.Spec.Replicas => 0", osr.Err)
+		return
+	}
+
+	// start watching rc status
+
+	statuses, cancel, err := OC().KWatch (uri)
+	if err != nil {
+		logger.Error("start watching rc", err)
+		return
+	}
+	defer close(cancel)
+
+	for {
+		status, _ := <- statuses
+
+		if status.Err != nil {
+			logger.Error("watch rc error", status.Err)
+			return
+		} else {
+			//logger.Debug("watch tensorflow HA rc, status.Info: " + string(status.Info))
+		}
+
+		var wrcs watchReplicationControllerStatus
+		if err := json.Unmarshal(status.Info, &wrcs); err != nil {
+			logger.Error("parse master HA rc status", err)
+			return
+		}
+
+		if wrcs.Object.Status.Replicas <= 0 {
+			break
 		}
 	}
 }
-*/
 
-/*
-func Yaml2Json(yamlTemplates []byte, replaces map[string]string) ([][]byte, error) {
-	for old, rep := range replaces {
-		yamlTemplates = bytes.Replace(yamlTemplates, []byte(old), []byte(rep), -1)
-	}
+//===============================================================
+// post and delete with retries
+//===============================================================
 
-	jsons := [][]byte{}
-	templates := bytes.Split(yamlTemplates, []byte("---"))
-	for i := range templates {
-		//templates[i] = bytes.TrimSpace(templates[i])
-		println("\ntemplates[", i, "] = ", string(templates[i]))
+func KPostWithRetries (serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
+	println("to create ", typeName)
 
-		json, err := yaml.YAMLToJSON(templates[i])
-		if err != nil {
-			return jsons, err
+	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
+	i, n := 0, 5
+RETRY:
+
+	osr := NewOpenshiftREST(OC()).KPost(uri, body, into)
+	if osr.Err == nil {
+		logger.Info("create " + typeName + " succeeded")
+	} else {
+		i++
+		if i < n {
+			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
+			goto RETRY
+		} else {
+			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
+			return osr.Err
 		}
-
-		jsons = append(jsons, json)
-		println("\njson[", i, "] = ", string(jsons[i]))
 	}
 
-	return jsons, nil
+	return nil
+}
+
+func OPostWithRetries (serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
+	println("to create ", typeName)
+
+	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
+	i, n := 0, 5
+RETRY:
+
+	osr := NewOpenshiftREST(OC()).OPost(uri, body, into)
+	if osr.Err == nil {
+		logger.Info("create " + typeName + " succeeded")
+	} else {
+		i++
+		if i < n {
+			logger.Error(fmt.Sprintf("%d> create (%s) error", i, typeName), osr.Err)
+			goto RETRY
+		} else {
+			logger.Error(fmt.Sprintf("create (%s) failed", typeName), osr.Err)
+			return osr.Err
+		}
+	}
+
+	return nil
+}
+
+func KDelWithRetries (serviceBrokerNamespace, typeName, resName string) error {
+	if resName == "" {
+		return nil
+	}
+
+	println("to delete ", typeName, "/", resName)
+
+	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
+	i, n := 0, 5
+RETRY:
+	osr := NewOpenshiftREST(OC()).KDelete(uri, nil)
+	if osr.Err == nil {
+		logger.Info("delete " + uri + " succeeded")
+	} else {
+		i++
+		if i < n {
+			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
+			goto RETRY
+		} else {
+			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
+			return osr.Err
+		}
+	}
+
+	return nil
+}
+
+func ODelWithRetries (serviceBrokerNamespace, typeName, resName string) error {
+	if resName == "" {
+		return nil
+	}
+
+	println("to delete ", typeName, "/", resName)
+
+	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
+	i, n := 0, 5
+RETRY:
+	osr := NewOpenshiftREST(OC()).ODelete(uri, nil)
+	if osr.Err == nil {
+		logger.Info("delete " + uri + " succeeded")
+	} else {
+		i++
+		if i < n {
+			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
+			goto RETRY
+		} else {
+			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
+			return osr.Err
+		}
+	}
+
+	return nil
 }
 */
-
-type YamlDecoder struct {
-	decoder *yaml.YAMLToJSONDecoder
-	Err     error
-}
-
-func NewYamlDecoder(yamlData []byte) *YamlDecoder {
-	return &YamlDecoder{
-		decoder: yaml.NewYAMLToJSONDecoder(bytes.NewBuffer(yamlData)),
-	}
-}
-
-func (d *YamlDecoder) Decode(into interface{}) *YamlDecoder {
-	if d.Err == nil {
-		d.Err = d.decoder.Decode(into)
-	}
-
-	return d
-}
-
-func NewElevenLengthID() string {
-	t := time.Now().UnixNano()
-	bs := make([]byte, 8)
-	for i := uint(0); i < 8; i++ {
-		bs[i] = byte((t >> i) & 0xff)
-	}
-	return string(base64.RawURLEncoding.EncodeToString(bs))
-}
-
-var base32Encoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567")
-
-func NewThirteenLengthID() string {
-	t := time.Now().UnixNano()
-	bs := make([]byte, 8)
-	for i := uint(0); i < 8; i++ {
-		bs[i] = byte((t >> i) & 0xff)
-	}
-
-	dest := make([]byte, 16)
-	base32Encoding.Encode(dest, bs)
-	return string(dest[:13])
-}

@@ -31,6 +31,7 @@ import (
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/kafka"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/kettle"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/nifi"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/ocsp"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/pyspider"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/rabbitmq"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/redis"
@@ -51,6 +52,13 @@ import (
 
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/redissingle_pvc"
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/storm_external"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/dataiku"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/rediscluster_pvc"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/anaconda3"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/zeppelin"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/rediscluster_with_replicas_pvc"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/mysql_galera_pvc"
+	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/elasticsearch"
 )
 
 type myServiceBroker struct {
@@ -76,8 +84,7 @@ type myCredentials struct {
 	Name     string `json:"name,omitempty"`
 }
 
-const G_VolumeSize = "volumeSize"
-
+// Services returns the information of all available backing services.
 func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 	/*
 		//free := true
@@ -121,12 +128,6 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 		}
 	*/
 
-	//初始化一系列所需要的结构体，好累啊
-	myServices := []brokerapi.Service{}
-	myService := brokerapi.Service{}
-	myPlans := []brokerapi.ServicePlan{}
-	myPlan := brokerapi.ServicePlan{}
-	var myPlanfree bool
 	//todo还需要考虑对于service和plan的隐藏参数，status，比如可以用，不可用，已经删除等。删除应该是软删除，后两者不予以显示，前者表示还有数据
 	//获取catalog信息
 	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/catalog", &client.GetOptions{Recursive: true}) //改为环境变量
@@ -137,78 +138,76 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 		logger.Debug("Successful get catalog information from etcd. NodeInfo is " + resp.Node.Key)
 	}
 
+	myServices := []brokerapi.Service{}
 	for i := 0; i < len(resp.Node.Nodes); i++ {
-		//为旗下发现的每一个service进行迭代
 		logger.Debug("Start to Parse Service " + resp.Node.Nodes[i].Key)
 		//在下一级循环外设置id，因为他是目录名字，注意，如果按照这个逻辑，id一定要是uuid，中间一定不能有目录符号"/"
+		myService := brokerapi.Service{}
 		myService.ID = strings.Split(resp.Node.Nodes[i].Key, "/")[len(strings.Split(resp.Node.Nodes[i].Key, "/"))-1]
 		//开始取service级别除了ID以外的其他参数
 		for j := 0; j < len(resp.Node.Nodes[i].Nodes); j++ {
 			if !resp.Node.Nodes[i].Nodes[j].Dir {
+				lowerkey := strings.ToLower(resp.Node.Nodes[i].Key)
 				switch strings.ToLower(resp.Node.Nodes[i].Nodes[j].Key) {
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/name":
+				case lowerkey + "/name":
 					myService.Name = resp.Node.Nodes[i].Nodes[j].Value
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/description":
+				case lowerkey + "/description":
 					myService.Description = resp.Node.Nodes[i].Nodes[j].Value
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/bindable":
+				case lowerkey + "/bindable":
 					myService.Bindable, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Value)
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/tags":
+				case lowerkey + "/tags":
 					myService.Tags = strings.Split(resp.Node.Nodes[i].Nodes[j].Value, ",")
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/planupdatable":
+				case lowerkey + "/planupdatable":
 					myService.PlanUpdatable, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Value)
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/metadata":
+				case lowerkey + "/metadata":
 					json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Value), &myService.Metadata)
 				}
 			} else if strings.HasSuffix(strings.ToLower(resp.Node.Nodes[i].Nodes[j].Key), "plan") {
 				//开始解析套餐目录中的套餐计划plan。上述判断也不是太严谨，比如有目录如果是xxxxplan怎么办？
+				myPlans := []brokerapi.ServicePlan{}
 				for k := 0; k < len(resp.Node.Nodes[i].Nodes[j].Nodes); k++ {
 					logger.Debug("Start to Parse Plan " + resp.Node.Nodes[i].Nodes[j].Nodes[k].Key)
+					myPlan := brokerapi.ServicePlan{}
 					myPlan.ID = strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/")[len(strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/"))-1]
 					for n := 0; n < len(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes); n++ {
+						lowernodekey := strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key)
 						switch strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Key) {
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/name":
+						case lowernodekey + "/name":
 							myPlan.Name = resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/description":
+						case lowernodekey + "/description":
 							myPlan.Description = resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/free":
+						case lowernodekey + "/free":
 							//这里没有搞懂为什么brokerapi里面的这个bool要定义为传指针的模式
-							myPlanfree, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value)
+							myPlanfree, _ := strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value)
 							myPlan.Free = brokerapi.FreeValue(myPlanfree)
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/metadata":
+						case lowernodekey + "/metadata":
 							json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value), &myPlan.Metadata)
 						}
 					}
 					//装配plan需要返回的值，按照有多少个plan往里面装
 					myPlans = append(myPlans, myPlan)
-					//重置myPlan
-					myPlan = brokerapi.ServicePlan{}
 				}
 				//将装配好的Plan对象赋值给Service
 				myService.Plans = myPlans
-				//重置myPlans
-				myPlans = []brokerapi.ServicePlan{}
 
 			}
 		}
 
 		//装配catalog需要返回的值，按照有多少个服务往里面装
 		myServices = append(myServices, myService)
-		//重置服务变量
-		myService = brokerapi.Service{}
-
 	}
 
 	return myServices
 
 }
 
+// Provision tries to create a new backing service instance according the settings provided by client.
 func (myBroker *myServiceBroker) Provision(
 	instanceID string,
 	details brokerapi.ProvisionDetails,
 	asyncAllowed bool,
 ) (brokerapi.ProvisionedServiceSpec, error) {
 
-	//初始化
 	var provsiondetail brokerapi.ProvisionedServiceSpec
 	var myServiceInfo handler.ServiceInfo
 
@@ -246,7 +245,7 @@ func (myBroker *myServiceBroker) Provision(
 		return brokerapi.ProvisionedServiceSpec{}, errors.New("Internal Error!!")
 	}
 
-	volumeSize, connections, err := findServicePlanInfo(
+	volumeSize, connections, customization, err := findServicePlanInfo(
 		details.ServiceID, details.PlanID, details.Parameters, false)
 	if err != nil {
 		logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
@@ -256,7 +255,9 @@ func (myBroker *myServiceBroker) Provision(
 	planInfo := handler.PlanInfo{
 		Volume_size: volumeSize,
 		Connections: connections,
-		//Customize:   customization,
+
+		MoreParameters:    details.Parameters,
+		ParameterSettings: customization,
 	}
 
 	//volumeSize, err = getVolumeSize(details, planInfo)
@@ -272,12 +273,10 @@ func (myBroker *myServiceBroker) Provision(
 
 	//执行handler中的命令
 	provsiondetail, myServiceInfo, err = myHandler.DoProvision(etcdSaveResult, instanceID, details, planInfo, asyncAllowed)
-
-	//如果出错
 	if err != nil {
 		etcdSaveResult <- errors.New("DoProvision Error!")
 		logger.Error("Error do handler for service "+service_name+" plan "+plan_name, err)
-		return brokerapi.ProvisionedServiceSpec{}, errors.New("Internal Error!!")
+		return brokerapi.ProvisionedServiceSpec{}, err ///errors.New("Internal Error!!")
 	}
 
 	//为隐藏属性添加上必要的变量
@@ -286,7 +285,10 @@ func (myBroker *myServiceBroker) Provision(
 
 	//写入etcd 话说如果这个时候写入失败，那不就出现数据不一致的情况了么！todo
 	//先创建instanceid目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, "", &client.SetOptions{Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Set(context.Background(), 
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		"",
+		&client.SetOptions{Dir: true})
 	if err != nil {
 		etcdSaveResult <- errors.New("etcdapi.Set instance Error!")
 		logger.Error("Can not create instance "+instanceID+" in etcd", err) //todo都应该改为日志key
@@ -307,7 +309,10 @@ func (myBroker *myServiceBroker) Provision(
 	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/_info", string(tmpval))
 
 	//创建绑定目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding", "", &client.SetOptions{Dir: true})
+	_, err = etcdapi.Set(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding",
+		"",
+		&client.SetOptions{Dir: true})
 	if err != nil {
 		etcdSaveResult <- errors.New("etcdapi.Set binding Error!")
 		logger.Error("Can not create banding directory of  "+instanceID+" in etcd", err) //todo都应该改为日志key
@@ -321,7 +326,8 @@ func (myBroker *myServiceBroker) Provision(
 	return provsiondetail, nil
 }
 
-// Update only support volume expanding now.
+// Update tries to modify a new backing service instance according the settings provided by client.
+// For volume size modification request, Update only support volume expanding now.
 func (myBroker *myServiceBroker) Update(
 	instanceID string,
 	details brokerapi.UpdateDetails,
@@ -331,8 +337,9 @@ func (myBroker *myServiceBroker) Update(
 	var myServiceInfo handler.ServiceInfo
 
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true})
-
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.IsAsync(false), brokerapi.ErrInstanceDoesNotExist
@@ -379,7 +386,15 @@ func (myBroker *myServiceBroker) Update(
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.IsAsync(false), err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.IsAsync(false), err
+	}
 
 	//生成具体的handler对象
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
@@ -390,35 +405,50 @@ func (myBroker *myServiceBroker) Update(
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
 	}
 
-	if len(myServiceInfo.Volumes) == 0 {
-		reason := "can not get volume info from the old plan."
-		logger.Info(reason)
-		return false, errors.New(reason)
-	}
+	// ...
+	hasVolumes := len(myServiceInfo.Volumes) > 0
 
-	volumeSize, connections, err := findServicePlanInfo(
-		details.ServiceID, details.PlanID, details.Parameters, true)
+	volumeSize, connections, customization, err := findServicePlanInfo(
+		details.ServiceID, details.PlanID, details.Parameters, hasVolumes)
 	if err != nil {
-		logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
-		return false, errors.New("Internal Error!!")
+		//logger.Error("findServicePlanInfo service "+service_name+" plan "+plan_name, err)
+		//return false, errors.New("Internal Error!!")
+		logger.Info(fmt.Sprint("findServicePlanInfo service "+service_name+" plan "+plan_name, err))
+		//} else {
+		//	volumeSize = 0
+		//	connections = 0
 	}
-	_ = connections
 
-	if volumeSize == myServiceInfo.Volumes[0].Volume_size {
-		return false, nil
+	logger.Info(fmt.Sprint("volumeSize =", volumeSize, ", connections=", connections))
+
+	//if len(myServiceInfo.Volumes) == 0 {
+	//	reason := "can not get volume info from the old plan."
+	//	logger.Info(reason)
+	//	return false, errors.New(reason)
+	//}
+	if hasVolumes {
+		//if volumeSize == myServiceInfo.Volumes[0].Volume_size {
+		//	return false, nil
+		//}
+
+		if volumeSize < myServiceInfo.Volumes[0].Volume_size {
+			reason := fmt.Sprintf(
+				"new volume size %d must be larger than old sizes %d",
+				volumeSize, myServiceInfo.Volumes[0].Volume_size,
+			)
+			logger.Info(reason)
+			return false, errors.New(reason)
+		}
 	}
 
-	if volumeSize < myServiceInfo.Volumes[0].Volume_size {
-		reason := fmt.Sprintf(
-			"new volume size %d must be larger than old sizes %d",
-			volumeSize, myServiceInfo.Volumes[0].Volume_size,
-		)
-		logger.Info(reason)
-		return false, errors.New(reason)
-	}
+	// to update plan ...
 
 	planInfo := handler.PlanInfo{
 		Volume_size: volumeSize,
+		Connections: connections,
+
+		MoreParameters:    details.Parameters,
+		ParameterSettings: customization,
 	}
 
 	callbackSaveNewInfo := func(serviceInfo *handler.ServiceInfo) error {
@@ -430,8 +460,6 @@ func (myBroker *myServiceBroker) Update(
 
 	//执行handler中的命令
 	err = myHandler.DoUpdate(&myServiceInfo, planInfo, callbackSaveNewInfo, asyncAllowed)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+service_name+" plan "+plan_name, err)
 		return false, errors.New("Internal Error!!")
@@ -440,6 +468,7 @@ func (myBroker *myServiceBroker) Update(
 	return true, nil
 }
 
+// LastOperation returns the progress of a creation of backing service instance.
 func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.LastOperation, error) {
 	// If the broker provisions asynchronously, the Cloud Controller will poll this endpoint
 	// for the status of the provisioning operation.
@@ -447,8 +476,9 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 	var myServiceInfo handler.ServiceInfo
 	var lastOperation brokerapi.LastOperation
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
-
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.LastOperation{}, brokerapi.ErrInstanceDoesNotExist
@@ -458,12 +488,18 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.LastOperation{}, err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.LastOperation{}, err
+	}
 
-	//生成具体的handler对象
+	//如果没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
-
-	//没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	if err != nil {
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.LastOperation{}, errors.New("Internal Error!!")
@@ -471,8 +507,6 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 
 	//执行handler中的命令
 	lastOperation, err = myHandler.DoLastOperation(&myServiceInfo)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.LastOperation{}, errors.New("Internal Error!!")
@@ -483,13 +517,15 @@ func (myBroker *myServiceBroker) LastOperation(instanceID string) (brokerapi.Las
 	return lastOperation, nil
 }
 
+// Deprovision destroys a backing service instance.
 func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerapi.DeprovisionDetails, asyncAllowed bool) (brokerapi.IsAsync, error) {
 
 	var myServiceInfo handler.ServiceInfo
 
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true})
-
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.IsAsync(false), brokerapi.ErrInstanceDoesNotExist
@@ -522,7 +558,15 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.IsAsync(false), err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.IsAsync(false), err
+	}
 
 	//生成具体的handler对象
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
@@ -535,15 +579,15 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 
 	//执行handler中的命令
 	isasync, err := myHandler.DoDeprovision(&myServiceInfo, asyncAllowed)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
 	}
 
 	//然后删除etcd里面的纪录，这里也有可能有不一致的情况
-	_, err = etcdapi.Delete(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.DeleteOptions{Recursive: true, Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Delete(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.DeleteOptions{Recursive: true, Dir: true})
 	if err != nil {
 		logger.Error("Can not delete instance "+instanceID+" in etcd", err) //todo都应该改为日志key
 		return brokerapi.IsAsync(false), errors.New("Internal Error!!")
@@ -555,6 +599,7 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 	return isasync, nil
 }
 
+// Bind adds a binding information for a backing service instance.
 func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, error) {
 	var mycredentials handler.Credentials
 	var myBinding brokerapi.Binding
@@ -580,7 +625,9 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 	var servcie_id, plan_id string
 
 	//从etcd中取得参数。
-	resp, err = etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
+	resp, err = etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil {
 		logger.Error("Can not get instance information from etcd", err) //所有这些出错消息最好命名为常量，放到开始的时候
 		return brokerapi.Binding{}, brokerapi.ErrInstanceDoesNotExist
@@ -607,12 +654,18 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 	//隐藏属性不得不单独获取。取得当时绑定服务得到信息
 	var myServiceInfo handler.ServiceInfo
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return brokerapi.Binding{}, err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("Unmarshal", err)
+		return brokerapi.Binding{}, err
+	}
 
-	//生成具体的handler对象
+	//如果没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
-
-	//没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
 	if err != nil {
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.Binding{}, errors.New("Internal Error!!")
@@ -620,8 +673,6 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 
 	//执行handler中的命令
 	myBinding, mycredentials, err = myHandler.DoBind(&myServiceInfo, bindingID, details)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return brokerapi.Binding{}, err
@@ -629,7 +680,10 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 
 	//把信息存储到etcd里面，同样这里有同步性的问题 todo怎么解决呢？
 	//先创建bindingID目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID, "", &client.SetOptions{Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Set(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID,
+		"",
+		&client.SetOptions{Dir: true})
 	if err != nil {
 		logger.Error("Can not create binding "+bindingID+" in etcd", err) //todo都应该改为日志key
 		return brokerapi.Binding{}, err
@@ -650,12 +704,15 @@ func (myBroker *myServiceBroker) Bind(instanceID, bindingID string, details brok
 	return myBinding, nil
 }
 
+// Unbind removes a binding information for a backing service instance.
 func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details brokerapi.UnbindDetails) error {
 
 	var mycredentials handler.Credentials
 	var myServiceInfo handler.ServiceInfo
 	//判断实例是否已经存在，如果不存在就报错
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
+	resp, err := etcdapi.Get(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID,
+		&client.GetOptions{Recursive: true})
 	if err != nil || !resp.Node.Dir {
 		logger.Error("Can not get instance information from etcd", err)
 		return brokerapi.ErrInstanceDoesNotExist //这几个错误返回为空，是detele操作的要求吗？
@@ -697,16 +754,30 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
 
 	//隐藏属性不得不单独获取
 	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/binding/" + bindingID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &mycredentials)
-
-	//生成具体的handler对象
-	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
+	err = json.Unmarshal([]byte(resp.Node.Value), &mycredentials)
+	if err != nil {
+		logger.Error("etcdget", err)
+		return err
+	}
 
 	//没有找到具体的handler，这里如果没有找到具体的handler不是由于用户输入的，是不对的，报500错误
+	myHandler, err := handler.New(myServiceInfo.Service_name + "_" + myServiceInfo.Plan_name)
 	if err != nil {
 		logger.Error("Can not found handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return errors.New("Internal Error!!")
@@ -714,15 +785,15 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 
 	//执行handler中的命令
 	err = myHandler.DoUnbind(&myServiceInfo, &mycredentials)
-
-	//如果出错
 	if err != nil {
 		logger.Error("Error do handler for service "+myServiceInfo.Service_name+" plan "+myServiceInfo.Plan_name, err)
 		return err
 	}
 
 	//然后删除etcd里面的纪录，这里也有可能有不一致的情况
-	_, err = etcdapi.Delete(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID, &client.DeleteOptions{Recursive: true, Dir: true}) //todo这些要么是常量，要么应该用环境变量
+	_, err = etcdapi.Delete(context.Background(),
+		"/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding/"+bindingID,
+		&client.DeleteOptions{Recursive: true, Dir: true})
 	if err != nil {
 		logger.Error("Can not delete binding "+bindingID+" in etcd", err) //todo都应该改为日志key
 		return errors.New("Can not delete binding " + bindingID + " in etcd")
@@ -734,7 +805,7 @@ func (myBroker *myServiceBroker) Unbind(instanceID, bindingID string, details br
 	return nil
 }
 
-//定义工具函数
+// A robust way to get an item from ETCD.
 func etcdget(key string) (*client.Response, error) {
 	n := 5
 
@@ -754,6 +825,7 @@ RETRY:
 	}
 }
 
+// A robust way to query an item from ETCD.
 func etcdset(key string, value string) (*client.Response, error) {
 	n := 5
 
@@ -788,9 +860,10 @@ func findServicePlanNameInCatalog(service_id, plan_id string) string {
 	}
 	return resp.Node.Value
 }
-func findServicePlanInfo(service_id, plan_id string, parameters map[string]interface{}, errorOnInvalidParameter bool) (volumeSize, connections int, err error) {
+
+func findServicePlanInfo(service_id, plan_id string, parameters map[string]interface{}, requireVolumeParameter bool) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
 	vsize, conns, customization, err :=
-		findServicePlanInfoInBullets(service_id, plan_id)
+		findServicePlanInfoInBulletsAndCustomizeSettings(service_id, plan_id)
 	if err != nil {
 		return
 	}
@@ -798,15 +871,18 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	// default size is the value in etcd bullets.
 	fVolumeSize := float64(vsize)
 
-	// if input parameter also specifies volume size, then use it.
-	if interSize, ok := parameters[G_VolumeSize]; !ok {
-		if errorOnInvalidParameter {
-			err = errors.New(G_VolumeSize + " parameter is not provided.")
-			return
-		}
+	// If input parameter also specifies volume size, then use it.
+	// For Update, volume size must be specified in input parameter.
+	// For Create, volume size is not required in input parameter,
+	// but if it is not specified in input parameter, it must be present in plan.
+	if interSize, ok := parameters[handler.VolumeSize]; !ok {
+		//if requireVolumeParameter {
+		//	err = errors.New(handler.VolumeSize + " parameter is not provided.")
+		//	return
+		//}
 	} else {
 		if sSize, ok := interSize.(string); !ok {
-			err = errors.New(G_VolumeSize + " is not string.")
+			err = errors.New(handler.VolumeSize + " is not string.")
 			return
 		} else if fSize, e := strconv.ParseFloat(sSize, 64); e != nil {
 			err = e
@@ -814,10 +890,17 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 		} else {
 			fVolumeSize = math.Floor(fSize + 0.5)
 		}
+
+		// todo: use this instead
+		// fVolumeSize, err = handler.ParseFloat64(interSize)
+		// if err != nil {
+		//	return
+		// }
 	}
 
 	// try to validate volume size
-	if cus, ok := customization[G_VolumeSize]; ok {
+	if cus, ok := customization[handler.VolumeSize]; ok {
+		// todo: use fVolumeSize = cus.Validate(fVolumeSize) instead
 		fVolumeSize = cus.Default + cus.Step*math.Ceil((fVolumeSize-cus.Default)/cus.Step)
 		if fVolumeSize > cus.Max {
 			fVolumeSize = cus.Max
@@ -831,7 +914,7 @@ func findServicePlanInfo(service_id, plan_id string, parameters map[string]inter
 	return
 }
 
-func findServicePlanInfoInBullets(service_id, plan_id string) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
+func findServicePlanInfoInBulletsAndCustomizeSettings(service_id, plan_id string) (volumeSize, connections int, customization map[string]oshandler.CustomParams, err error) {
 	resp, err := etcdget("/servicebroker/" + servcieBrokerName + "/catalog/" + service_id + "/plan/" + plan_id + "/metadata")
 	if err != nil {
 		return
@@ -874,17 +957,17 @@ func getVolumeSize(details brokerapi.ProvisionDetails, planInfo oshandler.PlanIn
 	if planInfo.Customize == nil {
 		//如果没有Customize, finalVolumeSize默认值 planInfo.Volume_size
 		finalVolumeSize = planInfo.Volume_size
-	} else if cus, ok := planInfo.Customize[G_VolumeSize]; ok {
+	} else if cus, ok := planInfo.Customize[handler.VolumeSize]; ok {
 		if details.Parameters == nil {
 			finalVolumeSize = int(cus.Default)
 			return
 		}
-		if _, ok := details.Parameters[G_VolumeSize]; !ok {
+		if _, ok := details.Parameters[handler.VolumeSize]; !ok {
 			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] not exist")
 			println(err)
 			return
 		}
-		sSize, ok := details.Parameters[G_VolumeSize].(string)
+		sSize, ok := details.Parameters[handler.VolumeSize].(string)
 		if !ok {
 			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] cannot be converted to string")
 			println(err)
@@ -929,7 +1012,7 @@ func getenv(env string) string {
 	if env_value == "" {
 		fmt.Println("FATAL: NEED ENV", env)
 		fmt.Println("Exit...........")
-		os.Exit(2)
+		os.Exit(1)
 	}
 	fmt.Println("ENV:", env, env_value)
 	return env_value
@@ -944,9 +1027,6 @@ var serviceBrokerPort string
 var brokerCredentials brokerapi.BrokerCredentials
 
 func main() {
-	//初始化参数，参数应该从环境变量中获取
-	var username, password string
-	//todo参数应该改为从环境变量中获取
 	//需要以下环境变量
 	etcdEndPoint = getenv("ETCDENDPOINT") //etcd的路径
 	etcdUser = getenv("ETCDUSER")
@@ -976,6 +1056,8 @@ func main() {
 	serviceBroker := &myServiceBroker{}
 
 	//取得用户名和密码
+	var username, password string
+	
 	resp, err := etcdget("/servicebroker/" + servcieBrokerName + "/username")
 	if err != nil {
 		logger.Error("Can not init username,Progrom Exit!", err)
@@ -992,13 +1074,13 @@ func main() {
 		password = resp.Node.Value
 	}
 
-	//装配用户名和密码
 	brokerCredentials := brokerapi.BrokerCredentials{
 		Username: username,
 		Password: password,
 	}
 
-	fmt.Println("START SERVICE BROKER", servcieBrokerName)
+	fmt.Println("Start service broker with the following services provided", servcieBrokerName)
+	handler.ListHandler()
 	brokerAPI := brokerapi.New(serviceBroker, logger, brokerCredentials)
 	http.HandleFunc("/bsiinfo", getBsiInfo)
 	http.Handle("/", brokerAPI)
@@ -1053,7 +1135,9 @@ func getBsiInfo(w http.ResponseWriter, r *http.Request) {
 	{
 		instancesPrefix := "/servicebroker/" + servcieBrokerName + "/instance/"
 
-		resp, err := etcdapi.Get(context.Background(), instancesPrefix[:len(instancesPrefix)-1], &client.GetOptions{Recursive: true}) //改为环境变量
+		resp, err := etcdapi.Get(context.Background(),
+			instancesPrefix[:len(instancesPrefix)-1],
+			&client.GetOptions{Recursive: true})
 		if err != nil {
 			w.Write([]byte("list instanceid error: " + err.Error()))
 			return
@@ -1067,102 +1151,3 @@ func getBsiInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-/*
-
-	//写入etcd 话说如果这个时候写入失败，那不就出现数据不一致的情况了么！todo
-	//先创建instanceid目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, "", &client.SetOptions{Dir: true}) //todo这些要么是常量，要么应该用环境变量
-	if err != nil {
-		etcdSaveResult <- errors.New("etcdapi.Set instance Error!")
-		logger.Error("Can not create instance "+instanceID+" in etcd", err) //todo都应该改为日志key
-		return brokerapi.ProvisionedServiceSpec{}, err
-	} else {
-		logger.Debug("Successful create instance "+instanceID+" in etcd", nil)
-	}
-	//然后创建一系列属性
-	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/organization_guid", details.OrganizationGUID)
-	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/space_guid", details.SpaceGUID)
-	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/service_id", details.ServiceID)
-	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/plan_id", details.PlanID)
-	tmpval, _ := json.Marshal(details.Parameters)
-	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/parameters", string(tmpval))
-	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/dashboardurl", provsiondetail.DashboardURL)
-	//存储隐藏信息_info
-	tmpval, _ = json.Marshal(myServiceInfo)
-	etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/_info", string(tmpval))
-
-	//创建绑定目录
-	_, err = etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/binding", "", &client.SetOptions{Dir: true})
-	if err != nil {
-		etcdSaveResult <- errors.New("etcdapi.Set binding Error!")
-		logger.Error("Can not create banding directory of  "+instanceID+" in etcd", err) //todo都应该改为日志key
-		return brokerapi.ProvisionedServiceSpec{}, err
-	} else {
-		logger.Debug("Successful create banding directory of  "+instanceID+" in etcd", nil)
-	}
-
-
-
-	for j := 0; j < len(resp.Node.Nodes[i].Nodes); j++ {
-			if !resp.Node.Nodes[i].Nodes[j].Dir {
-				switch strings.ToLower(resp.Node.Nodes[i].Nodes[j].Key) {
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/name":
-					myService.Name = resp.Node.Nodes[i].Nodes[j].Value
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/description":
-					myService.Description = resp.Node.Nodes[i].Nodes[j].Value
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/bindable":
-					myService.Bindable, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Value)
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/tags":
-					myService.Tags = strings.Split(resp.Node.Nodes[i].Nodes[j].Value, ",")
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/planupdatable":
-					myService.PlanUpdatable, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Value)
-				case strings.ToLower(resp.Node.Nodes[i].Key) + "/metadata":
-					json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Value), &myService.Metadata)
-				}
-			} else if strings.HasSuffix(strings.ToLower(resp.Node.Nodes[i].Nodes[j].Key), "plan") {
-				//开始解析套餐目录中的套餐计划plan。上述判断也不是太严谨，比如有目录如果是xxxxplan怎么办？
-				for k := 0; k < len(resp.Node.Nodes[i].Nodes[j].Nodes); k++ {
-					logger.Debug("Start to Parse Plan " + resp.Node.Nodes[i].Nodes[j].Nodes[k].Key)
-					myPlan.ID = strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/")[len(strings.Split(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key, "/"))-1]
-					for n := 0; n < len(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes); n++ {
-						switch strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Key) {
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/name":
-							myPlan.Name = resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/description":
-							myPlan.Description = resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/free":
-							//这里没有搞懂为什么brokerapi里面的这个bool要定义为传指针的模式
-							myPlanfree, _ = strconv.ParseBool(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value)
-							myPlan.Free = brokerapi.FreeValue(myPlanfree)
-						case strings.ToLower(resp.Node.Nodes[i].Nodes[j].Nodes[k].Key) + "/metadata":
-							json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value), &myPlan.Metadata)
-						}
-					}
-					//装配plan需要返回的值，按照有多少个plan往里面装
-					myPlans = append(myPlans, myPlan)
-					//重置myPlan
-					myPlan = brokerapi.ServicePlan{}
-				}
-				//将装配好的Plan对象赋值给Service
-				myService.Plans = myPlans
-				//重置myPlans
-				myPlans = []brokerapi.ServicePlan{}
-
-			}
-		}
-
-
-	resp, err := etcdapi.Get(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance/"+instanceID, &client.GetOptions{Recursive: true}) //改为环境变量
-
-	if err != nil || !resp.Node.Dir {
-		logger.Error("Can not get instance information from etcd", err)
-		return brokerapi.LastOperation{}, brokerapi.ErrInstanceDoesNotExist
-	} else {
-		logger.Debug("Successful get instance information from etcd. NodeInfo is " + resp.Node.Key)
-	}
-
-	//隐藏属性不得不单独获取
-	resp, err = etcdget("/servicebroker/" + servcieBrokerName + "/instance/" + instanceID + "/_info")
-	json.Unmarshal([]byte(resp.Node.Value), &myServiceInfo)
-
-*/
