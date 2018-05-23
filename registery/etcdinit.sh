@@ -418,7 +418,24 @@ $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf68
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/free true
 
 
+###创建服务 Zeppelin
+$ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F
 
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/name "Zeppelin"
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/description "Zeppelin on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/bindable true
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/planupdatable false
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/tags 'Zeppelin,openshift'
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/metadata '{"displayName":"Zeppelin","imageUrl":"pub/assets/Zeppelin.png","longDescription":"Zeppelin in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"http://zeppelin.apache.org/docs/0.7.3/","supportUrl":"http://zeppelin.apache.org"}'
+
+###创建套餐目录
+$ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan
+###创建套餐(pvc)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/name "standalone"
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/description "Zeppelin on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/free true
 
 
 
