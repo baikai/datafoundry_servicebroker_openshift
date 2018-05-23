@@ -385,20 +385,21 @@ $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/tags 'Elasticsearch,openshift'
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/metadata '{"displayName":"Elasticsearch","imageUrl":"pub/assets/ElasticSearch.png","longDescription":"Managed, highly available etcd clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://coreos.com/etcd/docs/latest","supportUrl":"https://coreos.com"}'
 
+
 ###创建套餐目录
 $ETCDCTL mkdir /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan
 ###创建套餐(pvc)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/A9537ABE-BD33-11E6-A969-13A2D25B7667
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/A9537ABE-BD33-11E6-A969-13A2D25B7667/name "volumes_standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/A9537ABE-BD33-11E6-A969-13A2D25B7667/description "HA Elasticsearch on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/A9537ABE-BD33-11E6-A969-13A2D25B7667/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/A9537ABE-BD33-11E6-A969-13A2D25B7667/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/A9537ABE-BD33-11E6-A969-13A2D25B7667/free true
 
 ###创建套餐(cluster)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/name "Cluster"
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/description "Elasticsearch (6.2.2) Cluster on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["1 GB of Disk","3 replicas"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1,"desc":"Elasticsearch集群实例数量"},"volume":{"default":10,"unit":"GB","step":1,"desc":"单个实例存储容量设置"}} }'
+$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["20 GB of Disk","3 replicas"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1, "max": 30, "desc":"Elasticsearch集群实例数量"},"volume":{"default":10,"unit":"GB","step":1, "max":100, "desc":"单个实例存储容量设置"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/free true
 
 
