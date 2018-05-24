@@ -108,8 +108,8 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	mysqlUser := "" // oshandler.NewElevenLengthID()
-	mysqlPassword := "" // oshandler.GenGUID()
+	mysqlUser := "root" // oshandler.NewElevenLengthID()
+	mysqlPassword := oshandler.BuildPassword(20)
 
 	println()
 	println("instanceIdInTempalte = ", instanceIdInTempalte)
@@ -380,6 +380,7 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 	var params = map[string]interface{}{
 		"InstanceID":                    instanceID,
 		"MysqlDataDiskSize":             volumeSize, // Gb
+		"RootPassword":                  mysqlPassword,
 		"MariadbImage":                  oshandler.MariadbImage(),
 		"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
 		"PhpMyAdminImage":               oshandler.PhpMyAdminImage(),
