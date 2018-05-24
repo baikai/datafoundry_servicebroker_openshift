@@ -272,6 +272,7 @@ func BuildPassword(maxLength int) string {
 	}
 	dest := make([]byte, 80)
 	base32Encoding.Encode(dest, b)
+	dest[0] = 'p' // to avoid the password starting a digital char.
 	return string(dest[:maxLength])
 }
 
