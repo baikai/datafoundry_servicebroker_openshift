@@ -263,17 +263,16 @@ func GenGUID() string {
 //=========================================================
 
 func BuildPassword(maxLength int) string {
-	b := make([]byte, 64)
+	if maxLength > 32 {
+		maxLength = 32
+	}
+	b := make([]byte, 50)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		mathrand.Read(b)
 	}
-	h := md5.New()
-	h.Write(b)
-	pass := hex.EncodeToString(h.Sum(nil))
-	if len(pass) > maxLength {
-		pass = pass[:maxLength]
-	}
-	return pass
+	dest := make([]byte, 80)
+	base32Encoding.Encode(dest, b)
+	return string(dest[:maxLength])
 }
 
 
