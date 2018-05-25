@@ -19,7 +19,11 @@ spec:
         name: sb-instanceid-zeppelin
         ports:
         - containerPort: 8080
-        resources: {}
+        #resources: {}
+        resources:
+          limits:
+            memory: "memory*****Mi"
+            cpu: "cpu*****"
         terminationMessagePath: /dev/termination-log
       dnsPolicy: ClusterFirst
       restartPolicy: Always
