@@ -27,10 +27,10 @@ const (
 	// API parameters passed from clients
 
 	Key_ZeppelinMemory = oshandler.Memory // "memory", don't change
-	Key_ZeppelinCPU = oshandler.CPU //"cpu",don't change
+	Key_ZeppelinCPU    = oshandler.CPU    //"cpu",don't change
 
-	DefaultZeppelinMemory        = 2000
-	DefaultZeppelinCPU        = 1
+	DefaultZeppelinMemory         = 2000
+	DefaultZeppelinCPU    float64 = 1.0
 )
 
 func init() {
@@ -116,34 +116,33 @@ func retrieveMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory int) 
 	return
 }
 
-func retrieveCPUFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory int) (nodeMemory int, err error) {
-	memorySettings, ok := planInfo.ParameterSettings[Key_ZeppelinMemory]
+func retrieveCPUFromPlanInfo(planInfo oshandler.PlanInfo, defaultCPU float64) (nodeCPU float64, err error) {
+	cpuSettings, ok := planInfo.ParameterSettings[Key_ZeppelinCPU]
 	if !ok {
-		err = errors.New(Key_ZeppelinMemory + " settings not found")
-		nodeMemory = defaultMemory
+		err = errors.New(Key_ZeppelinCPU + " settings not found")
+		nodeCPU = defaultCPU
 		return
 	}
 
-	fMemory, err := oshandler.ParseFloat64(planInfo.MoreParameters[Key_ZeppelinMemory])
+	fCPU, err := oshandler.ParseFloat64(planInfo.MoreParameters[Key_ZeppelinCPU])
 	if err != nil {
-		nodeMemory = defaultMemory
+		nodeCPU = defaultCPU
 		return
 	}
 
-	if float64(fMemory) > memorySettings.Max {
-		err = fmt.Errorf("too large memory specfied: %f > %f", fMemory, memorySettings.Max)
+	if float64(fCPU) > cpuSettings.Max {
+		err = fmt.Errorf("too large cpu specfied: %f > %f", fCPU, cpuSettings.Max)
 	}
 
-	if float64(fMemory) < memorySettings.Default {
-		err = fmt.Errorf("too small memory specfied: %f < %f", fMemory, memorySettings.Default)
+	if float64(fCPU) < cpuSettings.Default {
+		err = fmt.Errorf("too small cpu specfied: %f < %f", fCPU, cpuSettings.Default)
 	}
 
-	fMemory = memorySettings.Validate(fMemory)
-	nodeMemory = int(1000 * fMemory)
+	fCPU = cpuSettings.Validate(fCPU)
+	nodeCPU = fCPU
 
 	return
 }
-
 
 func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
 	//初始化到openshift的链接
@@ -162,8 +161,7 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 		println("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
-	logger.Info("Zeppelin Limit parameters...", map[string]interface{}{"cpu": strconv.Itoa(zeppelinCPU), "memory": strconv.Itoa(zeppelinMemory)+"Mi"})
-
+	logger.Info("Zeppelin Limit parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(zeppelinCPU, 'f', 1, 64), "memory": strconv.Itoa(zeppelinMemory) + "Mi"})
 
 	serviceSpec.IsAsync = true
 
@@ -178,7 +176,7 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 	serviceInfo.Password = ""
 	serviceInfo.Miscs = map[string]string{
 		Key_ZeppelinMemory: strconv.Itoa(zeppelinMemory),
-		Key_ZeppelinCPU:    strconv.Itoa(zeppelinCPU),
+		Key_ZeppelinCPU:    strconv.FormatFloat(zeppelinCPU, 'f', 1, 64),
 	}
 
 	go func() {
@@ -188,7 +186,7 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 		}
 
 		// master
-		output, err := createZeppelinResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password,zeppelinMemory, zeppelinCPU)
+		output, err := createZeppelinResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password, zeppelinMemory, zeppelinCPU)
 
 		if err != nil {
 			destroyZeppelinResources_Master(output, serviceBrokerNamespace)
@@ -199,7 +197,7 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 	}()
 
 	var input zeppelinResources_Master
-	err = loadZeppelinResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password,zeppelinMemory, zeppelinCPU,&input)
+	err = loadZeppelinResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password, zeppelinMemory, zeppelinCPU, &input)
 	if err != nil {
 		logger.Error("loadZeppelinResources_Master error", err)
 		return serviceSpec, serviceInfo, err
@@ -220,9 +218,9 @@ func (handler *Zeppelin_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 
 	// the job may be finished or interrupted or running in another instance.
 
-	memory ,_ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
-	cpu,_:=strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinCPU])
-	master_res, _ := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_ZeppelinCPU], 64)
+	master_res, _ := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -262,10 +260,10 @@ func (handler *Zeppelin_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 
 	println("to destroy resources")
 
-	memory ,_ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
-	cpu,_:=strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinCPU])
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_ZeppelinCPU], 64)
 
-	master_res, _ := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	master_res, _ := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 	destroyZeppelinResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
@@ -274,9 +272,9 @@ func (handler *Zeppelin_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
 	var master_res zeppelinResources_Master
-	memory ,_ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
-	cpu,_:=strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinCPU])
-	err := loadZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, memory,cpu,&master_res)
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_ZeppelinCPU], 64)
+	err := loadZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, memory, cpu, &master_res)
 	if err != nil {
 		return oshandler.Credentials{}
 	}
@@ -301,9 +299,9 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 func (handler *Zeppelin_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	memory ,_ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
-	cpu,_:=strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinCPU])
-	master_res, err := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_ZeppelinCPU], 64)
+	master_res, err := getZeppelinResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
@@ -341,7 +339,7 @@ func (handler *Zeppelin_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, 
 
 var ZeppelinTemplateData_Master []byte = nil
 
-func loadZeppelinResources_Master(instanceID, zeppelinUser, zeppelinPassword string,zeppelinMemory,zeppelinCPU int,res *zeppelinResources_Master) error {
+func loadZeppelinResources_Master(instanceID, zeppelinUser, zeppelinPassword string, zeppelinMemory int, zeppelinCPU float64, res *zeppelinResources_Master) error {
 	if ZeppelinTemplateData_Master == nil {
 		f, err := os.Open("zeppelin.yaml")
 		if err != nil {
@@ -378,7 +376,7 @@ func loadZeppelinResources_Master(instanceID, zeppelinUser, zeppelinPassword str
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("memory*****"), []byte(strconv.Itoa(zeppelinMemory)), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("cpu*****"), []byte(strconv.Itoa(zeppelinCPU)), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("cpu*****"), []byte(strconv.FormatFloat(zeppelinCPU, 'f', 1, 64)), -1)
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -395,9 +393,9 @@ type zeppelinResources_Master struct {
 	service kapi.Service
 }
 
-func createZeppelinResources_Master(instanceId, serviceBrokerNamespace, zeppelinUser, zeppelinPassword string,zeppelinMemory,zeppelinCPU int) (*zeppelinResources_Master, error) {
+func createZeppelinResources_Master(instanceId, serviceBrokerNamespace, zeppelinUser, zeppelinPassword string, zeppelinMemory int, zeppelinCPU float64) (*zeppelinResources_Master, error) {
 	var input zeppelinResources_Master
-	err := loadZeppelinResources_Master(instanceId, zeppelinUser, zeppelinPassword,zeppelinMemory,zeppelinCPU, &input)
+	err := loadZeppelinResources_Master(instanceId, zeppelinUser, zeppelinPassword, zeppelinMemory, zeppelinCPU, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -420,11 +418,11 @@ func createZeppelinResources_Master(instanceId, serviceBrokerNamespace, zeppelin
 	return &output, osr.Err
 }
 
-func getZeppelinResources_Master(instanceId, serviceBrokerNamespace, zeppelinUser, zeppelinPassword string,zeppelinMemory,zeppelinCPU int) (*zeppelinResources_Master, error) {
+func getZeppelinResources_Master(instanceId, serviceBrokerNamespace, zeppelinUser, zeppelinPassword string, zeppelinMemory int, zeppelinCPU float64) (*zeppelinResources_Master, error) {
 	var output zeppelinResources_Master
 
 	var input zeppelinResources_Master
-	err := loadZeppelinResources_Master(instanceId, zeppelinUser, zeppelinPassword,zeppelinMemory,zeppelinCPU, &input)
+	err := loadZeppelinResources_Master(instanceId, zeppelinUser, zeppelinPassword, zeppelinMemory, zeppelinCPU, &input)
 	if err != nil {
 		return &output, err
 	}

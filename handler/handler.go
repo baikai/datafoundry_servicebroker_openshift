@@ -498,6 +498,7 @@ var zookeeperexhibitorImage string
 var redisImage string
 var redis32Image string
 var redisClusterImage string
+
 //var redisClusterTribImage string // merged into redisClusterImage
 var redisphpadminImage string
 var kafkaImage string
@@ -541,14 +542,14 @@ func init() {
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
 
 	endpointSuffix = getenv("ENDPOINTSUFFIX")
-	
+
 	storageClassName = getenv("STORAGECLASSNAME")
 	dfProxyApiPrefix = os.Getenv("DATAFOUNDRYPROXYADDR")
 	if dfProxyApiPrefix == "" {
 		logger.Error("int dfProxyApiPrefix error:", errors.New("DATAFOUNDRYPROXYADDR env is not set"))
 	}
 	dfProxyApiPrefix = "http://" + dfProxyApiPrefix + "/lapi/v1"
-	
+
 	dnsmasqServer = getenv("DNSMASQ_SERVER")
 
 	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
@@ -594,4 +595,3 @@ func init() {
 
 	esclusterImage = getenv("ESCLUSTERIMAGE")
 }
-

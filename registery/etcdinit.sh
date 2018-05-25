@@ -434,9 +434,8 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7
 $ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/description "Zeppelin on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Zeppelin节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Zeppelin的cpu数量"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/free true
-
 
 
 ###创建服务 Anaconda
