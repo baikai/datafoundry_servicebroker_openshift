@@ -130,11 +130,11 @@ func retrieveCPUFromPlanInfo(planInfo oshandler.PlanInfo, defaultCPU float64) (n
 		return
 	}
 
-	if float64(fCPU) > cpuSettings.Max {
+	if fCPU > cpuSettings.Max {
 		err = fmt.Errorf("too large cpu specfied: %f > %f", fCPU, cpuSettings.Max)
 	}
 
-	if float64(fCPU) < cpuSettings.Default {
+	if fCPU < cpuSettings.Default {
 		err = fmt.Errorf("too small cpu specfied: %f < %f", fCPU, cpuSettings.Default)
 	}
 
