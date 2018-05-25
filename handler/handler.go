@@ -39,6 +39,8 @@ const (
 	Memory = "memory"
 	// redis cluster, ...
 	Replicas = "replicas"
+	// zeppelin cpu
+	CPU = "cpu"
 )
 
 type ServiceInfo struct {
