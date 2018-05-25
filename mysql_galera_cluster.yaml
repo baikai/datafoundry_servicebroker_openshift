@@ -6,7 +6,7 @@ metadata:
 data:
   datadir.cnf: |
     [mysqld]
-    datadir=/data/db
+    datadir=/var/lib/mysql/data/db
   galera.cnf: |
     #
     # * Galera-related settings
@@ -108,7 +108,7 @@ data:
     fi
     # https://github.com/docker-library/mariadb/blob/master/10.2/docker-entrypoint.sh#L62
     mysqld --verbose --help --log-bin-index="$(mktemp -u)" | tee /tmp/mariadb-start-config | grep -e ^version -e ^datadir -e ^wsrep -e ^binlog -e ^character-set -e ^collation
-
+    
 ---
 
 # the "Headless Service, used to control the network domain"
@@ -190,13 +190,15 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: MYSQL_ROOT_PASSWORD
+          value: "{{ .RootPassword }}"
         - name: DATADIR
-          value: /data/db
+          value: /var/lib/mysql/data/db
         - name: AUTO_NEW_CLUSTER
           value: "false"
         volumeMounts:
         - name: mysql
-          mountPath: /data
+          mountPath: /var/lib/mysql
         - name: conf
           mountPath: /etc/mysql/conf.d
         - name: initdb
@@ -222,6 +224,8 @@ spec:
           value: "localhost"
         - name: MYSQL_ALLOW_EMPTY_PASSWORD
           value: "yes"
+        - name: MYSQL_ROOT_PASSWORD
+          value: "{{ .RootPassword }}"
         - name: MYSQL_INITDB_SKIP_TZINFO
           value: "yes"
         readinessProbe:
@@ -232,20 +236,22 @@ spec:
             - >-
               '['
               ON =
-              $(mysql -e "SHOW STATUS LIKE 'wsrep_ready';" -N -B | sed 's/.*ON/ON/')
+              $(mysql -uroot -p{{ .RootPassword }} -e "SHOW STATUS LIKE 'wsrep_ready';" -N -B | sed 's/.*ON/ON/')
               ']'
           initialDelaySeconds: 30
         livenessProbe:
           exec:
             command:
             - mysql
+            - -uroot
+            - -p{{ .RootPassword }}
             - -e
             - "SHOW DATABASES;"
           # might need to be tweaked for large initial state transfers
           initialDelaySeconds: 60
         volumeMounts:
         - name: mysql
-          mountPath: /data
+          mountPath: /var/lib/mysql
         - name: conf
           mountPath: /etc/mysql/conf.d
         - name: initdb

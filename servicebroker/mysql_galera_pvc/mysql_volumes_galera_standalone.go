@@ -108,8 +108,8 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	instanceIdInTempalte := strings.ToLower(oshandler.NewThirteenLengthID())
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	serviceBrokerNamespace := oshandler.OC().Namespace()
-	mysqlUser := "" // oshandler.NewElevenLengthID()
-	mysqlPassword := "" // oshandler.GenGUID()
+	mysqlUser := "root" // oshandler.NewElevenLengthID()
+	mysqlPassword := oshandler.BuildPassword(20)
 
 	println()
 	println("instanceIdInTempalte = ", instanceIdInTempalte)
@@ -140,15 +140,14 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	}
 	//<<
 
-	/*
 	nodePort, err := createMysqlResources_NodePort(
 		&template,
 		serviceInfo.Database,
 	)
 	if err != nil {
+		go destroyMysqlResources_Master(&template, serviceBrokerNamespace)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
-	*/
 
 	// ...
 	go func() {
@@ -182,7 +181,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceSpec.DashboardURL = "http://" + template.routePma.Spec.Host
 
 	//>>>
-	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, &template)
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, nodePort)
 	//<<<
 
 	return serviceSpec, serviceInfo, nil
@@ -294,26 +293,29 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *m
 		return oshandler.Credentials{}
 	}
 
-	mysql_port := oshandler.GetServicePortByName(&master_res.serviceMysql, "mysql")
-	if mysql_port == nil {
+	mariamysql_port := oshandler.GetServicePortByName(&master_res.serviceMaria, "mysql")
+	if mariamysql_port == nil {
 		return oshandler.Credentials{}
 	}
 
-	svchost := fmt.Sprintf("%s.%s.%s", master_res.serviceMysql.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	svcport := strconv.Itoa(mysql_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
+	svchost := fmt.Sprintf("%s.%s.%s", master_res.serviceMaria.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	svcport := strconv.Itoa(mariamysql_port.Port)
 
-	//ndhost := oshandler.RandomNodeAddress()
-	//var ndport string = ""
-	//if nodePort != nil && len(nodePort.serviceNodePort.Spec.Ports) > 0 {
-	//	ndport = strconv.Itoa(nodePort.serviceNodePort.Spec.Ports[0].NodePort)
-	//}
+	ndhost := oshandler.RandomNodeAddress()
+	var ndport string = ""
+	if nodePort != nil && len(nodePort.serviceMysql.Spec.Ports) > 0 {
+		ndport = strconv.Itoa(nodePort.serviceMysql.Spec.Ports[0].NodePort)
+	}
+	// or: ndport := oshandler.GetServicePortByName(&nodePort.serviceMysql, "mysql").NodePort
 
 	return oshandler.Credentials{
-		//Uri:      fmt.Sprintf("amqp://%s:%s@%s:%s", myServiceInfo.User, myServiceInfo.Password, svchost, svcport),
-		Hostname: svchost, //ndhost,
-		Port:     svcport, //ndport,
+		Uri:      fmt.Sprintf(
+			"external address: %s:%s, internal address: %s:%s",
+			ndhost, ndport,
+			svchost, svcport,
+		),
+		//Hostname: svchost, //ndhost,
+		//Port:     svcport, //ndport,
 		Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 		//Vhost:    svchost,
@@ -380,6 +382,7 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 	var params = map[string]interface{}{
 		"InstanceID":                    instanceID,
 		"MysqlDataDiskSize":             volumeSize, // Gb
+		"RootPassword":                  mysqlPassword,
 		"MariadbImage":                  oshandler.MariadbImage(),
 		"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
 		"PhpMyAdminImage":               oshandler.PhpMyAdminImage(),
@@ -437,7 +440,7 @@ func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, 
 	osr.
 		KPost(prefix+"/configmaps", &input.cmConfigD, &output.cmConfigD).
 		KPost(prefix+"/services", &input.serviceMaria, &output.serviceMaria).
-		KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql).
+		// KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql).
 		Post(prefix+"/statefulsets", &input.statefulset, &output.statefulset, "/apis/apps/v1beta1").
 		KPost(prefix+"/services", &input.servicePma, &output.servicePma).
 		KPost(prefix+"/replicationcontrollers", &input.rcPma, &output.rcPma).
@@ -450,7 +453,6 @@ func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, 
 	return &output, osr.Err
 }
 
-/*
 func createMysqlResources_NodePort(input *mysqlResources_Master, serviceBrokerNamespace string) (*mysqlResources_Master, error) {
 	var output mysqlResources_Master
 
@@ -458,7 +460,7 @@ func createMysqlResources_NodePort(input *mysqlResources_Master, serviceBrokerNa
 
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.KPost(prefix+"/services", &input.serviceNodePort, &output.serviceNodePort)
+	osr.KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql)
 
 	if osr.Err != nil {
 		logger.Error("createMysqlResources_NodePort", osr.Err)
@@ -466,7 +468,6 @@ func createMysqlResources_NodePort(input *mysqlResources_Master, serviceBrokerNa
 
 	return &output, osr.Err
 }
-*/
 
 func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string/*, volumes []oshandler.Volume*/) (*mysqlResources_Master, error) {
 	var output mysqlResources_Master

@@ -1,17 +1,17 @@
 package handler
 
 import (
-	"crypto/md5"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/hex"
+	//"crypto/md5"
+	//"crypto/rand"
+	//"encoding/base64"
+	//"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"math"
+	//"io"
+	//"math"
 	mathrand "math/rand"
 	"os"
-	"strconv"
+	//"strconv"
 	"strings"
 	"time"
 
@@ -160,93 +160,6 @@ func (handler *Handler) DoBind(myServiceInfo *ServiceInfo, bindingID string, det
 
 func (handler *Handler) DoUnbind(myServiceInfo *ServiceInfo, mycredentials *Credentials) error {
 	return handler.driver.DoUnbind(myServiceInfo, mycredentials)
-}
-
-//=========================================================
-
-func (cus CustomParams) Validate(param float64) float64 {
-	if param < cus.Default {
-		param = cus.Default
-	}
-	if param > cus.Max {
-		param = cus.Default // cus.Max
-	}
-	param = cus.Default + cus.Step*math.Ceil((param-cus.Default)/cus.Step)
-	if param > cus.Max {
-		param = cus.Max
-	}
-	return param
-}
-
-func ParseInt64(v interface{}) (int64, error) {
-	str2int64 := func(s string) (int64, error) {
-		return strconv.ParseInt(s, 10, 64)
-	}
-
-	switch v := v.(type) {
-	case int64:
-		return v, nil
-	case int:
-		return int64(v), nil
-	case float32:
-		return int64(v), nil
-	case float64:
-		return int64(v), nil
-	case string:
-		return str2int64(v)
-	default:
-		//return str2int64(fmt.Sprint(v))
-		return 0, fmt.Errorf("invalid v: %v", v)
-	}
-}
-
-func ParseFloat64(v interface{}) (float64, error) {
-	str2float64 := func(s string) (float64, error) {
-		return strconv.ParseFloat(s, 64)
-	}
-
-	switch v := v.(type) {
-	case int64:
-		return float64(v), nil
-	case int:
-		return float64(v), nil
-	case float32:
-		return float64(v), nil
-	case float64:
-		return v, nil
-	case string:
-		return str2float64(v)
-	default:
-		//return str2float64(fmt.Sprint(v))
-		return 0, fmt.Errorf("invalid v: %v", v)
-	}
-}
-
-func ParseString(v interface{}) (string, error) {
-	switch v := v.(type) {
-	case string:
-		return v, nil
-	default:
-		//return fmt.Sprint(v)
-		return "", fmt.Errorf("v is not string: %v", v)
-	}
-}
-
-//=========================================================
-
-func getmd5string(s string) string {
-	h := md5.New()
-	h.Write([]byte(s))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-func GenGUID() string {
-	b := make([]byte, 48)
-
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return ""
-	}
-	return getmd5string(base64.URLEncoding.EncodeToString(b))
 }
 
 //=========================================================

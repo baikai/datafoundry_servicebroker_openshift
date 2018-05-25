@@ -18,6 +18,9 @@ $ETCDCTL mkdir /servicebroker/openshift/instance
 
 $ETCDCTL mkdir /servicebroker/openshift/catalog
 
+
+
+
 ###创建服务 etcd
 $ETCDCTL mkdir /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662 #服务id
 
@@ -35,13 +38,13 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC
 $ETCDCTL mkdir /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/204F8288-F8D9-4806-8661-EB48D94504B3
 $ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/204F8288-F8D9-4806-8661-EB48D94504B3/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/204F8288-F8D9-4806-8661-EB48D94504B3/description "单独ETCD实例"
-$ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/204F8288-F8D9-4806-8661-EB48D94504B3/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/204F8288-F8D9-4806-8661-EB48D94504B3/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/204F8288-F8D9-4806-8661-EB48D94504B3/free true
 ###创建套餐目录2(pvc)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/256D56C0-B83D-11E6-B227-2714EF851DCA
 $ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/256D56C0-B83D-11E6-B227-2714EF851DCA/name "volumes_standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/256D56C0-B83D-11E6-B227-2714EF851DCA/description "HA etcd on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/256D56C0-B83D-11E6-B227-2714EF851DCA/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/256D56C0-B83D-11E6-B227-2714EF851DCA/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/5E397661-1385-464A-8DB7-9C4DF8CC0662/plan/256D56C0-B83D-11E6-B227-2714EF851DCA/free true
 
 
@@ -64,13 +67,13 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F
 $ETCDCTL mkdir /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/CB00754C-11FF-444F-8419-9AA9B1E04970
 $ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/CB00754C-11FF-444F-8419-9AA9B1E04970/name "One_Worker"
 $ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/CB00754C-11FF-444F-8419-9AA9B1E04970/description "Spark on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/CB00754C-11FF-444F-8419-9AA9B1E04970/metadata '{"bullets":["20 GB of Disk","one worker node"],"displayName":"Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/CB00754C-11FF-444F-8419-9AA9B1E04970/metadata '{"bullets":["1 GB of Disk","one worker node"],"displayName":"Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/CB00754C-11FF-444F-8419-9AA9B1E04970/free true
 ###创建套餐2
 $ETCDCTL mkdir /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/65242C9B-C266-4F1D-A28B-98B1A2043A84
 $ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/65242C9B-C266-4F1D-A28B-98B1A2043A84/name "Three_Workers"
 $ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/65242C9B-C266-4F1D-A28B-98B1A2043A84/description "HA Spark on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/65242C9B-C266-4F1D-A28B-98B1A2043A84/metadata '{"bullets":["20 GB of Disk","three worker nodes"],"displayName":"High Available" }'
+$ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/65242C9B-C266-4F1D-A28B-98B1A2043A84/metadata '{"bullets":["1 GB of Disk","three worker nodes"],"displayName":"High Available" }'
 $ETCDCTL set /servicebroker/openshift/catalog/0674A0E3-5EE4-425C-BE43-5A61EB3F52A6/plan/65242C9B-C266-4F1D-A28B-98B1A2043A84/free false
 
 
@@ -93,13 +96,13 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B1
 $ETCDCTL mkdir /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/221F1338-96C1-4135-A865-9CDA4C12A185
 $ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/221F1338-96C1-4135-A865-9CDA4C12A185/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/221F1338-96C1-4135-A865-9CDA4C12A185/description "单独zookeeper实例"
-$ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/221F1338-96C1-4135-A865-9CDA4C12A185/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/221F1338-96C1-4135-A865-9CDA4C12A185/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/221F1338-96C1-4135-A865-9CDA4C12A185/free true
 ###创建套餐2 (pvc)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/dffc3555-eb18-4c7b-ac56-bd326b19dcd0
 $ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/dffc3555-eb18-4c7b-ac56-bd326b19dcd0/name "volumes_standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/dffc3555-eb18-4c7b-ac56-bd326b19dcd0/description "HA ZooKeeper With Volumes on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/dffc3555-eb18-4c7b-ac56-bd326b19dcd0/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/dffc3555-eb18-4c7b-ac56-bd326b19dcd0/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/FA780A47-4AB2-4035-8638-287538B13416/plan/dffc3555-eb18-4c7b-ac56-bd326b19dcd0/free true
 
 
@@ -120,13 +123,13 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8
 $ETCDCTL mkdir /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/CC5ED8A2-1677-43A0-ADE5-27F713C6F51B
 $ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/CC5ED8A2-1677-43A0-ADE5-27F713C6F51B/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/CC5ED8A2-1677-43A0-ADE5-27F713C6F51B/description "单独rabbitMQ实例"
-$ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/CC5ED8A2-1677-43A0-ADE5-27F713C6F51B/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/CC5ED8A2-1677-43A0-ADE5-27F713C6F51B/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/CC5ED8A2-1677-43A0-ADE5-27F713C6F51B/free true
 ###创建套餐2(pvc)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/28749ee2-6f30-4967-8311-2bf34f9a5421
 $ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/28749ee2-6f30-4967-8311-2bf34f9a5421/name "volumes_standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/28749ee2-6f30-4967-8311-2bf34f9a5421/description "HA RabbitMQ With Volumes on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/28749ee2-6f30-4967-8311-2bf34f9a5421/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/28749ee2-6f30-4967-8311-2bf34f9a5421/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/86272DCB-86D5-4039-9E05-894436B8E71D/plan/28749ee2-6f30-4967-8311-2bf34f9a5421/free true
 
 
@@ -151,13 +154,13 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D
 #$ETCDCTL mkdir /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/46ED475B-82A7-4C46-9767-0E3E806848F5
 #$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/46ED475B-82A7-4C46-9767-0E3E806848F5/name "standalone"
 #$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/46ED475B-82A7-4C46-9767-0E3E806848F5/description "单独Redis实例"
-#$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/46ED475B-82A7-4C46-9767-0E3E806848F5/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+#$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/46ED475B-82A7-4C46-9767-0E3E806848F5/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 #$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/46ED475B-82A7-4C46-9767-0E3E806848F5/free true
 ###创建套餐2 (pvc)
 #$ETCDCTL mkdir /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/f8554827-4f67-4082-84af-6d35475c1ea8
 #$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/f8554827-4f67-4082-84af-6d35475c1ea8/name "volumes_standalone"
 #$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/f8554827-4f67-4082-84af-6d35475c1ea8/description "HA Redis With Volumes on Openshift"
-#$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/f8554827-4f67-4082-84af-6d35475c1ea8/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+#$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/f8554827-4f67-4082-84af-6d35475c1ea8/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 #$ETCDCTL set /servicebroker/openshift/catalog/A54BC117-25E3-4E41-B8F7-14FC314D04D3/plan/f8554827-4f67-4082-84af-6d35475c1ea8/free true
 ###创建套餐3 (single master pvc)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/33fe30bd-9c31-40aa-b853-598c23bbb0da/plan/6c97104b-2d7d-44f9-a053-5c8d018d25a6
@@ -197,36 +200,36 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87
 $ETCDCTL mkdir /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/9A14FEF4-FB41-4C84-A175-A80492A50875
 $ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/9A14FEF4-FB41-4C84-A175-A80492A50875/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/9A14FEF4-FB41-4C84-A175-A80492A50875/description "单独kafka实例"
-$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/9A14FEF4-FB41-4C84-A175-A80492A50875/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/9A14FEF4-FB41-4C84-A175-A80492A50875/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/9A14FEF4-FB41-4C84-A175-A80492A50875/free true
 ###创建套餐2(pvc)
 #$ETCDCTL mkdir /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/EDCB798A-C03F-11E6-8220-AB033AF07E38
 #$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/EDCB798A-C03F-11E6-8220-AB033AF07E38/name "volumes_standalone"
 #$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/EDCB798A-C03F-11E6-8220-AB033AF07E38/description "HA Kafka on Openshift"
-#$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/EDCB798A-C03F-11E6-8220-AB033AF07E38/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+#$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/EDCB798A-C03F-11E6-8220-AB033AF07E38/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 #$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/EDCB798A-C03F-11E6-8220-AB033AF07E38/free false
 
 
 
 ###创建服务 Cassandra
-$ETCDCTL mkdir /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55 #服务id
+#$ETCDCTL mkdir /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55 #服务id
 
 ###创建服务级的配置
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/name "Cassandra"
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/description "Cassandra是一套开源分布式NoSQL数据库系统。版本：v3.4"
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/bindable true
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/planupdatable false
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/tags 'cassandra,openshift'
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/metadata '{"displayName":"Cassandra","imageUrl":"pub/assets/Cassandra.png","longDescription":"Managed, highly available cassandra clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://wiki.apache.org/cassandra/GettingStarted","supportUrl":"https://cassandra.apache.org/"}'
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/name "Cassandra"
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/description "Cassandra是一套开源分布式NoSQL数据库系统。版本：v3.4"
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/bindable true
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/planupdatable false
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/tags 'cassandra,openshift'
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/metadata '{"displayName":"Cassandra","imageUrl":"pub/assets/Cassandra.png","longDescription":"Managed, highly available cassandra clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://wiki.apache.org/cassandra/GettingStarted","supportUrl":"https://cassandra.apache.org/"}'
 
 ###创建套餐目录
-$ETCDCTL mkdir /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan
+#$ETCDCTL mkdir /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan
 ###创建套餐1
-$ETCDCTL mkdir /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/name "standalone"
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/description "单独Cassandra实例"
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
-$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/free true
+#$ETCDCTL mkdir /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/name "standalone"
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/description "单独Cassandra实例"
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+#$ETCDCTL set /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55/plan/7B7EC041-2090-4ACB-AE0F-E8BDF315A778/free true
 
 
 
@@ -247,7 +250,7 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6B
 $ETCDCTL mkdir /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6BD596/plan/D0B82741-770A-463C-818F-6E99862367DF
 $ETCDCTL set /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6BD596/plan/D0B82741-770A-463C-818F-6E99862367DF/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6BD596/plan/D0B82741-770A-463C-818F-6E99862367DF/description "单独Storm实例"
-$ETCDCTL set /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6BD596/plan/D0B82741-770A-463C-818F-6E99862367DF/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6BD596/plan/D0B82741-770A-463C-818F-6E99862367DF/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6BD596/plan/D0B82741-770A-463C-818F-6E99862367DF/free true
 ###创建套餐2 external_standalone
 $ETCDCTL mkdir /servicebroker/openshift/catalog/6555DBC1-E6BC-4F0D-8948-E1B5DF6BD596/plan/ef12ed9a-87f5-11e7-b949-0fc03853e5ec
@@ -274,7 +277,7 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/BCC10E77-98B6-4EF0-8AFB-E5FD789F
 $ETCDCTL mkdir /servicebroker/openshift/catalog/BCC10E77-98B6-4EF0-8AFB-E5FD789F712E/plan/4435A93C-6CC9-45F0-AFB0-EA070361DD6A
 $ETCDCTL set /servicebroker/openshift/catalog/BCC10E77-98B6-4EF0-8AFB-E5FD789F712E/plan/4435A93C-6CC9-45F0-AFB0-EA070361DD6A/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/BCC10E77-98B6-4EF0-8AFB-E5FD789F712E/plan/4435A93C-6CC9-45F0-AFB0-EA070361DD6A/description "单独nifi实例"
-$ETCDCTL set /servicebroker/openshift/catalog/BCC10E77-98B6-4EF0-8AFB-E5FD789F712E/plan/4435A93C-6CC9-45F0-AFB0-EA070361DD6A/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/BCC10E77-98B6-4EF0-8AFB-E5FD789F712E/plan/4435A93C-6CC9-45F0-AFB0-EA070361DD6A/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/BCC10E77-98B6-4EF0-8AFB-E5FD789F712E/plan/4435A93C-6CC9-45F0-AFB0-EA070361DD6A/free true
 
 
@@ -296,7 +299,7 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/51219A87-E37E-44F5-8E30-4767348D
 $ETCDCTL mkdir /servicebroker/openshift/catalog/51219A87-E37E-44F5-8E30-4767348D644D/plan/31B428F8-AA3E-4CAC-85A2-7294C7CAA79D
 $ETCDCTL set /servicebroker/openshift/catalog/51219A87-E37E-44F5-8E30-4767348D644D/plan/31B428F8-AA3E-4CAC-85A2-7294C7CAA79D/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/51219A87-E37E-44F5-8E30-4767348D644D/plan/31B428F8-AA3E-4CAC-85A2-7294C7CAA79D/description "单独kettle实例"
-$ETCDCTL set /servicebroker/openshift/catalog/51219A87-E37E-44F5-8E30-4767348D644D/plan/31B428F8-AA3E-4CAC-85A2-7294C7CAA79D/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/51219A87-E37E-44F5-8E30-4767348D644D/plan/31B428F8-AA3E-4CAC-85A2-7294C7CAA79D/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/51219A87-E37E-44F5-8E30-4767348D644D/plan/31B428F8-AA3E-4CAC-85A2-7294C7CAA79D/free true
 
 
@@ -318,7 +321,7 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/2DD1363D-8768-4DAA-BDC3-FB29C10C
 $ETCDCTL mkdir /servicebroker/openshift/catalog/2DD1363D-8768-4DAA-BDC3-FB29C10C4A8C/plan/BE1CAAF2-CAB7-4B56-AEB4-2A3111225D50
 $ETCDCTL set /servicebroker/openshift/catalog/2DD1363D-8768-4DAA-BDC3-FB29C10C4A8C/plan/BE1CAAF2-CAB7-4B56-AEB4-2A3111225D50/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/2DD1363D-8768-4DAA-BDC3-FB29C10C4A8C/plan/BE1CAAF2-CAB7-4B56-AEB4-2A3111225D50/description "单独tensorflow实例"
-$ETCDCTL set /servicebroker/openshift/catalog/2DD1363D-8768-4DAA-BDC3-FB29C10C4A8C/plan/BE1CAAF2-CAB7-4B56-AEB4-2A3111225D50/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/2DD1363D-8768-4DAA-BDC3-FB29C10C4A8C/plan/BE1CAAF2-CAB7-4B56-AEB4-2A3111225D50/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/2DD1363D-8768-4DAA-BDC3-FB29C10C4A8C/plan/BE1CAAF2-CAB7-4B56-AEB4-2A3111225D50/free true
 
 
@@ -341,7 +344,7 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/c6ed3cb8-d486-4faa-8185-7262183a
 $ETCDCTL mkdir /servicebroker/openshift/catalog/c6ed3cb8-d486-4faa-8185-7262183a1113/plan/1f195802-1642-47e9-be69-9082cc1ceaf5
 $ETCDCTL set /servicebroker/openshift/catalog/c6ed3cb8-d486-4faa-8185-7262183a1113/plan/1f195802-1642-47e9-be69-9082cc1ceaf5/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/c6ed3cb8-d486-4faa-8185-7262183a1113/plan/1f195802-1642-47e9-be69-9082cc1ceaf5/description "HA Spider on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/c6ed3cb8-d486-4faa-8185-7262183a1113/plan/1f195802-1642-47e9-be69-9082cc1ceaf5/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/c6ed3cb8-d486-4faa-8185-7262183a1113/plan/1f195802-1642-47e9-be69-9082cc1ceaf5/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/c6ed3cb8-d486-4faa-8185-7262183a1113/plan/1f195802-1642-47e9-be69-9082cc1ceaf5/free true
 
 
@@ -364,7 +367,7 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716
 $ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5
 $ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/name "volumes_standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/description "HA MongoDB With Volumes on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/free false
 
 
@@ -382,6 +385,7 @@ $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/tags 'Elasticsearch,openshift'
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/metadata '{"displayName":"Elasticsearch","imageUrl":"pub/assets/ElasticSearch.png","longDescription":"Managed, highly available etcd clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://coreos.com/etcd/docs/latest","supportUrl":"https://coreos.com"}'
 
+
 ###创建套餐目录
 $ETCDCTL mkdir /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan
 ###创建套餐(pvc)
@@ -395,8 +399,12 @@ $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF
 $ETCDCTL mkdir /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/name "Cluster"
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/description "Elasticsearch (6.2.2) Cluster on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["20 GB of Disk","3 replicas"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1,"desc":"Elasticsearch集群实例数量"},"volume":{"default":10,"unit":"GB","step":1,"desc":"单个实例存储容量设置"}} }'
+$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["20 GB of Disk","3 replicas"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1, "max": 30, "desc":"Elasticsearch集群实例数量"},"volume":{"default":10,"unit":"GB","step":1, "max":100, "desc":"单个实例存储容量设置"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/free true
+
+
+
+
 
 ###创建服务 Dataku
 $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f
@@ -414,12 +422,11 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf
 $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/description "Dataiku on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/free true
 
 
-###创建服务 Zeppelin
-$ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F
+
 
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/name "Zeppelin"
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/description "Zeppelin on Openshift"
@@ -438,6 +445,8 @@ $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E5
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/free true
 
 
+
+
 ###创建服务 Anaconda
 $ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed
 
@@ -454,31 +463,9 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe6
 $ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/description "Anaconda on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/free true
 
-
-
-
-###创建服务 MySQL
-$ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f #服务id
-
-###创建服务级的配置
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/name "Mongo"
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/description "A Sample MongoDB cluster on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/bindable true
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/planupdatable false
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/tags 'mongodb,openshift'
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/metadata '{"displayName":"MongoDB","imageUrl":"https://webassets.mongodb.com/_com_assets/global/mongodb-logo-white.png","longDescription":"Managed, highly available MongoDB clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://docs.mongodb.com/","supportUrl":"https://www.mongodb.com/"}'
-
-###创建套餐目录
-$ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan
-###创建套餐1 (pvc)
-$ETCDCTL mkdir /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/name "volumes_standalone"
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/description "HA MongoDB With Volumes on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/metadata '{"bullets":["20 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
-$ETCDCTL set /servicebroker/openshift/catalog/eac6c8cf-2a63-4120-9e29-30c4b716e37f/plan/3b7fc05d-c630-4c0b-8dda-2cedb271ccb5/free false
 
 
 

@@ -281,7 +281,7 @@ Open Shift集群访问凭证：
 Service Broker Instance 泛域名:
 * ENDPOINTSUFFIX
 
-Open Shift nodes IP addresses和域名:
+Open Shift 各节点的 IP addresses和域名:
 * NODE_ADDRESSES
 * NODE_DOMAINS
 
@@ -298,6 +298,7 @@ Service Broker Instance Pod Images
 * CASSANDRAIMAGE: Cassandra 镜像
 * DATAIKUIMAGE: Dataiku 镜像
 * ELASTICSEARCHVOLUMEIMAGE: Elastics Search 镜像(支持挂卷)
+* ESCLUSTERIMAGE: Elastics Search 集群镜像(支持挂卷)
 * ETCDIMAGE: ETCD 镜像
 * ETCDBOOTIMAGE: ETCD seed pod 镜像
 * ETCDVOLUMEIMAGE: ETCD 镜像(支持挂卷)
@@ -316,7 +317,7 @@ Service Broker Instance Pod Images
 * REDISCLUSTERTRIBIMAGE: Redis Cluster trib.rb 镜像 （已不再需要）
 * SIMPLEFILEUPLOADERIMAGE: Simple File Uploader 镜像
 * STORMIMAGE: Storm 镜像
-* STORMEXTERNALIMAGE: Storm With External ZooKeeper 镜像
+* STORMEXTERNALIMAGE: Storm 镜像 (need external ZooKeeper)
 * SPARKIMAGE: Spark 镜像
 * TENSORFLOWIMAGE: TensorFlow 镜像
 * ZEPPLINIMAGE: Zepplin 镜像
