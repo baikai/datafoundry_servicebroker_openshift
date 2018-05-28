@@ -10,11 +10,13 @@ import (
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-golang/lager"
 	"io/ioutil"
+	kresource "k8s.io/kubernetes/pkg/api/resource"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //==============================================================
@@ -252,7 +254,182 @@ func (handler *Zeppelin_Handler) DoLastOperation(myServiceInfo *oshandler.Servic
 }
 
 func (handler *Zeppelin_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
+
+	var oldMemory int
+	var oldCPU float64
+
+	{
+		nMemory, err := oshandler.ParseInt64(myServiceInfo.Miscs[Key_ZeppelinMemory])
+		if err != nil {
+			nMemory = DefaultZeppelinMemory
+		}
+		oldMemory = int(nMemory)
+
+		nCPU, err := oshandler.ParseFloat64(myServiceInfo.Miscs[Key_ZeppelinCPU])
+		if err != nil {
+			nCPU = DefaultZeppelinCPU
+		}
+		oldCPU = nCPU
+	}
+
+	newMemory, err := retrieveMemoryFromPlanInfo(planInfo, oldMemory) // Mi
+	if err != nil {
+		println("retrieveMemoryFromPlanInfo error: ", err.Error())
+	}
+
+	newCPU, err := retrieveCPUFromPlanInfo(planInfo, oldCPU)
+	if err != nil {
+		println("retrieveCPUFromPlanInfo error: ", err.Error())
+	}
+
+	logger.Info("Zeppelin old parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(oldCPU, 'f', 1, 64), "memory": strconv.Itoa(oldMemory) + "Mi"})
+
+	logger.Info("Zeppelin new parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(newCPU, 'f', 1, 64), "memory": strconv.Itoa(newMemory) + "Mi"})
+
+	if true {
+
+		authInfoChanged := myServiceInfo.Miscs[Key_ZeppelinMemory] != strconv.Itoa(newMemory) ||
+			myServiceInfo.Miscs[Key_ZeppelinCPU] != strconv.FormatFloat(newCPU, 'f', 1, 64)
+
+		println("To update Zeppelin instance.")
+
+		go func() {
+			if authInfoChanged {
+				// ...
+				err := updateZeppelinResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,
+					newMemory, newCPU, authInfoChanged)
+				if err != nil {
+					println("Failed to update storm external instance (nimbus). Error:", err.Error())
+					return
+				}
+			}
+
+			println("Zeppelin instance is updated.")
+
+			myServiceInfo.Miscs[Key_ZeppelinMemory] = strconv.Itoa(newMemory)
+			myServiceInfo.Miscs[Key_ZeppelinCPU] = strconv.FormatFloat(newCPU, 'f', 1, 64)
+
+			err = callbackSaveNewInfo(myServiceInfo)
+			if err != nil {
+				logger.Error("Zeppelin instance is update but save info error", err)
+			}
+
+		}()
+	} else {
+		println("Zeppelin instance is not update.")
+	}
+
 	return nil
+}
+
+func updateZeppelinResources(instanceId, serviceBrokerNamespace, zeppelinUsr, zeppelinPassward string,
+	newMemory int, newCPU float64,
+	authInfoChanged bool) error {
+
+	var input zeppelinResources_Master
+
+	err := loadZeppelinResources_Master(instanceId, zeppelinUsr, zeppelinPassward, newMemory, newCPU, &input)
+
+	if err != nil {
+		logger.Error("updateStormResources_Superviser. load error", err)
+		return err
+	}
+
+	prefix := "/namespaces/" + serviceBrokerNamespace
+
+	var middle zeppelinResources_Master
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+	osr.
+		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &middle.rc)
+
+	if osr.Err != nil {
+		logger.Error("updateZeppelinResources. get error", osr.Err)
+		return osr.Err
+	}
+
+	// update ...
+
+	if middle.rc.Spec.Template == nil || len(middle.rc.Spec.Template.Spec.Containers) == 0 {
+		err = errors.New("rc.Template is nil or len(containers) == 0")
+		logger.Error("updateZeppelinResources, zrrc.", err)
+		return err
+	}
+
+	// Limit Memory
+	{
+		m, err := kresource.ParseQuantity(strconv.Itoa(newMemory) + "Mi")
+		if err != nil {
+			logger.Error("updateZeppelinResources.", err)
+			return err
+		}
+		middle.rc.Spec.Template.Spec.Containers[0].Resources.Limits[kapi.ResourceMemory] = *m
+	}
+
+	// Limit CPU
+	{
+		c, err := kresource.ParseQuantity(strconv.FormatFloat(newCPU, 'f', 1, 64))
+		if err != nil {
+			logger.Error("updateZeppelinResources.", err)
+			return err
+		}
+
+		middle.rc.Spec.Template.Spec.Containers[0].Resources.Limits[kapi.ResourceCPU] = *c
+	}
+
+	//updateing PUT
+	var output zeppelinResources_Master
+	osr.
+		KPut(prefix+"/replicationcontrollers/"+input.rc.Name, &middle.rc, &output.rc)
+	if osr.Err != nil {
+		logger.Error("updateZeppelinResources. update error", osr.Err)
+		return osr.Err
+	}
+
+	// ...
+
+	if authInfoChanged {
+		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.rc.Labels)
+		println("updateStormResources_Nimbus:", n, "pods are deleted.")
+		if err2 != nil {
+			err = err2
+		} else {
+			time.Sleep(time.Second * 10)
+		}
+	}
+
+	return err
+}
+
+func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
+
+	println("to delete created pods in", serviceBrokerNamespace)
+	if len(labels) == 0 {
+		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
+	}
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
+
+	pods := kapi.PodList{}
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
+	if osr.Err != nil {
+		return 0, osr.Err
+	}
+
+	ndeleted := 0
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+
+		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+
+		if pod.Status.Phase != kapi.PodSucceeded {
+			ndeleted++
+			kdel(serviceBrokerNamespace, "pods", pod.Name)
+		}
+	}
+
+	return ndeleted, nil
 }
 
 func (handler *Zeppelin_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
