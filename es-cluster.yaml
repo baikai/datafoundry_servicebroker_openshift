@@ -77,6 +77,10 @@ spec:
               name: data
             - mountPath: /usr/share/elasticsearch/logs
               name: logs
+        resources:
+          requests:
+            cpu: "cpu-size"
+            memory: "mem-size"
   volumeClaimTemplates:
   - metadata:
       name: data
