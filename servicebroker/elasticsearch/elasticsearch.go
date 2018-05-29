@@ -23,6 +23,8 @@ import (
 	routeapi "github.com/openshift/origin/route/api/v1"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+
+	kapiquan "k8s.io/kubernetes/pkg/api/resource"
 )
 
 // EsClusterServiceBrokerName : broker name should be service name + '_' + plan name
@@ -80,8 +82,7 @@ func newSrvBrokerHandler() *SrvBrokerHandler {
 
 // parameters for containers
 type podParas struct {
-	//	mem, cpu       string
-	replicas, disk string
+	replicas, disk, cpu, mem string
 }
 
 // DoProvision required interface for service broker handler
@@ -120,9 +121,21 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 	}
 	if volsize, ok := details.Parameters["volume"].(string); ok {
 		logger.Debug("DoProvision(), volume size=" + volsize)
-		paras.disk = volsize
+		paras.disk = volsize + "Gi"
 	} else {
-		logger.Debug("DoProvision, volume size missed")
+		logger.Debug("DoProvision(), volume size missed")
+	}
+	if cpusize, ok := details.Parameters["cpu"].(string); ok {
+		logger.Debug("DoProvision(), cpu=" + cpusize)
+		paras.cpu = cpusize
+	} else {
+		logger.Debug("DoProvision(), cpu information missed")
+	}
+	if memsize, ok := details.Parameters["mem"].(string); ok {
+		logger.Debug("DoProvision(), mem=" + memsize)
+		paras.mem = memsize + "Gi"
+	} else {
+		logger.Debug("DoProvision(), memory information missed")
 	}
 
 	println()
@@ -170,11 +183,12 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 
 	}()
 
-	serviceSpec.DashboardURL = ""
-
+	var stRes esResources
 	//>>>
-	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, output, &paras)
+	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, &stRes, &paras)
 	//<<<
+
+	serviceSpec.DashboardURL = fmt.Sprintf("http://%s", stRes.route.Spec.Host)
 
 	return serviceSpec, serviceInfo, nil
 }
@@ -253,8 +267,21 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 			logger.Debug("DoUpdate(), updated replicas is " + paras.replicas +
 				" and less than current replicas " + strconv.Itoa(int(*esRes.sts.Spec.Replicas)))
 			return errors.New("specified replicas is less than current replicas")
-		} else if (*esRes.sts.Spec.Replicas) < int32(upReplicas) {
+		} else {
 			*esRes.sts.Spec.Replicas = int32(upReplicas)
+			quan, err := kapiquan.ParseQuantity(planInfo.MoreParameters["cpu"].(string))
+			if err != nil {
+				logger.Error("DoUpdate(), invalid cpu size", err)
+				return err
+			}
+			esRes.sts.Spec.Template.Spec.Containers[0].Resources.Requests["cpu"] = *quan
+
+			quan, err = kapiquan.ParseQuantity(planInfo.MoreParameters["mem"].(string) + "Gi")
+			if err != nil {
+				logger.Error("DoUpdate(), invalid memory size", err)
+				return err
+			}
+			esRes.sts.Spec.Template.Spec.Containers[0].Resources.Requests["memory"] = *quan
 
 			osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
 			if osr.Err != nil {
@@ -274,8 +301,6 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 					break
 				}
 			}
-		} else {
-			logger.Info("DoUpdate, nodes number is not chnaged.")
 		}
 	}
 
@@ -357,18 +382,17 @@ func (handler *SrvBrokerHandler) DoDeprovision(myServiceInfo *oshandler.ServiceI
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, output *esResources, paras *podParas) oshandler.Credentials {
 
-	var stsRes esResources
-	err := loadSrvResources(myServiceInfo.Url, &stsRes, paras)
+	err := loadSrvResources(myServiceInfo.Url, output, paras)
 
 	if err != nil {
 		logger.Error("getCredentialsOnProvision(), failed to load resources", err)
 		return oshandler.Credentials{}
 	}
 
-	clusterName := stsRes.sts.Name
+	clusterName := output.sts.Name
 	//host := fmt.Sprintf("%s.%s.%s", stsRes.sts.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	url := fmt.Sprintf("%s", stsRes.route.Spec.Host)
-	host := url
+	url := fmt.Sprintf("%s", output.route.Spec.Host)
+	host := ""
 
 	logger.Debug("getCredentialsOnProvision(), load yaml templates successfully, cluster name is " +
 		clusterName + "," + host)
@@ -579,7 +603,7 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 		}
 
 		if paras == nil {
-			paras = &podParas{"1", "1Gi"}
+			paras = &podParas{"2", "1Gi", "0.5", "2G"}
 			logger.Debug("loadSrvResources(), initialize paras for pass decode check")
 		}
 		var repn, volsize string
@@ -611,6 +635,20 @@ func loadSrvResources(instanceID string, res *esResources, paras *podParas) erro
 				-1)
 		}
 
+		if len(paras.cpu) > 0 {
+			EsTemplateData = bytes.Replace(
+				EsTemplateData,
+				[]byte("cpu-size"),
+				[]byte(paras.cpu),
+				-1)
+		}
+		if len(paras.mem) > 0 {
+			EsTemplateData = bytes.Replace(
+				EsTemplateData,
+				[]byte("mem-size"),
+				[]byte(paras.mem),
+				-1)
+		}
 		logger.Debug("loadSrvResources(), loaded yaml templates")
 	}
 
