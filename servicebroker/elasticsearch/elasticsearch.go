@@ -274,14 +274,14 @@ func (handler *SrvBrokerHandler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 				logger.Error("DoUpdate(), invalid cpu size", err)
 				return err
 			}
-			esRes.sts.Spec.Template.Spec.Containers[0].Resources.Requests["cpu"] = *quan
+			esRes.sts.Spec.Template.Spec.Containers[0].Resources.Limits["cpu"] = *quan
 
 			quan, err = kapiquan.ParseQuantity(planInfo.MoreParameters["mem"].(string) + "Gi")
 			if err != nil {
 				logger.Error("DoUpdate(), invalid memory size", err)
 				return err
 			}
-			esRes.sts.Spec.Template.Spec.Containers[0].Resources.Requests["memory"] = *quan
+			esRes.sts.Spec.Template.Spec.Containers[0].Resources.Limits["memory"] = *quan
 
 			osr := oshandler.NewOpenshiftREST(oshandler.OC()).Kv1b1Put(uri, esRes.sts, nil)
 			if osr.Err != nil {
