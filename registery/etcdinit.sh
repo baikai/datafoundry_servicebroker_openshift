@@ -463,8 +463,14 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe6
 $ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/description "Anaconda on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" ,"customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Anaconda节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Anaconda的cpu数量"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/free true
+###创建套餐(volume_pvc)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/name "volume_standalone"
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/description "Anaconda on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" ,"customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Anaconda节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Anaconda的cpu数量"}} }'
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/free true
 
 
 

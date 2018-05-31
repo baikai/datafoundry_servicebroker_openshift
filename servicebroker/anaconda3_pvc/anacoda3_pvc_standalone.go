@@ -23,7 +23,7 @@ import (
 //
 //==============================================================
 
-const AnacodaServcieBrokerName_Standalone = "Anaconda_standalone"
+const AnacodaServcieBrokerName_Standalone = "Anaconda_pvc_standalone"
 
 const (
 	// API parameters passed from clients
@@ -50,8 +50,33 @@ var httpClient = &http.Client{
 }
 
 //==============================================================
-//
+//挂卷配置
 //==============================================================
+
+func volumeBaseName(instanceId string) string {
+	return "anaconda-" + instanceId
+}
+
+func peerPvcName0(volumes []oshandler.Volume) string {
+	if len(volumes) > 0 {
+		return volumes[0].Volume_name
+	}
+	return ""
+}
+
+func peerPvcName1(volumes []oshandler.Volume) string {
+	if len(volumes) > 1 {
+		return volumes[1].Volume_name
+	}
+	return ""
+}
+
+func peerPvcName2(volumes []oshandler.Volume) string {
+	if len(volumes) > 2 {
+		return volumes[2].Volume_name
+	}
+	return ""
+}
 
 type Anacoda_freeHandler struct{}
 
@@ -183,6 +208,26 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	//serviceBrokerNamespace := ServiceBrokerNamespace
 	//serviceBrokerNamespace := oshandler.OC().Namespace()
 
+	volumeBaseName := volumeBaseName(instanceIdInTempalte)
+	volumes := []oshandler.Volume{
+		// one master volume
+		{
+			Volume_size: planInfo.Volume_size,
+			Volume_name: volumeBaseName + "-0",
+		},
+		// two slave volumes
+		{
+			Volume_size: planInfo.Volume_size,
+			Volume_name: volumeBaseName + "-1",
+		},
+		{
+			Volume_size: planInfo.Volume_size,
+			Volume_name: volumeBaseName + "-2",
+		},
+	}
+
+	logger.Info("Anaconda Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
+
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	serviceInfo.User = ""
@@ -191,6 +236,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		Key_AnacondaMemory: strconv.Itoa(anacondaMemory),
 		Key_AnacondaCPU:    strconv.FormatFloat(anacondaCPU, 'f', 1, 64),
 	}
+	serviceInfo.Volumes = volumes
 
 	go func() {
 		err := <-etcdSaveResult
