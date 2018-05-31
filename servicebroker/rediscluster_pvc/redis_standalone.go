@@ -2,9 +2,11 @@ package rediscluster_pvc
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
 	dcapi "github.com/openshift/origin/deploy/api/v1"
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-golang/lager"
@@ -199,6 +201,22 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo.Miscs = map[string]string{}
 	serviceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(numPeers)
 	serviceInfo.Miscs[oshandler.Memory] = strconv.Itoa(containerMemory)
+	
+	// create dashboard
+	
+	_, stat, err := createRedisClusterResources_Stat(
+		serviceInfo.Database,
+		serviceInfo.Url,
+		serviceInfo.Password,
+		nil,
+	)
+	if err != nil {
+		destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
+		return serviceSpec, oshandler.ServiceInfo{}, err
+	}
+		
+	
+	// create nodeports
 
 	//>> may be not optimized
 	var templates = make([]redisResources_Peer, numPeers)
@@ -211,19 +229,22 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		templates,
 	)
 	if err != nil {
+		destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 	//<<
+
+	peers := make([]*redisResources_Peer, len(templates))
+	for i := range templates {
+		peers[i] = &templates[i]
+	}
 
 	nodePorts, err := createRedisClusterResources_NodePorts(
 		templates,
 		serviceInfo.Database,
 	)
 	if err != nil {
-		peers := make([]*redisResources_Peer, len(templates))
-		for i := range templates {
-			peers[i] = &templates[i]
-		}
+		destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
 		destroyRedisClusterResources_Peers(peers, serviceInfo.Database)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
@@ -266,7 +287,9 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		)
 		if err != nil {
 
-			destroyRedisClusterResources_Peers(outputs, serviceInfo.Database)
+			destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
+			//destroyRedisClusterResources_Peers(outputs, serviceInfo.Database)
+			destroyRedisClusterResources_Peers(peers, serviceInfo.Database)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
 			return
@@ -278,17 +301,29 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			return
 		}
 
-		err = initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numPeers, redisPassword)
+		serverIPs, err := initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numPeers, serviceInfo.Password)
 		if err != nil {
 			logger.Error("redis initRedisMasterSlots error", err)
 			return
 		}
+		
+		_, _, err = createRedisClusterResources_Stat(
+			serviceInfo.Database,
+			serviceInfo.Url,
+			serviceInfo.Password,
+			serverIPs,
+		)
+		if err != nil {
+			logger.Error("redis createRedisClusterResources_Stat (rc) error", err)
+			return
+		}
+		
 		println("redis cluster", serviceInfo.Database, "created.")
 	}()
 
 	// ...
 
-	serviceSpec.DashboardURL = ""
+	serviceSpec.DashboardURL = "http://" + stat.route.Spec.Host
 
 	//>>>
 	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, announceInfos) //nodePort)
@@ -543,7 +578,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 
 		// add new nodes to cluster and rebalance
 
-		err = addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, oldPeers, newNumNodes)
+		serverIPs, err := addRedisMasterNodeAndRebalance(namespace, instanceId, nodePorts, oldPeers, newNumNodes)
 		if err != nil {
 			logger.Error("DoUpdate: redis addRedisMasterNodeAndRebalance error", err)
 			return err
@@ -558,8 +593,25 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		err = callbackSaveNewInfo(myServiceInfo)
 		if err != nil {
 			logger.Error("redis cluster add nodes succeeded but save info error", err)
+			// todo: how to rollback redis cluster config?
 			return err
 		}
+		
+		// update dashboard rc
+		
+		_, err = updateRedisClusterResources_Stat(
+			namespace,
+			instanceId,
+			myServiceInfo.Password,
+			serverIPs,
+		)
+		if err != nil {
+			logger.Error("DoUpdate: redis updateRedisClusterResources_Stat error", err)
+			// todo: how to rollback redis cluster config?
+			// return // better to still succeed, maybe.
+		}
+		
+		// ...
 
 		println("[DoUpdate] redis cluster. updated info saved.")
 		fmt.Println("[DoUpdate] redis cluster. updated info saved.")
@@ -589,6 +641,14 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 				}
 			}
 		}
+		
+		stat, _ := getRedisClusterResources_Stat(
+			myServiceInfo.Database,
+			myServiceInfo.Url,
+			myServiceInfo.Password,
+			nil,
+		)
+		destroyRedisClusterResources_Stat(stat, myServiceInfo.Database)
 
 		master_reses, _ := getRedisClusterResources_Peers(
 			myServiceInfo.Database,
@@ -714,14 +774,14 @@ func runRedisTrib(serviceBrokerNamespace, instanceId, command string, args []str
 	return kpost(serviceBrokerNamespace, "pods", &pod, nil)
 }
 
-func getPeerAddr(peer *redisResources_Peer) string {
+func getPeerAddr(peer *redisResources_Peer) (string, string) {
 	ip := peer.serviceNodePort.Spec.ClusterIP
 	port := strconv.Itoa(peer.serviceNodePort.Spec.Ports[0].Port)
 	// res.serviceNodePort.Name is not ok, but ip is ok. Don't know why.
-	return ip + ":" + port
+	return ip + ":" + port, ip
 }
 
-func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numMasters int, password string) error {
+func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*redisResources_Peer, numMasters int, password string) ([]string, error) {
 	cmd := "ruby"
 	args := make([]string, 0, 100)
 	if password != "" {
@@ -733,21 +793,33 @@ func initRedisMasterSlots(serviceBrokerNamespace, instanceId string, peers []*re
 		args = append(args, "/usr/local/bin/redis-trib.rb")
 		args = append(args, "create")
 	}
+	
+	serverIPs := make([]string, 0, len(peers))
 	for _, res := range peers {
-		args = append(args, getPeerAddr(res))
+		addr, ip := getPeerAddr(res)
+		args = append(args, addr)
+		serverIPs = append(serverIPs, ip)
 	}
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", numMasters)
+	err := runRedisTrib(serviceBrokerNamespace, instanceId, cmd, args, "", numMasters)
+	return serverIPs, err
 }
 
-func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, oldPeers []*redisResources_Peer, newNumNodes int) error {
+func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, newPeers []*redisResources_Peer, oldPeers []*redisResources_Peer, newNumNodes int) ([]string, error) {
 
 	var oldPeerAddr string
+	
+	serverIPs := make([]string, 0, len(newPeers) + len(oldPeers))
+	for _, oldPeer := range oldPeers {
+		_ , ip := getPeerAddr(oldPeer)
+		serverIPs = append(serverIPs, ip)
+	}	
 
 	script := ""
 	for _, newPeer := range newPeers {
-		newPeerAddr := getPeerAddr(newPeer)
+		newPeerAddr, newPeerIp := getPeerAddr(newPeer)
+		serverIPs = append(serverIPs, newPeerIp)
 		for _, oldPeer := range oldPeers {
-			oldPeerAddr = getPeerAddr(oldPeer)
+			oldPeerAddr, _ = getPeerAddr(oldPeer)
 			script += ">&2 echo ============== add new node: " + newPeerAddr + " for " + oldPeerAddr + " ==============\n\n"
 			script += ">&2 ruby /usr/local/bin/redis-trib.rb add-node " + newPeerAddr + " " + oldPeerAddr + "\n\n"
 		}
@@ -759,7 +831,8 @@ func addRedisMasterNodeAndRebalance(serviceBrokerNamespace, instanceId string, n
 	script += ">&2 echo ============== rebalance done. ==============\n\n"
 
 	cmd := "/usr/local/bin/run-custom-script.sh"
-	return runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, newNumNodes)
+	err := runRedisTrib(serviceBrokerNamespace, instanceId, cmd, nil, script, newNumNodes)
+	return serverIPs, err
 }
 
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
@@ -875,9 +948,42 @@ func loadRedisClusterResources_Peer(instanceID, peerID, redisPassword string, co
 	return decoder.Err
 }
 
+var redisStatYamlTemplate = template.Must(template.ParseFiles("redis-stat.yaml"))
+
+func loadRedisClusterResources_Stat(instanceID, redisPassword string, serverIPs []string, res *redisResources_Stat) error {
+
+	var params = map[string]interface{}{
+		"InstanceID":     instanceID,
+		"RedisPassword":  redisPassword,
+		"ServerIPs":      serverIPs,
+		"EndPointSuffix": oshandler.EndPointSuffix(),
+		"Image":          oshandler.RedisStatImage(),
+	}
+
+	var buf bytes.Buffer
+	err := redisStatYamlTemplate.Execute(&buf, params)
+	if err != nil {
+		return err
+	}
+
+	decoder := oshandler.NewYamlDecoder(buf.Bytes())
+	decoder.
+		Decode(&res.rc).
+		Decode(&res.service).
+		Decode(&res.route)
+
+	return decoder.Err
+}
+
 type redisResources_Peer struct {
 	serviceNodePort kapi.Service
 	dc              dcapi.DeploymentConfig
+}
+
+type redisResources_Stat struct {
+	rc      kapi.ReplicationController
+	service kapi.Service
+	route   routeapi.Route
 }
 
 func createRedisClusterResources_Peers(serviceBrokerNamespace string,
@@ -1020,6 +1126,100 @@ func destroyRedisClusterResources_Peer(masterRes *redisResources_Peer, serviceBr
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
 }
 
+
+
+
+
+func createRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisPassword string, serverIPs []string) (*redisResources_Stat, *redisResources_Stat, error) {
+	var input redisResources_Stat
+	err := loadRedisClusterResources_Stat(instanceID, redisPassword, serverIPs, &input)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var output redisResources_Stat
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	
+	if serverIPs == nil {
+		osr.
+			KPost(prefix+"/services", &input.service, &output.service).
+			OPost(prefix+"/routes", &input.route, &output.route)
+	} else {
+		osr.KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
+	}
+
+	if osr.Err != nil {
+		logger.Error("createRedisClusterResources_Stat error", osr.Err)
+	}
+
+	return &output, &input, osr.Err
+}
+
+func updateRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisPassword string, serverIPs []string) (*redisResources_Stat, error) {
+	var input redisResources_Stat
+	err := loadRedisClusterResources_Stat(instanceID, redisPassword, serverIPs, &input)
+	if err != nil {
+		return nil, err
+	}
+	
+	err = kdel(serviceBrokerNamespace, "replicationcontrollers", input.rc.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	var output redisResources_Stat
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
+	if osr.Err != nil {
+		logger.Error("updateRedisClusterResources_Stat error", osr.Err)
+	} else {
+		// n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Labels)
+		n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Spec.Selector)
+		println("updateRedisClusterResources_Stat:", n, "pods are deleted.")
+	}
+
+	return &output, osr.Err
+}
+
+func getRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisPassword string, serverIPs []string) (*redisResources_Stat, error) {
+
+	var output redisResources_Stat
+
+	var input redisResources_Stat
+	err := loadRedisClusterResources_Stat(instanceID, redisPassword, serverIPs, &input)
+	if err != nil {
+		return &output, err
+	}
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.
+		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc).
+		KGet(prefix+"/services/"+input.service.Name, &output.service).
+		OGet(prefix+"/routes/"+input.route.Name, &output.route)
+
+	if osr.Err != nil {
+		logger.Error("getRedisClusterResources_Stat", osr.Err)
+	}
+
+	return &output, osr.Err
+}
+
+func destroyRedisClusterResources_Stat(statRes *redisResources_Stat, serviceBrokerNamespace string) {
+	// todo: add to retry queue on fail
+	if statRes == nil {
+		return
+	}
+	go func() { kdel_rc(serviceBrokerNamespace, &statRes.rc) }()
+	go func() { kdel(serviceBrokerNamespace, "services", statRes.service.Name) }()
+	go func() { odel(serviceBrokerNamespace, "routes", statRes.route.Name) }()
+}
+
 //===============================================================
 //
 //===============================================================
@@ -1075,6 +1275,74 @@ RETRY:
 	return nil
 }
 
+func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
+	// looks pods will be auto deleted when rc is deleted.
+
+	if rc == nil || rc.Name == "" {
+		return
+	}
+
+	println("to delete pods on replicationcontroller", rc.Name)
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
+
+	// modfiy rc replicas to 0
+
+	zero := 0
+	rc.Spec.Replicas = &zero
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KPut(uri, rc, nil)
+	if osr.Err != nil {
+		logger.Error("Modify Tensorflow rc", osr.Err)
+		return
+	}
+
+	// start watching rc status
+
+	statuses, cancel, err := oshandler.OC().KWatch(uri)
+	if err != nil {
+		logger.Error("Start Watching Tensorflow rc", err)
+		return
+	}
+
+	go func() {
+		for {
+			status, _ := <-statuses
+
+			if status.Err != nil {
+				logger.Error("Watch Tensorflow rc error", status.Err)
+				close(cancel)
+				return
+			} else {
+				//logger.Debug("watch tensorflow HA rc, status.Info: " + string(status.Info))
+			}
+
+			var wrcs watchReplicationControllerStatus
+			if err := json.Unmarshal(status.Info, &wrcs); err != nil {
+				logger.Error("Parse Master Tensorflow rc status", err)
+				close(cancel)
+				return
+			}
+
+			if wrcs.Object.Status.Replicas <= 0 {
+				break
+			}
+		}
+
+		// ...
+
+		kdel(serviceBrokerNamespace, "replicationcontrollers", rc.Name)
+	}()
+
+	return
+}
+
+type watchReplicationControllerStatus struct {
+	// The type of watch update contained in the message
+	Type string `json:"type"`
+	// RC details
+	Object kapi.ReplicationController `json:"object"`
+}
+
 func odel(serviceBrokerNamespace, typeName, resName string) error {
 	if resName == "" {
 		return nil
@@ -1128,4 +1396,36 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	}
 
 	return nrunnings, nil
+}
+
+func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
+
+	println("to delete created pods in", serviceBrokerNamespace)
+	if len(labels) == 0 {
+		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
+	}
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
+
+	pods := kapi.PodList{}
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
+	if osr.Err != nil {
+		return 0, osr.Err
+	}
+
+	ndeleted := 0
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+
+		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+
+		if pod.Status.Phase != kapi.PodSucceeded {
+			ndeleted++
+			kdel(serviceBrokerNamespace, "pods", pod.Name)
+		}
+	}
+
+	return ndeleted, nil
 }
