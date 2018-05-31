@@ -418,12 +418,20 @@ $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf68
 
 ###创建套餐目录
 $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan
-###创建套餐(pvc)
+###创建套餐1(dataiku_standalone)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/description "Dataiku on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Dataiku节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Dataiku的cpu数量"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/free true
+
+###创建套餐2(dataiku_pvc_standalone)
+#$ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/name "volumes_standalone"
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/description "HA Dataiku on Openshift"
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Dataiku节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Dataiku的cpu数量"}} }'
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/free true
+
 
 
 
@@ -437,7 +445,7 @@ $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E5
 
 ###创建套餐目录
 $ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan
-###创建套餐(pvc)
+###创建套餐(standalone)
 $ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/plan/F344A7E1-2E49-4BA4-8BEF-42FFCC7AEB14/description "Zeppelin on Openshift"
@@ -463,8 +471,14 @@ $ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe6
 $ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/name "standalone"
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/description "Anaconda on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" ,"customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Anaconda节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Anaconda的cpu数量"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/521a4a06-175a-43e6-b1bc-d9c684f76a0d/free true
+###创建套餐(volume_pvc)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/name "volume_standalone"
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/description "Anaconda on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" ,"customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Anaconda节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Anaconda的cpu数量"}} }'
+$ETCDCTL set /servicebroker/openshift/catalog/dfc126e9-181a-4d13-a367-f84edfe617ed/plan/a321538f-dee1-4511-93fd-96ade8fee82e/free true
 
 
 

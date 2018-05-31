@@ -25,10 +25,17 @@ spec:
             memory: "memory*****Mi"
             cpu: "cpu*****"
         terminationMessagePath: /dev/termination-log
+        volumeMounts:
+        - mountPath: /usr/share/dataiku/data
+          name: dataiku-volume
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       securityContext: {}
       terminationGracePeriodSeconds: 30
+      volumes:
+      - name: dataiku-volume
+        persistentVolumeClaim:
+          claimName: "pvcname*****node"
 ---
 apiVersion: v1
 kind: Route

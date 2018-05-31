@@ -30,10 +30,18 @@ spec:
         - containerPort: 8888
         resources: {}
         terminationMessagePath: /dev/termination-log
+        volumeMounts:
+          - mountPath: /usr/share/anaconda/data
+            name: anaconda-volume
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       securityContext: {}
       terminationGracePeriodSeconds: 30
+      volumes:
+        - name: anaconda-volume
+          persistentVolumeClaim:
+            claimName: "anaconda-pvc-volume"
+
 ---
 apiVersion: v1
 kind: Route
