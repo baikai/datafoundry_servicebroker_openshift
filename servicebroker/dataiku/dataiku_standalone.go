@@ -1,20 +1,20 @@
 package dataiku
 
 import (
-	"errors"
-	"fmt"
-	"github.com/pivotal-cf/brokerapi"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
+	"github.com/pivotal-cf/brokerapi"
+	"github.com/pivotal-golang/lager"
+	"io/ioutil"
+	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"net/http"
+	"os"
 	"strconv"
 	"strings"
-	"io/ioutil"
-	"os"
-	"github.com/pivotal-golang/lager"
-	routeapi "github.com/openshift/origin/route/api/v1"
-	kapi "k8s.io/kubernetes/pkg/api/v1"
-	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
-	"net/http"
 )
 
 //==============================================================
@@ -144,7 +144,6 @@ func retrieveCPUFromPlanInfo(planInfo oshandler.PlanInfo, defaultCPU float64) (n
 	return
 }
 
-
 func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceID string, details brokerapi.ProvisionDetails, planInfo oshandler.PlanInfo, asyncAllowed bool) (brokerapi.ProvisionedServiceSpec, oshandler.ServiceInfo, error) {
 
 	//初始化到openshift的链接
@@ -163,8 +162,7 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		println("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
-	logger.Info("Dataiku Limit parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(dataikuCPU, 'f', 1, 64),"memory": strconv.Itoa(dataikuMemory) + "Mi"})
-
+	logger.Info("Dataiku Limit parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(dataikuCPU, 'f', 1, 64), "memory": strconv.Itoa(dataikuMemory) + "Mi"})
 
 	serviceSpec.IsAsync = true
 
@@ -174,7 +172,6 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	dataikuPassword := "" // oshandler.GenGUID()
 
 	logger.Info("Dataiku Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
-
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
@@ -192,7 +189,7 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		}
 
 		// master dataiku
-		output, err := createDataikuResources_Master(instanceIdInTempalte, serviceBrokerNamespace, dataikuUser, dataikuPassword,dataikuMemory, dataikuCPU)
+		output, err := createDataikuResources_Master(instanceIdInTempalte, serviceBrokerNamespace, dataikuUser, dataikuPassword, dataikuMemory, dataikuCPU)
 
 		if err != nil {
 			destroyDataikuResources_Master(output, serviceBrokerNamespace)
@@ -203,7 +200,7 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	}()
 
 	var input dataikuResources_Master
-	err = loadDataikuResources_Master(instanceIdInTempalte, dataikuUser, dataikuPassword,dataikuMemory, dataikuCPU, &input)
+	err = loadDataikuResources_Master(instanceIdInTempalte, dataikuUser, dataikuPassword, dataikuMemory, dataikuCPU, &input)
 	if err != nil {
 		return serviceSpec, serviceInfo, err
 	}
@@ -225,7 +222,7 @@ func (handler *Dataiku_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
-	master_res, _ := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	master_res, _ := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -270,7 +267,7 @@ func (handler *Dataiku_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceIn
 
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
-	master_res, _ := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	master_res, _ := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 	destroyDataikuResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
@@ -282,7 +279,7 @@ func (handler *Dataiku_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bin
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
 
-	master_res, err := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	master_res, err := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
@@ -330,7 +327,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	var master_res dataikuResources_Master
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
-	err := loadDataikuResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password,memory,cpu, &master_res)
+	err := loadDataikuResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, memory, cpu, &master_res)
 	if err != nil {
 		logger.Error("getCredentialsOnPrivision loadDataikuResources_Master error ", err)
 		return oshandler.Credentials{}
@@ -353,9 +350,9 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	}
 }
 
-func createDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUser, dataikuPassword string,dataikuMemory int, dataikuCPU float64) (*dataikuResources_Master, error) {
+func createDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUser, dataikuPassword string, dataikuMemory int, dataikuCPU float64) (*dataikuResources_Master, error) {
 	var input dataikuResources_Master
-	err := loadDataikuResources_Master(instanceId, dataikuUser, dataikuPassword,dataikuMemory, dataikuCPU, &input)
+	err := loadDataikuResources_Master(instanceId, dataikuUser, dataikuPassword, dataikuMemory, dataikuCPU, &input)
 	if err != nil {
 		logger.Error("createDataikuResources_Master loadDataikuResources_Master error ", err)
 		return nil, err
@@ -381,7 +378,7 @@ func createDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUs
 
 var DataikuTemplateData_Master []byte = nil
 
-func loadDataikuResources_Master(instanceID, dataikuUser, dataikuPassword string,dataikuMemory int, dataikuCPU float64, res *dataikuResources_Master) error {
+func loadDataikuResources_Master(instanceID, dataikuUser, dataikuPassword string, dataikuMemory int, dataikuCPU float64, res *dataikuResources_Master) error {
 	if DataikuTemplateData_Master == nil {
 		f, err := os.Open("dataiku.yaml")
 		if err != nil {
@@ -431,11 +428,11 @@ func loadDataikuResources_Master(instanceID, dataikuUser, dataikuPassword string
 	return decoder.Err
 }
 
-func getDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUser, dataikuPassword string,dataikuMemory int, dataikuCPU float64) (*dataikuResources_Master, error) {
+func getDataikuResources_Master(instanceId, serviceBrokerNamespace, dataikuUser, dataikuPassword string, dataikuMemory int, dataikuCPU float64) (*dataikuResources_Master, error) {
 	var output dataikuResources_Master
 
 	var input dataikuResources_Master
-	err := loadDataikuResources_Master(instanceId, dataikuUser, dataikuPassword, dataikuMemory,dataikuCPU,&input)
+	err := loadDataikuResources_Master(instanceId, dataikuUser, dataikuPassword, dataikuMemory, dataikuCPU, &input)
 	if err != nil {
 		logger.Error("loadDataikuResources_Master error ", err)
 		return &output, err
