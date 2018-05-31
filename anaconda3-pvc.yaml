@@ -31,16 +31,16 @@ spec:
         resources: {}
         terminationMessagePath: /dev/termination-log
         volumeMounts:
-          - mountPath: /anaconda/share/data
-            name: data
+          - mountPath: /usr/share/anaconda/data
+            name: anaconda-volume
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       securityContext: {}
       terminationGracePeriodSeconds: 30
       volumes:
-        - name: data
+        - name: anaconda-volume
           persistentVolumeClaim:
-            claimName: "pvc-name-replace0"
+            claimName: "anaconda-pvc-volume"
 
 ---
 apiVersion: v1

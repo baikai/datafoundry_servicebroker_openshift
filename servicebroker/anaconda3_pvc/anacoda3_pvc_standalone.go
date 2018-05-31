@@ -10,13 +10,11 @@ import (
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-golang/lager"
 	"io/ioutil"
-	kresource "k8s.io/kubernetes/pkg/api/resource"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 //==============================================================
@@ -177,7 +175,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
-	//获取memory参数，获取不到就设置为默认的500
+	//获取memory参数，获取不到就设置为默认的2000
 	anacondaMemory, err := retrieveMemoryFromPlanInfo(planInfo, DefaultAnacondaMemory) // Mi
 	if err != nil {
 		println("retrieveMemoryFromPlanInfo error: ", err.Error())
@@ -245,7 +243,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		}
 
 		// master
-		output, err := createAnacodaResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password,anacondaMemory,anacondaCPU)
+		output, err := createAnacodaResources_Master(instanceIdInTempalte, serviceBrokerNamespace, serviceInfo.User, serviceInfo.Password,anacondaMemory,anacondaCPU,volumes)
 
 		if err != nil {
 			logger.Error("createAnacodaResources_Master error ", err)
@@ -256,7 +254,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	}()
 
 	var input anacodaResources_Master
-	err = loadAnacodaResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password,anacondaMemory,anacondaCPU,&input)
+	err = loadAnacodaResources_Master(instanceIdInTempalte, serviceInfo.User, serviceInfo.Password,anacondaMemory,anacondaCPU,volumes,&input)
 	if err != nil {
 		logger.Error("loadAnacodaResources_Master error ", err)
 		return serviceSpec, serviceInfo, err
@@ -279,7 +277,7 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
-	master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu,myServiceInfo.Volumes)
 
 	ok := func(rc *kapi.ReplicationController) bool {
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
@@ -311,183 +309,9 @@ func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 }
 
 func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, planInfo oshandler.PlanInfo, callbackSaveNewInfo func(*oshandler.ServiceInfo) error, asyncAllowed bool) error {
-
-	var oldMemory int
-	var oldCPU float64
-
-	{
-		nMemory, err := oshandler.ParseInt64(myServiceInfo.Miscs[Key_AnacondaMemory])
-		if err != nil {
-			nMemory = DefaultAnacondaMemory
-		}
-		oldMemory = int(nMemory)
-
-		nCPU, err := oshandler.ParseFloat64(myServiceInfo.Miscs[Key_AnacondaCPU])
-		if err != nil {
-			nCPU = DefaultAnacondaCPU
-		}
-		oldCPU = nCPU
-	}
-
-	newMemory, err := retrieveMemoryFromPlanInfo(planInfo, oldMemory) // Mi
-	if err != nil {
-		println("retrieveMemoryFromPlanInfo error: ", err.Error())
-	}
-
-	newCPU, err := retrieveCPUFromPlanInfo(planInfo, oldCPU)
-	if err != nil {
-		println("retrieveCPUFromPlanInfo error: ", err.Error())
-	}
-
-	logger.Info("Anaconda old parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(oldCPU, 'f', 1, 64), "memory": strconv.Itoa(oldMemory) + "Mi"})
-
-	logger.Info("Anaconda new parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(newCPU, 'f', 1, 64), "memory": strconv.Itoa(newMemory) + "Mi"})
-
-	if true {
-
-		authInfoChanged := myServiceInfo.Miscs[Key_AnacondaMemory] != strconv.Itoa(newMemory) ||
-			myServiceInfo.Miscs[Key_AnacondaCPU] != strconv.FormatFloat(newCPU, 'f', 1, 64)
-
-		println("To update Anaconda instance.")
-
-		go func() {
-			if authInfoChanged {
-				// ...
-				err := updateAnacondaResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,
-					newMemory, newCPU, authInfoChanged)
-				if err != nil {
-					println("Failed to update storm external instance (nimbus). Error:", err.Error())
-					return
-				}
-			}
-
-			println("Zeppelin instance is updated.")
-
-			myServiceInfo.Miscs[Key_AnacondaMemory] = strconv.Itoa(newMemory)
-			myServiceInfo.Miscs[Key_AnacondaCPU] = strconv.FormatFloat(newCPU, 'f', 1, 64)
-
-			err = callbackSaveNewInfo(myServiceInfo)
-			if err != nil {
-				logger.Error("Zeppelin instance is update but save info error", err)
-			}
-
-		}()
-	} else {
-		println("Zeppelin instance is not update.")
-	}
-
 	return nil
 }
 
-func updateAnacondaResources(instanceId, serviceBrokerNamespace, zeppelinUsr, zeppelinPassward string,
-	newMemory int, newCPU float64,
-	authInfoChanged bool) error {
-
-	var input anacodaResources_Master
-
-	err := loadAnacodaResources_Master(instanceId, zeppelinUsr, zeppelinPassward, newMemory, newCPU, &input)
-
-	if err != nil {
-		logger.Error("updateStormResources_Superviser. load error", err)
-		return err
-	}
-
-	prefix := "/namespaces/" + serviceBrokerNamespace
-
-	var middle anacodaResources_Master
-	osr := oshandler.NewOpenshiftREST(oshandler.OC())
-	osr.
-		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &middle.rc)
-
-	if osr.Err != nil {
-		logger.Error("updateAnacondaResources. get error", osr.Err)
-		return osr.Err
-	}
-
-	// update ...
-
-	if middle.rc.Spec.Template == nil || len(middle.rc.Spec.Template.Spec.Containers) == 0 {
-		err = errors.New("rc.Template is nil or len(containers) == 0")
-		logger.Error("updateAnacondaResources, zrrc.", err)
-		return err
-	}
-
-	// Limit Memory
-	{
-		m, err := kresource.ParseQuantity(strconv.Itoa(newMemory) + "Mi")
-		if err != nil {
-			logger.Error("updateAnacondaResources.", err)
-			return err
-		}
-		middle.rc.Spec.Template.Spec.Containers[0].Resources.Limits[kapi.ResourceMemory] = *m
-	}
-
-	// Limit CPU
-	{
-		c, err := kresource.ParseQuantity(strconv.FormatFloat(newCPU, 'f', 1, 64))
-		if err != nil {
-			logger.Error("updateAnacondaResources.", err)
-			return err
-		}
-
-		middle.rc.Spec.Template.Spec.Containers[0].Resources.Limits[kapi.ResourceCPU] = *c
-	}
-
-	//updateing PUT
-	var output anacodaResources_Master
-	osr.
-		KPut(prefix+"/replicationcontrollers/"+input.rc.Name, &middle.rc, &output.rc)
-	if osr.Err != nil {
-		logger.Error("updateAnacondaResources. update error", osr.Err)
-		return osr.Err
-	}
-
-	// ...
-
-	if authInfoChanged {
-		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.rc.Labels)
-		println("updateStormResources_Nimbus:", n, "pods are deleted.")
-		if err2 != nil {
-			err = err2
-		} else {
-			time.Sleep(time.Second * 10)
-		}
-	}
-
-	return err
-}
-
-func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
-
-	println("to delete created pods in", serviceBrokerNamespace)
-	if len(labels) == 0 {
-		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
-	}
-
-	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
-
-	pods := kapi.PodList{}
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
-	if osr.Err != nil {
-		return 0, osr.Err
-	}
-
-	ndeleted := 0
-
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
-
-		if pod.Status.Phase != kapi.PodSucceeded {
-			ndeleted++
-			kdel(serviceBrokerNamespace, "pods", pod.Name)
-		}
-	}
-
-	return ndeleted, nil
-}
 
 
 func (handler *Anacoda_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
@@ -498,47 +322,19 @@ func (handler *Anacoda_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceIn
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
 
-	master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu,myServiceInfo.Volumes)
 	destroyAnacodaResources_Master(master_res, myServiceInfo.Database)
 
 	return brokerapi.IsAsync(false), nil
 }
 
-// please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
-	var master_res anacodaResources_Master
-	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
-	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
-	err := loadAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password,memory,cpu ,&master_res)
-	if err != nil {
-		logger.Error("getCredentialsOnPrivision loadAnacodaResources_Master error ", err)
-		return oshandler.Credentials{}
-	}
 
-	web_port := oshandler.GetServicePortByName(&master_res.service, "web")
-	if web_port == nil {
-		return oshandler.Credentials{}
-	}
-
-	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
-	port := strconv.Itoa(web_port.Port)
-	//host := master_res.routeMQ.Spec.Host
-	//port := "80"
-
-	return oshandler.Credentials{
-		Uri:      "",
-		Hostname: host,
-		Port:     port,
-		Username: myServiceInfo.User,
-		Password: myServiceInfo.Password,
-	}
-}
 
 func (handler *Anacoda_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
-	master_res, err := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu)
+	master_res, err := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu,myServiceInfo.Volumes)
 	if err != nil {
 		logger.Error("DoBind getAnacodaResources_Master error ", err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
@@ -577,9 +373,65 @@ func (handler *Anacoda_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, m
 //
 //=======================================================================
 
+// please note: the bsi may be still not fully initialized when calling the function.
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
+	var master_res anacodaResources_Master
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
+	err := loadAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password,memory,cpu,myServiceInfo.Volumes ,&master_res)
+	if err != nil {
+		logger.Error("getCredentialsOnPrivision loadAnacodaResources_Master error ", err)
+		return oshandler.Credentials{}
+	}
+
+	web_port := oshandler.GetServicePortByName(&master_res.service, "web")
+	if web_port == nil {
+		return oshandler.Credentials{}
+	}
+
+	host := fmt.Sprintf("%s.%s.%s", master_res.service.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	port := strconv.Itoa(web_port.Port)
+	//host := master_res.routeMQ.Spec.Host
+	//port := "80"
+
+	return oshandler.Credentials{
+		Uri:      "",
+		Hostname: host,
+		Port:     port,
+		Username: myServiceInfo.User,
+		Password: myServiceInfo.Password,
+	}
+}
+
+func createAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacondaUser, anacondaPassword string,anacondaMemory int, anacondaCPU float64,volumes []oshandler.Volume) (*anacodaResources_Master, error) {
+	var input anacodaResources_Master
+	err := loadAnacodaResources_Master(instanceId, anacondaUser, anacondaPassword, anacondaMemory,anacondaCPU,volumes,&input)
+	if err != nil {
+		logger.Error("createAnacodaResources_Master loadAnacodaResources_Master error ", err)
+		return nil, err
+	}
+
+	var output anacodaResources_Master
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	// here, not use job.post
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.
+		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc).
+		OPost(prefix+"/routes", &input.route, &output.route).
+		KPost(prefix+"/services", &input.service, &output.service)
+
+	if osr.Err != nil {
+		logger.Error("createAnacodaResources_Master", osr.Err)
+	}
+
+	return &output, osr.Err
+}
+
 var AnacondaTemplateData_Master []byte = nil
 
-func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string, anacondaMemory int, anacondaCPU float64,res *anacodaResources_Master) error {
+func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string, anacondaMemory int, anacondaCPU float64,volumes []oshandler.Volume,res *anacodaResources_Master) error {
 	if AnacondaTemplateData_Master == nil {
 		f, err := os.Open("anaconda3.yaml")
 		if err != nil {
@@ -613,6 +465,7 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 	// ...
 
 	yamlTemplates := AnacondaTemplateData_Master
+	peerPvcName0 := peerPvcName0(volumes)
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
 	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("sb-token"), []byte(anacodaPassword), -1)
@@ -620,6 +473,7 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 	//yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(anacondaPassword), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("memory*****"), []byte(strconv.Itoa(anacondaMemory)), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("cpu*****"), []byte(strconv.FormatFloat(anacondaCPU, 'f', 1, 64)), -1)
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("anaconda-pvc-volume"), []byte(peerPvcName0), -1)
 
 
 
@@ -642,37 +496,11 @@ type anacodaResources_Master struct {
 	service kapi.Service
 }
 
-func createAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacondaUser, anacondaPassword string,anacondaMemory int, anacondaCPU float64) (*anacodaResources_Master, error) {
-	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceId, anacondaUser, anacondaPassword, anacondaMemory,anacondaCPU,&input)
-	if err != nil {
-		logger.Error("createAnacodaResources_Master loadAnacodaResources_Master error ", err)
-		return nil, err
-	}
-
-	var output anacodaResources_Master
-
-	osr := oshandler.NewOpenshiftREST(oshandler.OC())
-
-	// here, not use job.post
-	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.
-		KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc).
-		OPost(prefix+"/routes", &input.route, &output.route).
-		KPost(prefix+"/services", &input.service, &output.service)
-
-	if osr.Err != nil {
-		logger.Error("createAnacodaResources_Master", osr.Err)
-	}
-
-	return &output, osr.Err
-}
-
-func getAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacodaUser, anacodaPassword string,anacondaMemory int, anacondaCPU float64) (*anacodaResources_Master, error) {
+func getAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacodaUser, anacodaPassword string,anacondaMemory int, anacondaCPU float64,volumes []oshandler.Volume) (*anacodaResources_Master, error) {
 	var output anacodaResources_Master
 
 	var input anacodaResources_Master
-	err := loadAnacodaResources_Master(instanceId, anacodaUser, anacodaPassword,anacondaMemory,anacondaCPU, &input)
+	err := loadAnacodaResources_Master(instanceId, anacodaUser, anacodaPassword,anacondaMemory,anacondaCPU,volumes, &input)
 	if err != nil {
 		return &output, err
 	}
