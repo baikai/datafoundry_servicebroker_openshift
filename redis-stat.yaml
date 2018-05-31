@@ -20,6 +20,10 @@ spec:
         name: redis-stat
         {{- if .ServerIPs }}
         args:
+        {{- if .RedisPassword }}
+        - --auth
+        - '{{- .RedisPassword }}'
+        {{- end}}
         {{- range .ServerIPs }}
         - '{{- . }}'
         {{- end}}
