@@ -364,10 +364,12 @@ var redisYamlTemplate = template.Must(template.ParseFiles("redis-single-pvc-mast
 
 func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes []oshandler.Volume, res *redisResources_Master) error {
 
+	pvcName := masterPvcName(volumes)
+	
 	var params = map[string]interface{}{
 		"InstanceID":    instanceID,
 		"Password":      redisPassword,
-		"PvcNameMaster": masterPvcName,
+		"PvcNameMaster": pvcName,
 		"Image":         oshandler.Redis32Image(),
 	}
 
