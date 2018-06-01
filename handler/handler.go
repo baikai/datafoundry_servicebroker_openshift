@@ -272,6 +272,10 @@ func RedisClusterImage() string {
 	return redisClusterImage
 }
 
+func RedisStatImage() string {
+	return redisStatImage
+}
+
 //func RedisClusterTribImage() string {
 //	return redisClusterTribImage
 //}
@@ -411,9 +415,9 @@ var zookeeperexhibitorImage string
 var redisImage string
 var redis32Image string
 var redisClusterImage string
-
+var redisStatImage string
 //var redisClusterTribImage string // merged into redisClusterImage
-var redisphpadminImage string
+var redisphpadminImage string // looks useless
 var kafkaImage string
 var stormImage string
 var cassandraImage string
@@ -480,6 +484,7 @@ func init() {
 	redisImage = getenv("REDISIMAGE")
 	redis32Image = getenv("REDIS32IMAGE")
 	redisClusterImage = getenv("REDISCLUSTERIMAGE")
+	redisStatImage = getenv("REDISSTATIMAGE")
 	//redisClusterTribImage = getenv("REDISCLUSTERTRIBIMAGE")
 	redisphpadminImage = getenv("REDISPHPADMINIMAGE")
 	kafkaImage = getenv("KAFKAIMAGE")

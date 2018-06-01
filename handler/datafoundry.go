@@ -127,9 +127,8 @@ func ExpandVolumn(namespace, volumnName string, oldSize int, newSize int) error 
 
 	if err != nil {
 		logger.Error("ExpandVolume(), failed", err)
-	} else {
-		logger.Debug("ExpandVolume(), it seems everything goes well")
 	}
+
 	return err
 }
 

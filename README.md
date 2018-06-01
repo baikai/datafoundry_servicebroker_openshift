@@ -315,6 +315,7 @@ Service Broker Instance Pod Images
 * REDIS32IMAGE: Redis 单Master镜像
 * REDISCLUSTERIMAGE: Redis分布式Cluster镜像
 * REDISCLUSTERTRIBIMAGE: Redis Cluster trib.rb 镜像 （已不再需要）
+* REDISSTATIMAGE: Reids Stat 镜像 (used as dashboard)
 * SIMPLEFILEUPLOADERIMAGE: Simple File Uploader 镜像
 * STORMIMAGE: Storm 镜像
 * STORMEXTERNALIMAGE: Storm 镜像 (need external ZooKeeper)

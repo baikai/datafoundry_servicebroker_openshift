@@ -160,7 +160,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 		// create master res
 
-		output, err := createMysqlResources_Master(
+		_, input, err := createMysqlResources_Master(
 			serviceInfo.Url,
 			serviceInfo.Database,
 			serviceInfo.User,
@@ -170,8 +170,10 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		if err != nil {
 			println(" mysql createMysqlResources_Master error: ", err)
 			logger.Error("mysql createMysqlResources_Master error", err)
-
-			destroyMysqlResources_Master(output, serviceBrokerNamespace)
+			
+			if input != nil {
+				destroyMysqlResources_Master(input, serviceBrokerNamespace)
+			}
 			//oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
 			return
@@ -424,11 +426,11 @@ type mysqlResources_Master struct {
 	routePma   routeapi.Route
 }
 
-func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string, volumeSize int) (*mysqlResources_Master, error) {
+func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string, volumeSize int) (*mysqlResources_Master, *mysqlResources_Master, error) {
 	var input mysqlResources_Master
 	err := loadMysqlResources_Master(instanceId, mysqlUser, mysqlPassword, volumeSize, &input)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var output mysqlResources_Master
@@ -450,7 +452,7 @@ func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, 
 		logger.Error("createMysqlHaResources_Master", osr.Err)
 	}
 
-	return &output, osr.Err
+	return &output, &input, osr.Err
 }
 
 func createMysqlResources_NodePort(input *mysqlResources_Master, serviceBrokerNamespace string) (*mysqlResources_Master, error) {

@@ -399,14 +399,14 @@ $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF
 $ETCDCTL mkdir /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/name "Cluster"
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/description "Elasticsearch (6.2.2) Cluster on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["20 GB of Disk","3 replicas"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1, "max": 30, "desc":"Elasticsearch集群实例数量"},"volume":{"default":10,"unit":"GB","step":1, "max":100, "desc":"单个实例存储容量设置"}} }'
+$ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/metadata '{"bullets":["3 replicas", "20 GB of Disk", "0.5 cpu", "2G memory"],"displayName":"Shared and Free", "customize":{"replicas":{"default":3,"unit":"nodes","step":1, "max": 30, "desc":"Elasticsearch集群实例数量"},"volume":{"default":5,"unit":"GB","step":1, "max":100, "desc":"单个实例存储容量设置"}, "cpu":{"default":0.5,"unit":"core","step":0.1, "max": 2, "desc":"单个实例分配的cpu数量"}, "mem":{"default":2,"unit":"Gi","step":1, "max": 24, "desc":"单个实例分配的内存数量"}} }'
 $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF47/plan/95cd832a-52a3-11e8-92bf-fa163e3e1b52/free true
 
 
 
 
 
-###创建服务 Dataku
+###创建服务 Dataiku
 $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f
 
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/name "Dataiku"
@@ -419,18 +419,18 @@ $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf68
 ###创建套餐目录
 $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan
 ###创建套餐1(dataiku_standalone)
-$ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc
-$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/name "standalone"
-$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/description "Dataiku on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Dataiku节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Dataiku的cpu数量"}} }'
-$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/free true
+#$ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/name "standalone"
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/description "Dataiku on Openshift"
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Dataiku节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Dataiku的cpu数量"}} }'
+#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/3286b8bb-790b-40bc-aeaf-46a0a788f1cc/free true
 
 ###创建套餐2(dataiku_pvc_standalone)
-#$ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA
-#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/name "volumes_standalone"
-#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/description "HA Dataiku on Openshift"
-#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Dataiku节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Dataiku的cpu数量"}} }'
-#$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/86776DDF-9631-4FBF-BEDD-1370909D27BA/free true
+$ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/133F32F2-6E8A-4CD6-A14C-1D400866B6B3
+$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/133F32F2-6E8A-4CD6-A14C-1D400866B6B3/name "volumes_standalone"
+$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/133F32F2-6E8A-4CD6-A14C-1D400866B6B3/description "HA Dataiku on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/133F32F2-6E8A-4CD6-A14C-1D400866B6B3/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free","customize":{"memory":{"default":2,"max":32,"price":10000000,"unit":"GB","step":0.1,"desc":"Dataiku节点内存设置"},"cpu":{"default":1,"max":16,"price":10000000,"unit":"个","step":0.1,"desc":"Dataiku的cpu数量"}} }'
+$ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/plan/133F32F2-6E8A-4CD6-A14C-1D400866B6B3/free true
 
 
 
