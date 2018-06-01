@@ -233,8 +233,11 @@ func (myBroker *myServiceBroker) Provision(
 	plan_name := findServicePlanNameInCatalog(details.ServiceID, details.PlanID)
 	//todo 应该修改service broker添加一个用户输入出错的返回，而不是500
 	if service_name == "" || plan_name == "" {
-		logger.Info("Service_id or plan_id not correct!!")
-		return brokerapi.ProvisionedServiceSpec{}, errors.New("Service_id or plan_id not correct!!")
+		msg := "Service_id (" + service_name + ":" +
+			details.ServiceID + ") or plan (" + plan_name + ":" +
+			details.PlanID + ")_id not correct!!"
+		logger.Info(msg)
+		return brokerapi.ProvisionedServiceSpec{}, errors.New(msg)
 	}
 	//是否要检查service和plan的status是否允许创建 todo
 
@@ -268,7 +271,6 @@ func (myBroker *myServiceBroker) Provision(
 	//	return brokerapi.ProvisionedServiceSpec{}, errors.New("Internal Error!!")
 	//} else {
 	//	planInfo.Volume_size = volumeSize
-	//	logger.Debug("getVolumeSize: " + strconv.Itoa(volumeSize) + " service " + service_name + " plan " + plan_name)
 	//}
 
 	etcdSaveResult := make(chan error, 1)
