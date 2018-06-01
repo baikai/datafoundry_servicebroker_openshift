@@ -28,7 +28,6 @@ spec:
             memory: "cpu*****"
         ports:
         - containerPort: 8888
-        resources: {}
         terminationMessagePath: /dev/termination-log
       dnsPolicy: ClusterFirst
       restartPolicy: Always
