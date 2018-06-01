@@ -87,15 +87,21 @@
 * 项目较新，去年1.0。目前2.0即将发布。但目前官方水文显示口碑不错。
 * 某些周边运维工具以后可能可能收费。但核心组件永久开源免费。
 
-# 总结
+### MariaDB Galera Cluster
 
-为了解决运维部署复杂的问题，出现了很多中间件解决方案。
-但这些中间件方案各自有又增添了很多概念和各种坑。
-TiDB则仿照Google Spanner原理，从底层重新实现了一套兼容MySQl协议的分布式数据库。
-使得运维和部署变得简单不少。从开发难度和运维复杂度角度，推荐TiDB。
+(高可用，多master，但非分布式)
 
+官网: https://mariadb.com/kb/en/library/galera-cluster/
 
+架构图: https://blog.csdn.net/chinagissoft/article/details/46964421
 
+优点
+* 有专业公司支持开发。
+* 文档比较全面清晰。
+* 部署相对简单。
+
+缺点
+* 不支持数据分布。
 
 
 
