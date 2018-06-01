@@ -433,7 +433,7 @@ var AnacondaTemplateData_Master []byte = nil
 
 func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string, anacondaMemory int, anacondaCPU float64,volumes []oshandler.Volume,res *anacodaResources_Master) error {
 	if AnacondaTemplateData_Master == nil {
-		f, err := os.Open("anaconda3.yaml")
+		f, err := os.Open("anaconda3-pvc.yaml")
 		if err != nil {
 			logger.Error("open yaml error ", err)
 			return err
