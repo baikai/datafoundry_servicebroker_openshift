@@ -24,8 +24,8 @@ spec:
         name: anaconda3 #容器的名称
         resources:
           limits:
-            cpu: "memory*****Mi"
-            memory: "cpu*****"
+            cpu: "cpu*****"
+            memory: "memory*****Mi"
         ports:
         - containerPort: 8888
         terminationMessagePath: /dev/termination-log
