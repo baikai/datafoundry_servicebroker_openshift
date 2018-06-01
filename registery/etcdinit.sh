@@ -406,7 +406,7 @@ $ETCDCTL set /servicebroker/openshift/catalog/3626D834-BD32-11E6-8C01-F7A6E255AF
 
 
 
-###创建服务 Dataku
+###创建服务 Dataiku
 $ETCDCTL mkdir /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f
 
 $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf685f/name "Dataiku"

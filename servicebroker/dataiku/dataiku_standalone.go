@@ -26,11 +26,11 @@ const DataikuServcieBrokerName_Standalone = "Dataiku_standalone"
 const (
 	// API parameters passed from clients
 
-	Key_DataikuMemory = oshandler.Memory // "memory", don't change
-	Key_DataikuCPU    = oshandler.CPU    //"cpu",don't change
+	Key_Dataiku_Memory = oshandler.Memory // "memory", don't change
+	Key_Dataiku_CPU    = oshandler.CPU    //"cpu",don't change
 
-	DefaultDataikuMemory         = 2000
-	DefaultDataikuCPU    float64 = 1.0
+	Default_Dataiku_Memory         = 2000
+	Default_Dataiku_CPU    float64 = 1.0
 )
 
 func init() {
@@ -89,14 +89,14 @@ func newDataikuHandler() *Dataiku_Handler {
 }
 
 func retrieveMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory int) (nodeMemory int, err error) {
-	memorySettings, ok := planInfo.ParameterSettings[Key_DataikuMemory]
+	memorySettings, ok := planInfo.ParameterSettings[Key_Dataiku_Memory]
 	if !ok {
-		err = errors.New(Key_DataikuMemory + " settings not found")
+		err = errors.New(Key_Dataiku_Memory + " settings not found")
 		nodeMemory = defaultMemory
 		return
 	}
 
-	fMemory, err := oshandler.ParseFloat64(planInfo.MoreParameters[Key_DataikuMemory])
+	fMemory, err := oshandler.ParseFloat64(planInfo.MoreParameters[Key_Dataiku_Memory])
 	if err != nil {
 		nodeMemory = defaultMemory
 		return
@@ -117,14 +117,14 @@ func retrieveMemoryFromPlanInfo(planInfo oshandler.PlanInfo, defaultMemory int) 
 }
 
 func retrieveCPUFromPlanInfo(planInfo oshandler.PlanInfo, defaultCPU float64) (nodeCPU float64, err error) {
-	cpuSettings, ok := planInfo.ParameterSettings[Key_DataikuCPU]
+	cpuSettings, ok := planInfo.ParameterSettings[Key_Dataiku_CPU]
 	if !ok {
-		err = errors.New(Key_DataikuCPU + " settings not found")
+		err = errors.New(Key_Dataiku_CPU + " settings not found")
 		nodeCPU = defaultCPU
 		return
 	}
 
-	fCPU, err := oshandler.ParseFloat64(planInfo.MoreParameters[Key_DataikuCPU])
+	fCPU, err := oshandler.ParseFloat64(planInfo.MoreParameters[Key_Dataiku_CPU])
 	if err != nil {
 		nodeCPU = defaultCPU
 		return
@@ -152,12 +152,12 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	serviceInfo := oshandler.ServiceInfo{}
 
 	//获取memory参数，获取不到就设置为默认的2000
-	dataikuMemory, err := retrieveMemoryFromPlanInfo(planInfo, DefaultDataikuMemory) // Mi
+	dataikuMemory, err := retrieveMemoryFromPlanInfo(planInfo, Default_Dataiku_Memory) // Mi
 	if err != nil {
 		println("retrieveMemoryFromPlanInfo error: ", err.Error())
 	}
 
-	dataikuCPU, err := retrieveCPUFromPlanInfo(planInfo, DefaultDataikuCPU)
+	dataikuCPU, err := retrieveCPUFromPlanInfo(planInfo, Default_Dataiku_CPU)
 	if err != nil {
 		println("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
@@ -178,8 +178,8 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	serviceInfo.User = dataikuUser
 	serviceInfo.Password = dataikuPassword
 	serviceInfo.Miscs = map[string]string{
-		Key_DataikuMemory: strconv.Itoa(dataikuMemory),
-		Key_DataikuCPU:    strconv.FormatFloat(dataikuCPU, 'f', 1, 64),
+		Key_Dataiku_Memory: strconv.Itoa(dataikuMemory),
+		Key_Dataiku_CPU:    strconv.FormatFloat(dataikuCPU, 'f', 1, 64),
 	}
 
 	go func() {
@@ -220,8 +220,8 @@ func (handler *Dataiku_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 
 	// the job may be finished or interrupted or running in another instance.
 
-	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
-	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_Dataiku_Memory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_Dataiku_CPU], 64)
 	master_res, _ := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 
 	ok := func(rc *kapi.ReplicationController) bool {
@@ -265,8 +265,8 @@ func (handler *Dataiku_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceIn
 
 	println("to destroy resources")
 
-	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
-	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_Dataiku_Memory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_Dataiku_CPU], 64)
 	master_res, _ := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 	destroyDataikuResources_Master(master_res, myServiceInfo.Database)
 
@@ -276,8 +276,8 @@ func (handler *Dataiku_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceIn
 func (handler *Dataiku_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
 	// todo: handle errors
 
-	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
-	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_Dataiku_Memory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_Dataiku_CPU], 64)
 
 	master_res, err := getDataikuResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, memory, cpu)
 	if err != nil {
@@ -325,8 +325,8 @@ type dataikuResources_Master struct {
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
 	var master_res dataikuResources_Master
-	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
-	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_Dataiku_Memory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_Dataiku_CPU], 64)
 	err := loadDataikuResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, memory, cpu, &master_res)
 	if err != nil {
 		logger.Error("getCredentialsOnPrivision loadDataikuResources_Master error ", err)
