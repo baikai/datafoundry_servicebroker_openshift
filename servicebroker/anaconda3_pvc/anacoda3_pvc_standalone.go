@@ -213,15 +213,6 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 			Volume_size: planInfo.Volume_size,
 			Volume_name: volumeBaseName + "-0",
 		},
-		// two slave volumes
-		{
-			Volume_size: planInfo.Volume_size,
-			Volume_name: volumeBaseName + "-1",
-		},
-		{
-			Volume_size: planInfo.Volume_size,
-			Volume_name: volumeBaseName + "-2",
-		},
 	}
 
 	logger.Info("Anaconda Creating ...", map[string]interface{}{"instanceIdInTempalte": instanceIdInTempalte, "serviceBrokerNamespace": serviceBrokerNamespace})
@@ -239,6 +230,18 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	go func() {
 		err := <-etcdSaveResult
 		if err != nil {
+			return
+		}
+
+		result := oshandler.StartCreatePvcVolumnJob(
+			volumeBaseName,
+			serviceInfo.Database,
+			serviceInfo.Volumes,
+		)
+		err = <-result
+		if err != nil {
+			logger.Error("Anacoda create volume", err)
+			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
 			return
 		}
 
