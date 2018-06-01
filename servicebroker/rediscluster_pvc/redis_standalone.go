@@ -201,7 +201,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	serviceInfo.Miscs = map[string]string{}
 	serviceInfo.Miscs[oshandler.Nodes] = strconv.Itoa(numPeers)
 	serviceInfo.Miscs[oshandler.Memory] = strconv.Itoa(containerMemory)
-	
+
 	// create dashboard
 	
 	_, stat, err := createRedisClusterResources_Stat(
@@ -214,8 +214,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
-		
-	
+
 	// create nodeports
 
 	//>> may be not optimized

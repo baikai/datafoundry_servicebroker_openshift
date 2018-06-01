@@ -6,13 +6,15 @@ import (
 	"errors"
 	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
+	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
 	"github.com/pivotal-golang/lager"
-	"io/ioutil"
+	//"io/ioutil"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"os"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -118,14 +120,30 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 
 	serviceInfo.Volumes = volumes
 
+	// create dashboard
+	
+	_, stat, err := createRedisClusterResources_Stat(
+		serviceInfo.Database,
+		serviceInfo.Url,
+		serviceInfo.Password,
+		nil,
+	)
+	if err != nil {
+		destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
+		return serviceSpec, oshandler.ServiceInfo{}, err
+	}
+
+	// create nodeports
+
 	//>> may be not optimized
 	var template redisResources_Master
-	err := loadRedisSingleResources_Master(
+	err = loadRedisSingleResources_Master(
 		serviceInfo.Url,
 		serviceInfo.Password,
 		serviceInfo.Volumes,
 		&template)
 	if err != nil {
+		destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 	//<<
@@ -135,6 +153,7 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 		serviceInfo.Database,
 	)
 	if err != nil {
+		destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 
@@ -173,16 +192,29 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 		if err != nil {
 			logger.Error("redis createRedisSingleResources_Master error", err)
 
+			destroyRedisClusterResources_Stat(stat, serviceInfo.Database)
 			destroyRedisSingleResources_Master(output, serviceInfo.Database)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
+			return
+		}
+		
+		// stat
+		_, _, err = createRedisClusterResources_Stat(
+			serviceInfo.Database,
+			serviceInfo.Url,
+			serviceInfo.Password,
+			[]string{nodePort.serviceNodePort.Spec.ClusterIP},
+		)
+		if err != nil {
+			logger.Error("redis createRedisClusterResources_Stat (rc) error", err)
 			return
 		}
 	}()
 
 	// ...
 
-	serviceSpec.DashboardURL = ""
+	serviceSpec.DashboardURL = "http://" + stat.route.Spec.Host
 
 	//>>>
 	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, nodePort)
@@ -328,42 +360,24 @@ func (handler *RedisSingle_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInf
 //
 //=======================================================================
 
-var RedisSingleTemplateData_Master []byte = nil
+var redisYamlTemplate = template.Must(template.ParseFiles("redis-single-pvc-master.yaml"))
 
 func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes []oshandler.Volume, res *redisResources_Master) error {
-	if RedisSingleTemplateData_Master == nil {
 
-		f, err := os.Open("redis-single-pvc-master.yaml")
-		if err != nil {
-			return err
-		}
-		RedisSingleTemplateData_Master, err = ioutil.ReadAll(f)
-		if err != nil {
-			return err
-		}
-		redis_image := oshandler.Redis32Image()
-		redis_image = strings.TrimSpace(redis_image)
-		if len(redis_image) > 0 {
-			RedisSingleTemplateData_Master = bytes.Replace(
-				RedisSingleTemplateData_Master,
-				[]byte("http://redis-image-place-holder/redis-openshift-orchestration"),
-				[]byte(redis_image),
-				-1)
-		}
+	var params = map[string]interface{}{
+		"InstanceID":    instanceID,
+		"Password":      redisPassword,
+		"PvcNameMaster": masterPvcName,
+		"Image":         oshandler.Redis32Image(),
 	}
 
-	// ...
+	var buf bytes.Buffer
+	err := redisYamlTemplate.Execute(&buf, params)
+	if err != nil {
+		return err
+	}
 
-	masterPvcName := masterPvcName(volumes)
-
-	yamlTemplates := RedisSingleTemplateData_Master
-
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("instanceid"), []byte(instanceID), -1)
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(redisPassword), -1)
-
-	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****master"), []byte(masterPvcName), -1)
-
-	decoder := oshandler.NewYamlDecoder(yamlTemplates)
+	decoder := oshandler.NewYamlDecoder(buf.Bytes())
 	decoder.
 		Decode(&res.serviceNodePort).
 		Decode(&res.rc)
@@ -371,9 +385,42 @@ func loadRedisSingleResources_Master(instanceID, redisPassword string, volumes [
 	return decoder.Err
 }
 
+var redisStatYamlTemplate = template.Must(template.ParseFiles("redis-stat.yaml"))
+
+func loadRedisClusterResources_Stat(instanceID, redisPassword string, serverIPs []string, res *redisResources_Stat) error {
+
+	var params = map[string]interface{}{
+		"InstanceID":     instanceID,
+		"RedisPassword":  redisPassword,
+		"ServerIPs":      serverIPs,
+		"EndPointSuffix": oshandler.EndPointSuffix(),
+		"Image":          oshandler.RedisStatImage(),
+	}
+
+	var buf bytes.Buffer
+	err := redisStatYamlTemplate.Execute(&buf, params)
+	if err != nil {
+		return err
+	}
+
+	decoder := oshandler.NewYamlDecoder(buf.Bytes())
+	decoder.
+		Decode(&res.rc).
+		Decode(&res.service).
+		Decode(&res.route)
+
+	return decoder.Err
+}
+
 type redisResources_Master struct {
 	serviceNodePort kapi.Service
 	rc              kapi.ReplicationController
+}
+
+type redisResources_Stat struct {
+	rc      kapi.ReplicationController
+	service kapi.Service
+	route   routeapi.Route
 }
 
 func createRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPassword string, volumes []oshandler.Volume) (*redisResources_Master, error) {
@@ -443,6 +490,100 @@ func destroyRedisSingleResources_Master(masterRes *redisResources_Master, servic
 
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+}
+
+
+
+
+
+func createRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisPassword string, serverIPs []string) (*redisResources_Stat, *redisResources_Stat, error) {
+	var input redisResources_Stat
+	err := loadRedisClusterResources_Stat(instanceID, redisPassword, serverIPs, &input)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var output redisResources_Stat
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	
+	if serverIPs == nil {
+		osr.
+			KPost(prefix+"/services", &input.service, &output.service).
+			OPost(prefix+"/routes", &input.route, &output.route)
+	} else {
+		osr.KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
+	}
+
+	if osr.Err != nil {
+		logger.Error("createRedisClusterResources_Stat error", osr.Err)
+	}
+
+	return &output, &input, osr.Err
+}
+
+func updateRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisPassword string, serverIPs []string) (*redisResources_Stat, error) {
+	var input redisResources_Stat
+	err := loadRedisClusterResources_Stat(instanceID, redisPassword, serverIPs, &input)
+	if err != nil {
+		return nil, err
+	}
+	
+	err = kdel(serviceBrokerNamespace, "replicationcontrollers", input.rc.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	var output redisResources_Stat
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
+	if osr.Err != nil {
+		logger.Error("updateRedisClusterResources_Stat error", osr.Err)
+	} else {
+		// n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Labels)
+		n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Spec.Selector)
+		println("updateRedisClusterResources_Stat:", n, "pods are deleted.")
+	}
+
+	return &output, osr.Err
+}
+
+func getRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisPassword string, serverIPs []string) (*redisResources_Stat, error) {
+
+	var output redisResources_Stat
+
+	var input redisResources_Stat
+	err := loadRedisClusterResources_Stat(instanceID, redisPassword, serverIPs, &input)
+	if err != nil {
+		return &output, err
+	}
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC())
+
+	prefix := "/namespaces/" + serviceBrokerNamespace
+	osr.
+		KGet(prefix+"/replicationcontrollers/"+input.rc.Name, &output.rc).
+		KGet(prefix+"/services/"+input.service.Name, &output.service).
+		OGet(prefix+"/routes/"+input.route.Name, &output.route)
+
+	if osr.Err != nil {
+		logger.Error("getRedisClusterResources_Stat", osr.Err)
+	}
+
+	return &output, osr.Err
+}
+
+func destroyRedisClusterResources_Stat(statRes *redisResources_Stat, serviceBrokerNamespace string) {
+	// todo: add to retry queue on fail
+	if statRes == nil {
+		return
+	}
+	go func() { kdel_rc(serviceBrokerNamespace, &statRes.rc) }()
+	go func() { kdel(serviceBrokerNamespace, "services", statRes.service.Name) }()
+	go func() { odel(serviceBrokerNamespace, "routes", statRes.route.Name) }()
 }
 
 //===============================================================
@@ -570,4 +711,63 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	}
 
 	return nrunnings, nil
+}
+
+func odel(serviceBrokerNamespace, typeName, resName string) error {
+	if resName == "" {
+		return nil
+	}
+
+	println("to delete ", typeName, "/", resName)
+
+	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
+	i, n := 0, 5
+RETRY:
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).ODelete(uri, nil)
+	if osr.Err == nil {
+		logger.Info("delete " + uri + " succeeded")
+	} else {
+		i++
+		if i < n {
+			logger.Error(fmt.Sprintf("%d> delete (%s) error", i, uri), osr.Err)
+			goto RETRY
+		} else {
+			logger.Error(fmt.Sprintf("delete (%s) failed", uri), osr.Err)
+			return osr.Err
+		}
+	}
+
+	return nil
+}
+
+func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
+
+	println("to delete created pods in", serviceBrokerNamespace)
+	if len(labels) == 0 {
+		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
+	}
+
+	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
+
+	pods := kapi.PodList{}
+
+	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &pods)
+	if osr.Err != nil {
+		return 0, osr.Err
+	}
+
+	ndeleted := 0
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+
+		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+
+		if pod.Status.Phase != kapi.PodSucceeded {
+			ndeleted++
+			kdel(serviceBrokerNamespace, "pods", pod.Name)
+		}
+	}
+
+	return ndeleted, nil
 }
