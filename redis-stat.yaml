@@ -43,7 +43,7 @@ spec:
     protocol: TCP
     targetPort: 8080
   selector:
-    run: sb-cwfmkyvrlc-rdsstat
+    run: sb-{{ .InstanceID }}-rdsstat
   type: ClusterIP
 
 ---
