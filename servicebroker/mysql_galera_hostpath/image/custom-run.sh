@@ -1,8 +1,8 @@
 #!/bin/sh
 
-/usr/local/bin/privileges.sh &
+mkdir -p /mysqlparent/instance-$INSTANCE_ID
 
-# mkdir -p /var/lib/mysql/data/db
+/usr/local/bin/privileges.sh &
 
 echo Start mysql server
 

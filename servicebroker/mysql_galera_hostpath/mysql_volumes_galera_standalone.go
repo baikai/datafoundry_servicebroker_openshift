@@ -56,8 +56,8 @@ var logger lager.Logger
 //
 //==============================================================
 
-func buildInstancethDataPath(instanceID string) string {
-	return oshandler.MariadbGaleraHostPathDataPath() + "/instance-" + instanceID
+func getMariaDataPath(instanceID string) (string, string) {
+	return oshandler.MariadbGaleraHostPathDataPath(), oshandler.MariadbGaleraHostPathDataPath() + "/instance-" + instanceID
 }
 
 //==============================================================
@@ -396,6 +396,7 @@ var mysqlYamlTemplate = template.Must(template.ParseFiles("mysql_galera_cluster_
 
 func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volumeSize int, res *mysqlResources_Master) error {
 
+	parentPath, dataPath := getMariaDataPath(instanceID)
 	var params = map[string]interface{}{
 		"InstanceID":                    instanceID,
 		//"MysqlDataDiskSize":             volumeSize, // Gb
@@ -407,7 +408,8 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		// "EndPointSuffix":                oshandler.EndPointSuffix(),
 		"HostPathServiceAccount": oshandler.HostPathServiceAccount(),
 		"NodeSelectorLabels":     oshandler.MariadbGaleraHostPathNodeLabels(),
-		"MySqlDataPath":          buildInstancethDataPath(instanceID),
+		"MySqlDataPath":          dataPath,
+		"MySqlDataPathParent":    parentPath,
 	}
 
 	var buf bytes.Buffer

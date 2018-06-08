@@ -203,6 +203,8 @@ spec:
               fieldPath: metadata.namespace
         - name: MYSQL_ROOT_PASSWORD
           value: "{{ .RootPassword }}"
+        - name: INSTANCE_ID
+          value: "{{ .InstanceID }}"
         - name: DATADIR
           value: /var/lib/mysql/data/db
         - name: AUTO_NEW_CLUSTER
@@ -210,6 +212,8 @@ spec:
         volumeMounts:
         - name: mysql
           mountPath: /var/lib/mysql
+        - name: mysqlparent
+          mountPath: /mysqlparent
         - name: conf
           mountPath: /etc/mysql/conf.d
         - name: initdb
@@ -283,6 +287,10 @@ spec:
       - name: mysql
         hostPath:
           path: {{ .MySqlDataPath }}
+          type: Directory
+      - name: mysqlparent
+        hostPath:
+          path: {{ .MySqlDataPathParent }}
           type: Directory
       {{- if .NodeSelectorLabels }}
       nodeSelector:
