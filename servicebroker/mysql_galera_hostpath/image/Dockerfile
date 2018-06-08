@@ -6,4 +6,4 @@ COPY custom-run.sh /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/custom-run.sh"]
 
-USER "mysql"
+# USER "mysql"
