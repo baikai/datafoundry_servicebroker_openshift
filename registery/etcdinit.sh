@@ -503,7 +503,11 @@ $ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1
 $ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a/description "HA MySQL With Volumes on Openshift"
 $ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
 $ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/5a648266-4a76-4ab3-98ab-fe8933de161a/free false
-
-
+###创建套餐2 (hostpath)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/name "hostpath_ha_cluster"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/description "HA MySQL With HostPath Support on Kubernetes"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/free false
 
 

@@ -367,6 +367,14 @@ func AnacodaImage() string {
 	return anacondaImage
 }
 
+func MariadbGaleraHostPathNodeLabels() map[string]string {
+	return mariadbGaleraHostPathNodeLabels
+}
+
+func MariadbGaleraHostPathDataPath() string {
+	return mariadbGaleraHostPathDataPath
+}
+
 func MariadbImage() string {
 	return mariadbImage
 }
@@ -437,6 +445,8 @@ var stormExternalImage string
 var ocspImage string
 var dataikuImage string
 var anacondaImage string
+var mariadbGaleraHostPathNodeLabels map[string]string
+var mariadbGaleraHostPathDataPath string
 var mariadbImage string
 var prometheusMysqldExporterImage string
 var phpMyAdminImage string
@@ -507,9 +517,24 @@ func init() {
 	ocspImage = getenv("OCSPIMAGE")
 	dataikuImage = getenv("DATAIKUIMAGE")
 	anacondaImage = getenv("ANACONDAIMAGE")
+	{
+		mariadbGaleraHostPathNodeLabels = map[string]string{}
+		nodeLabels := strings.Split(getenv("MARIADBGALERAHOSTPATHNODELABELS"), ",")
+		for _, label := range nodeLabels {
+			words := strings.SplitN(label, "=", 2)
+			if len(words) >= 2 {
+				k, v := words[0], words[1]
+				if k != "" && v != "" {
+					mariadbGaleraHostPathNodeLabels[k] = v
+				}
+			}
+		}
+	}
+	mariadbGaleraHostPathDataPath = getenv("MARIADBGALERAHOSTPATHDATAPATH")
 	mariadbImage = getenv("MARIADBIMAGE")
 	prometheusMysqldExporterImage = getenv("PROMETHEUSMYSQLEXPORTERIMAGE")
 	phpMyAdminImage = getenv("PHPMYADMINIMAGE")
+	
 
 	esclusterImage = getenv("ESCLUSTERIMAGE")
 }

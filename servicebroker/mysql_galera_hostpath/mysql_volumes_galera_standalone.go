@@ -1,4 +1,4 @@
-package mysql_galera_pvc
+package mysql_galera_hostpath
 
 import (
 	"errors"
@@ -28,7 +28,7 @@ import (
 	"github.com/pivotal-golang/lager"
 
 	//"k8s.io/kubernetes/pkg/util/yaml"
-	routeapi "github.com/openshift/origin/route/api/v1"
+	//routeapi "github.com/openshift/origin/route/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	//kapi_apps_v1beta1 "k8s.io/kubernetes/pkg/apis/apps/v1beta1"
@@ -41,7 +41,7 @@ import (
 //
 //==============================================================
 
-const MysqlServcieBrokerName_Standalone = "MySQL_volumes_ha_cluster"
+const MysqlServcieBrokerName_Standalone = "MySQL_hostpath_ha_cluster"
 
 func init() {
 	oshandler.Register(MysqlServcieBrokerName_Standalone, &Mysql_freeHandler{})
@@ -51,6 +51,14 @@ func init() {
 }
 
 var logger lager.Logger
+
+//==============================================================
+//
+//==============================================================
+
+func buildInstancethDataPath(instanceID string) string {
+	return oshandler.MariadbGaleraHostPathDataPath() + "/instance-" + instanceID
+}
 
 //==============================================================
 //
@@ -165,7 +173,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			serviceInfo.Database,
 			serviceInfo.User,
 			serviceInfo.Password,
-			planInfo.Volume_size,
+			planInfo.Volume_size, // nonsense for this plan
 		)
 		if err != nil {
 			println(" mysql createMysqlResources_Master error: ", err)
@@ -180,10 +188,10 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		}
 	}()
 
-	serviceSpec.DashboardURL = "http://" + template.routePma.Spec.Host
+	//serviceSpec.DashboardURL = "http://" + template.routePma.Spec.Host
 
 	//>>>
-	serviceSpec.Credentials = getCredentialsOnPrivision(&serviceInfo, nodePort)
+	serviceSpec.Credentials, serviceSpec.DashboardURL = getCredentialsOnPrivision(&serviceInfo, nodePort)
 	//<<<
 
 	return serviceSpec, serviceInfo, nil
@@ -288,16 +296,16 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 }
 
 // please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *mysqlResources_Master) oshandler.Credentials {
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *mysqlResources_Master) (oshandler.Credentials, string) {
 	var master_res mysqlResources_Master
 	err := loadMysqlResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, 123, &master_res)
 	if err != nil {
-		return oshandler.Credentials{}
+		return oshandler.Credentials{}, "error"
 	}
 
 	mariamysql_port := oshandler.GetServicePortByName(&master_res.serviceMaria, "mysql")
 	if mariamysql_port == nil {
-		return oshandler.Credentials{}
+		return oshandler.Credentials{}, "error"
 	}
 
 	svchost := fmt.Sprintf("%s.%s.%s", master_res.serviceMaria.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
@@ -309,19 +317,25 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *m
 		ndport = strconv.Itoa(nodePort.serviceMysql.Spec.Ports[0].NodePort)
 	}
 	// or: ndport := oshandler.GetServicePortByName(&nodePort.serviceMysql, "mysql").NodePort
+	var pmaNdport string = ""
+	if nodePort != nil && len(nodePort.servicePma.Spec.Ports) > 0 {
+		pmaNdport = strconv.Itoa(nodePort.servicePma.Spec.Ports[0].NodePort)
+	}
+	dashboardUrl := "http://" + ndhost + ":" + pmaNdport
 
 	return oshandler.Credentials{
 		Uri:      fmt.Sprintf(
-			"external address: %s:%s, internal address: %s:%s",
+			"external address: %s:%s, internal address: %s:%s, dashboard address: %s",
 			ndhost, ndport,
 			svchost, svcport,
+			dashboardUrl,
 		),
 		//Hostname: svchost, //ndhost,
 		//Port:     svcport, //ndport,
 		Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 		//Vhost:    svchost,
-	}
+	}, dashboardUrl
 }
 
 func (handler *Mysql_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -378,18 +392,21 @@ func (handler *Mysql_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, myc
 
 var MysqlTemplateData_Master []byte = nil
 
-var mysqlYamlTemplate = template.Must(template.ParseFiles("mysql_galera_cluster_pvc.yaml"))
+var mysqlYamlTemplate = template.Must(template.ParseFiles("mysql_galera_cluster_hostpath.yaml"))
 
 func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volumeSize int, res *mysqlResources_Master) error {
+
 	var params = map[string]interface{}{
 		"InstanceID":                    instanceID,
-		"MysqlDataDiskSize":             volumeSize, // Gb
+		//"MysqlDataDiskSize":             volumeSize, // Gb
 		"RootPassword":                  mysqlPassword,
 		"MariadbImage":                  oshandler.MariadbImage(),
-		"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
+		//"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
 		"PhpMyAdminImage":               oshandler.PhpMyAdminImage(),
-		"StorageClassName":              oshandler.StorageClassName(),
-		"EndPointSuffix":                oshandler.EndPointSuffix(),
+		//"StorageClassName":              oshandler.StorageClassName(),
+		// "EndPointSuffix":                oshandler.EndPointSuffix(),
+		"NodeSelectorLabels": oshandler.MariadbGaleraHostPathNodeLabels(),
+		"MySqlDataPath":      buildInstancethDataPath(instanceID),
 	}
 
 	var buf bytes.Buffer
@@ -409,8 +426,8 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		Decode(&res.serviceMysql).
 		Decode(&res.statefulset).
 		Decode(&res.servicePma).
-		Decode(&res.rcPma).
-		Decode(&res.routePma)
+		Decode(&res.rcPma)//.
+		//Decode(&res.routePma)
 
 	return decoder.Err
 }
@@ -423,7 +440,7 @@ type mysqlResources_Master struct {
 	
 	servicePma kapi.Service
 	rcPma      kapi.ReplicationController
-	routePma   routeapi.Route
+	//routePma   routeapi.Route
 }
 
 func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string, volumeSize int) (*mysqlResources_Master, *mysqlResources_Master, error) {
@@ -444,9 +461,9 @@ func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, 
 		KPost(prefix+"/services", &input.serviceMaria, &output.serviceMaria).
 		// KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql).
 		Post(prefix+"/statefulsets", &input.statefulset, &output.statefulset, "/apis/apps/v1beta1").
-		KPost(prefix+"/services", &input.servicePma, &output.servicePma).
-		KPost(prefix+"/replicationcontrollers", &input.rcPma, &output.rcPma).
-		OPost(prefix+"/routes", &input.routePma, &output.routePma)
+		// KPost(prefix+"/services", &input.servicePma, &output.servicePma).
+		KPost(prefix+"/replicationcontrollers", &input.rcPma, &output.rcPma)//.
+		//OPost(prefix+"/routes", &input.routePma, &output.routePma)
 
 	if osr.Err != nil {
 		logger.Error("createMysqlHaResources_Master", osr.Err)
@@ -462,10 +479,15 @@ func createMysqlResources_NodePort(input *mysqlResources_Master, serviceBrokerNa
 
 	// here, not use job.post
 	prefix := "/namespaces/" + serviceBrokerNamespace
-	osr.KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql)
 
+	osr.KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql)
 	if osr.Err != nil {
-		logger.Error("createMysqlResources_NodePort", osr.Err)
+		logger.Error("createMysqlResources_NodePort (serviceMysql)", osr.Err)
+	}
+
+	osr.KPost(prefix+"/services", &input.servicePma, &output.servicePma)
+	if osr.Err != nil {
+		logger.Error("createMysqlResources_NodePort (servicePma)", osr.Err)
 	}
 
 	return &output, osr.Err
@@ -489,8 +511,8 @@ func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mys
 		KGet(prefix+"/services/"+input.serviceMysql.Name, &output.serviceMysql).
 		Get(prefix+"/statefulsets/"+input.statefulset.Name, &output.statefulset, "/apis/apps/v1beta1").
 		KGet(prefix+"/services/"+input.servicePma.Name, &output.servicePma).
-		KGet(prefix+"/replicationcontrollers/"+input.rcPma.Name, &output.rcPma).
-		OGet(prefix+"/routes/"+input.routePma.Name, &output.routePma)
+		KGet(prefix+"/replicationcontrollers/"+input.rcPma.Name, &output.rcPma)//.
+		//OGet(prefix+"/routes/"+input.routePma.Name, &output.routePma)
 
 	if osr.Err != nil {
 		logger.Error("getMysqlResources_Master", osr.Err)
@@ -502,7 +524,7 @@ func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mys
 func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 	
-	pvclabels := masterRes.statefulset.Spec.Template.ObjectMeta.Labels
+	//pvclabels := masterRes.statefulset.Spec.Template.ObjectMeta.Labels
 	
 	go func() { kdel(serviceBrokerNamespace, "configmaps", masterRes.cmConfigD.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceMaria.Name) }()
@@ -523,8 +545,8 @@ func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBroke
 	}()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicePma.Name) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rcPma) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routePma.Name) }()
-	go func() { deletePvcsByLabels(serviceBrokerNamespace, pvclabels) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", masterRes.routePma.Name) }()
+	//go func() { deletePvcsByLabels(serviceBrokerNamespace, pvclabels) }()
 }
 
 //===============================================================

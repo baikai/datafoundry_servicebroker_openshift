@@ -1,0 +1,136 @@
+apiVersion: apps/v1beta1 # for versions before 1.6.0 use extensions/v1beta1
+kind: Deployment
+metadata:
+  name: servicebroker-openshift
+spec:
+  replicas: 1
+  selector:
+    app: servicebroker-openshift
+  template:
+    metadata:
+      labels:
+        app: servicebroker-openshift
+    spec:
+      containers:
+      - image: docker-registry.default.svc:5000/service-brokers/servicebroker-openshift@sha256:2e62828ab456a12fc5a59dc5970c33337109458df6803501d961883d4c6e20c9
+        imagePullPolicy: Always
+        name: servicebroker-openshift
+        ports:
+        - containerPort: 8888
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 4Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        env:
+        - name: BROKERPORT
+          value: "8888"
+        - name: CASSANDRAIMAGE
+          value: 172.25.163.133:5000/service-brokers/cassandra-openshift-orchestration-3
+        - name: DATAFOUNDRYPROXYADDR
+          value: 172.25.145.7:9095
+        - name: DNSMASQ_SERVER
+          value: 192.168.12.8
+        - name: ELASTICSEARCHVOLUMEIMAGE
+          value: 172.25.163.133:5000/service-brokers/elasticsearch
+        - name: ENDPOINTSUFFIX
+          value: lo.dataos.io
+        - name: ETCDBOOTIMAGE
+          value: 172.25.163.133:5000/service-brokers/etcd-imported:v2.3.0
+        - name: ETCDENDPOINT
+          value: http://10.1.234.40:2379
+        - name: ETCDIMAGE
+          value: 172.25.163.133:5000/service-brokers/etcd-openshift-orchestration-2
+        - name: ETCDPASSWORD
+          value: rootpasswd
+        - name: ETCDUSER
+          value: root
+        - name: ETCDVOLUMEIMAGE
+          value: 172.25.163.133:5000/service-brokers/service-brokers-etcd-volumes
+        - name: KAFKAIMAGE
+          value: 172.25.163.133:5000/service-brokers/kafka-openshift-orchestration
+        - name: KETTLEIMAGE
+          value: 172.25.163.133:5000/service-brokers/kettle-service-2
+        - name: MONGOVOLUMEIMAGE
+          value: 172.25.163.133:5000/service-brokers/mongo-volumes
+        - name: NIFIIMAGE
+          value: 172.25.163.133:5000/service-brokers/nifi-imported
+        - name: NODE_ADDRESSES
+          value: 10.1.234.35,10.1.234.36,10.1.234.37,10.1.234.38
+        - name: OPENSHIFTADDR
+          value: 10.1.234.34:443
+        - name: OPENSHIFTPASS
+          value: "1234"
+        - name: OPENSHIFTUSER
+          value: hack
+        - name: PYSPIDERIMAGE
+          value: 172.25.163.133:5000/service-brokers/pyspider
+        - name: RABBITMQIMAGE
+          value: 172.25.163.133:5000/service-brokers/service-brokers-rabbitmq-volumes
+        - name: REDISIMAGE
+          value: registry.new.dataos.io/service-brokers/redis-single-master:3.2
+        - name: REDISPHPADMINIMAGE
+          value: 172.25.163.133:5000/service-brokers/php-redis-admin-imported
+        - name: SBNAMESPACE
+          value: service-brokers
+        - name: SIMPLEFILEUPLOADERIMAGE
+          value: 172.25.163.133:5000/service-brokers/simple-file-uploader
+        - name: SPARKIMAGE
+          value: 172.25.163.133:5000/service-brokers/spark-imported
+        - name: STORMIMAGE
+          value: 172.25.163.133:5000/service-brokers/storm-openshift-orchestration:v10_dep_dns
+        - name: TENSORFLOWIMAGE
+          value: 172.25.163.133:5000/service-brokers/tensorflow-imported:0.8.0123123
+        - name: ZEPPLINIMAGE
+          value: registry.new.dataos.io/zeppelin/zeppelin:0.7.3
+        - name: ZOOKEEPEREXHIBITORIMAGE
+          value: registry.dataos.io/serviceborker/zookeeper-exhibitor-imported-2:latest
+        - name: ZOOKEEPERIMAGE
+          value: registry.dataos.io/servicebroker/zookeeper-openshift-orchestration:latest
+        - name: REDISCLUSTERIMAGE
+          value: registry.new.dataos.io/service-brokers/redis-cluster-plus-trib:4.0.2-v1
+        - name: REDISCLUSTERTRIBIMAGE
+          value: registry.new.dataos.io/service-brokers/redis-cluster-plus-trib:4.0.2-v1
+        - name: KAFKAVOLUMEIMAGE
+          value: 172.25.163.133:5000/service-brokers/service-brokers-kafka-volumes
+        - name: NEO4JVOLUMEIMAGE
+          value: 172.25.163.133:5000/service-brokers/neo4j
+        - name: REDIS32IMAGE
+          value: registry.new.dataos.io/service-brokers/redis-single-master:3.2
+        - name: NODE_DOMAINS
+          value: 10.1.234.35.xip.io,10.1.234.36.xip.io,10.1.234.37.xip.io,10.1.234.38.xip.io
+        - name: STORMEXTERNALIMAGE
+          value: registry.new.dataos.io/service-brokers/storm:multiple-workers-v1
+        - name: EXTERNALZOOKEEPERSERVERS
+          value: 172.25.187.24,172.25.75.20,172.25.213.2
+        - name: OCSP_OCM
+          value: temp11
+        - name: OCSP_OCM_PORT
+          value: temp11
+        - name: OCSP_HDP_VERSION
+          value: temp11
+        - name: OCSPIMAGE
+          value: temp
+        - name: DATAIKUIMAGE
+          value: registry.new.dataos.io/dataiku/dataiku:latest
+        - name: ANACONDAIMAGE
+          value: registry.new.dataos.io/lixw/base-notebook:v1
+        - name: MARIADBIMAGE
+          value: registry.new.dataos.io/service-brokers/mariadb:10.2-custom-v21
+        - name: PROMETHEUSMYSQLEXPORTERIMAGE
+          value: registry.new.dataos.io/service-brokers/prometheus-mysqld_exporter:v0.10.0
+        - name: PHPMYADMINIMAGE
+          value: registry.new.dataos.io/service-brokers/phpmyadmin:4.6
+        - name: STORAGECLASSNAME
+          value: gluster-heketi
+        - name: ESCLUSTERIMAGE
+          value: registry.new.dataos.io/service-brokers/elasticsearch:6.2.2
+        - name: REDISSTATIMAGE
+          value: registry.new.dataos.io/service-brokers/redis-stat:jre-alpine
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

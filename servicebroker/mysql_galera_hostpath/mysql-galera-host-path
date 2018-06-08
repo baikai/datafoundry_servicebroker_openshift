@@ -1,0 +1,55 @@
+
+
+k8s statefulset api group unknown, 
+
+need a host path to store credential and service instance info
+
+need a API to store/load credentials
+
+operator_mariadb_galera程序负责创建删除 /asiainfo-operator/mariadb-galera 下的子目录
+
+=========================================================
+
+need a special serviceaccount:
+
+	kubectl create serviceaccount -n mysql-galear-cluster hostpathuser
+	kubectl adm policy add-scc-to-user privileged -n mysql-galear-cluster -z hostpathuser
+
+prepare host directory (on each k8s node)
+
+	mkdir -p /test/mariadb
+	chmod 777 /test/mariadb
+
+add label to each k8s node
+
+	kubectl label nodes node-name qaz=741
+
+pod template:
+
+    spec:
+      serviceAccountName: "hostpathuser"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - sb-xyz-mariadb
+              topologyKey: "kubernetes.io/hostname"
+
+      volumes:
+      - name: mysql
+        hostPath:
+          path: /test/mariadb
+          type: Directory
+
+      nodeSelector:
+        qaz: "741"
+
+When restart all 3 pods:
+
+	kubectl --namespace=mysql-galear-cluster exec -c init-config sb-xyz-mariadb-0 -- sed -i "s/safe_to_bootstrap: 0/safe_to_bootstrap: 1/g" /var/lib/mysql/data/db/grastate.dat
+	kubectl --namespace=mysql-galear-cluster exec -c init-config sb-xyz-mariadb-0 -- touch /tmp/confirm-new-cluster
+
