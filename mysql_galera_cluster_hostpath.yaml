@@ -53,6 +53,11 @@ data:
   init.sh: |
     #!/bin/bash
     set -x
+    # for host path
+    mkdir -p /mysqlparent/instance-$INSTANCE_ID
+    chown -R mysql:mysql /mysqlparent/instance-$INSTANCE_ID
+    chmod 777 /mysqlparent/instance-$INSTANCE_ID
+    #
     HOST_ID=${HOSTNAME##*-}
     STATEFULSET_SERVICE=$(dnsdomainname -d)
     POD_FQDN=$(dnsdomainname -A)
