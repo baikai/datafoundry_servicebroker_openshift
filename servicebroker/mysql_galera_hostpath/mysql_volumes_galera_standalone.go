@@ -401,7 +401,7 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		"InstanceID":                    instanceID,
 		//"MysqlDataDiskSize":             volumeSize, // Gb
 		"RootPassword":                  mysqlPassword,
-		"MariadbImage":                  oshandler.MariadbImage(),
+		"MariadbImage":                  oshandler.MariadbImageForHostPath(),
 		//"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
 		"PhpMyAdminImage":               oshandler.PhpMyAdminImage(),
 		//"StorageClassName":              oshandler.StorageClassName(),

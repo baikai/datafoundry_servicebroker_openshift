@@ -6,7 +6,8 @@ metadata:
 data:
   datadir.cnf: |
     [mysqld]
-    datadir=/var/lib/mysql/instance-{{ .InstanceID }}/data/db
+    datadir=/var/lib/mysql/data/db
+    #datadir=/var/lib/mysql/instance-{{ .InstanceID }}/data/db
   galera.cnf: |
     #
     # * Galera-related settings
