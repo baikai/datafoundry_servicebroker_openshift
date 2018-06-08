@@ -367,6 +367,10 @@ func AnacodaImage() string {
 	return anacondaImage
 }
 
+func HostPathServiceAccount() string {
+	return hostPathServiceAccount
+}
+
 func MariadbGaleraHostPathNodeLabels() map[string]string {
 	return mariadbGaleraHostPathNodeLabels
 }
@@ -445,6 +449,7 @@ var stormExternalImage string
 var ocspImage string
 var dataikuImage string
 var anacondaImage string
+var hostPathServiceAccount string
 var mariadbGaleraHostPathNodeLabels map[string]string
 var mariadbGaleraHostPathDataPath string
 var mariadbImage string
@@ -530,6 +535,7 @@ func init() {
 			}
 		}
 	}
+	hostPathServiceAccount = getenv("HOSTPATHSERVICEACCOUNT")
 	mariadbGaleraHostPathDataPath = getenv("MARIADBGALERAHOSTPATHDATAPATH")
 	mariadbImage = getenv("MARIADBIMAGE")
 	prometheusMysqldExporterImage = getenv("PROMETHEUSMYSQLEXPORTERIMAGE")

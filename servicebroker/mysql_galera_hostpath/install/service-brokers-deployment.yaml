@@ -117,6 +117,10 @@ spec:
           value: registry.new.dataos.io/dataiku/dataiku:latest
         - name: ANACONDAIMAGE
           value: registry.new.dataos.io/lixw/base-notebook:v1
+        - name: MARIADBGALERAHOSTPATHDATAPATH
+          value: /test/mariadb
+        - name: MARIADBGALERAHOSTPATHNODELABELS
+          value: qaz=741
         - name: MARIADBIMAGE
           value: registry.new.dataos.io/service-brokers/mariadb:10.2-custom-v21
         - name: PROMETHEUSMYSQLEXPORTERIMAGE

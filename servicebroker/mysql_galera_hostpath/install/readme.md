@@ -58,6 +58,53 @@ kubectl label nodes node-name-1 asiainfo-operator-mariadb-galera=host-path
 kubectl label nodes node-name-2 asiainfo-operator-mariadb-galera=host-path
 ```
 
+### 启动 etcd 程序
+
+### 写入 etcd 注册表
+
+```
+
+ETCD_USER=xxx
+ETCD_PASSWORD=xxx
+ETCD_ADDRESS=http://xxx:2379
+
+export ETCDCTL="etcdctl --timeout 15s --total-timeout 30s --endpoints $ETCD_ADDRESS --username $ETCD_USER:$ETCD_PASSWORD"
+
+API_NAME=xxx
+API_PASSWORD=xxx
+
+$ETCDCTL mkdir /servicebroker
+$ETCDCTL mkdir /servicebroker/openshift
+$ETCDCTL set /servicebroker/openshift/username $API_NAME
+$ETCDCTL set /servicebroker/openshift/password $API_PASSWORD
+
+$ETCDCTL mkdir /servicebroker/openshift/instance
+
+$ETCDCTL mkdir /servicebroker/openshift/catalog
+
+
+###创建服务 MySQL
+$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9 #服务id
+
+###创建服务级的配置
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/name "MySQL"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/description "A Sample MySQL cluster on Openshift"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/bindable true
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/planupdatable false
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/tags 'mysql,openshift'
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/metadata '{"displayName":"MySQL","imageUrl":"https://labs.mysql.com/common/logos/mysql-logo.svg?v2","longDescription":"Managed, highly available MySQL clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://dev.mysql.com/doc/","supportUrl":"https://www.mysql.com/"}'
+
+###创建套餐目录
+$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan
+
+###创建套餐2 (hostpath)
+$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/name "hostpath_ha_cluster"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/description "HA MySQL With HostPath Support on Kubernetes"
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
+$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/free false
+```
+
 ### 启动 operator_mariadb_galera 程序
 
 修改下面yaml中的
@@ -71,33 +118,45 @@ kubectl label nodes node-name-2 asiainfo-operator-mariadb-galera=host-path
   * service instance namespace
   * privileged account service
 
+注意：需要的环境变量
 ```
-# operator_mariadb_galera.yaml
+        - name: NODE_ADDRESSES
+          value: 10.1.234.35,10.1.234.36,10.1.234.37,10.1.234.38
+
+
+        - name: HOSTPATHSERVICEACCOUNT
+          value: hostpathuser
+        - name: MARIADBGALERAHOSTPATHDATAPATH
+          value: /test/mariadb
+        - name: MARIADBGALERAHOSTPATHNODELABELS
+          value: qaz=741
 ```
+
 
 (k8s集群管理员) 运行:
 ```
 kubectl create -f operator_mariadb_galera.yaml
 ```
 
-### route ?
-
-nodeport
-
-# 初始化 operator_mariadb_galera 程序
-
-export OPERATOR_MARIADB_GALERA_ADDR=http://xxxx.xxx
-
-curl -X PUT $OPERATOR_MARIADB_GALERA_ADDR/init
-curl -X GET $OPERATOR_MARIADB_GALERA_ADDR/info
-
 # 通过 operator_mariadb_galera 程序创建新的 mariadb galera 集群服务实例
 
-export OPERATOR_MARIADB_GALERA_ADDR=http://xxxx.xxx
+```
 
-curl -X PUT $OPERATOR_MARIADB_GALERA_ADDR/api/v1/create-instance
-curl -X DELETE $OPERATOR_MARIADB_GALERA_ADDR/api/v1/delete-instance
-curl -X GET $OPERATOR_MARIADB_GALERA_ADDR/api/v1/query-instance
+# provision
+curl -i -X PUT http://xxx/v2/service_instances/mysql-host-path-test -d '{
+  "service_id":"0f96b0f0-6a25-4018-8225-8f1cd090b1f9",
+  "plan_id":"b80b0b7d-5108-4038-b560-67d82e6a43b7",
+  "organization_guid": "default",
+  "space_guid":"space-guid",
+  "accepts_incomplete":true,
+  "parameters": {"ami_id":"ami-ecb68a84"}
+}' -H "Content-Type: application/json"
+
+
+# deprovision
+curl -i -X DELETE -L 'http://xxx/v2/service_instances/mysql-host-path-test?service_id=0f96b0f0-6a25-4018-8225-8f1cd090b1f9&plan_id=b80b0b7d-5108-4038-b560-67d82e6a43b7'
+
+```
 
 
 

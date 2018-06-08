@@ -405,8 +405,9 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		"PhpMyAdminImage":               oshandler.PhpMyAdminImage(),
 		//"StorageClassName":              oshandler.StorageClassName(),
 		// "EndPointSuffix":                oshandler.EndPointSuffix(),
-		"NodeSelectorLabels": oshandler.MariadbGaleraHostPathNodeLabels(),
-		"MySqlDataPath":      buildInstancethDataPath(instanceID),
+		"HostPathServiceAccount": oshandler.HostPathServiceAccount(),
+		"NodeSelectorLabels":     oshandler.MariadbGaleraHostPathNodeLabels(),
+		"MySqlDataPath":          buildInstancethDataPath(instanceID),
 	}
 
 	var buf bytes.Buffer
