@@ -241,6 +241,8 @@ spec:
           value: "yes"
         - name: MYSQL_ROOT_PASSWORD
           value: "{{ .RootPassword }}"
+        - name: INSTANCE_ID
+          value: "{{ .InstanceID }}"
         - name: MYSQL_INITDB_SKIP_TZINFO
           value: "yes"
         readinessProbe:
@@ -267,6 +269,8 @@ spec:
         volumeMounts:
         - name: mysql
           mountPath: /var/lib/mysql
+        - name: mysqlparent
+          mountPath: /mysqlparent
         - name: conf
           mountPath: /etc/mysql/conf.d
         - name: initdb
