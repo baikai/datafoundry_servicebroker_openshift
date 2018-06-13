@@ -74,14 +74,14 @@ func initETCD() {
 	// format: init_script_file:api_user:api_password
 	
 	params := strings.SplitN(etcdRegInitInfo, ":", 3)
-	if len(params) < 3 {
-		logger.Info("ETCD_REGISTRY_INIT_INFO env may be invalid: " + etcdRegInitInfo)
-		os.Exit(1)
-	}
 	
-	etcdInitScriptFile := params[0]
-	apiUser := params[1]
-	apiPassword := params[2]
+	etcdInitScriptFile, apiUser, apiPassword := params[0], "", ""
+	if len(params) > 1 {
+		apiUser = params[1]
+	}
+	if len(params) > 2 {
+		apiPassword = params[2]
+	}
 	
 	f, err := os.Open(etcdInitScriptFile)
 	if err != nil {
@@ -132,9 +132,15 @@ func initETCD() {
 			switch key {
 			case "":
 			case "/servicebroker/"+servcieBrokerName+"/username":
-				_, err = etcdapi.Set(context.Background(), key, apiUser, nil)
+				if apiUser != "" {
+					value = apiUser
+				}
+				_, err = etcdapi.Set(context.Background(), key, value, nil)
 			case "/servicebroker/"+servcieBrokerName+"/password":
-				_, err = etcdapi.Set(context.Background(), key, apiPassword, nil)
+				if apiPassword != "" {
+					value = apiPassword
+				}
+				_, err = etcdapi.Set(context.Background(), key, value, nil)
 			default:
 				if value != "" {
 					_, err = etcdapi.Set(context.Background(), key, value, nil)

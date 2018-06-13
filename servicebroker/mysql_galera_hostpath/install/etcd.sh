@@ -4,16 +4,13 @@ ETCD_USER=root
 ETCD_PASSWORD=rootpasswd
 ETCD_ADDRESS=http://localhost:2379
 
-API_NAME=asiainfo
-API_PASSWORD=MysqlGalera
-
 # export ETCDCTL="etcdctl --timeout 15s --total-timeout 30s --endpoints $ETCD_ADDRESS --username $ETCD_USER:$ETCD_PASSWORD"
 export ETCDCTL="etcdctl --timeout 15s --total-timeout 30s --endpoints $ETCD_ADDRESS"
 
 $ETCDCTL mkdir /servicebroker
 $ETCDCTL mkdir /servicebroker/openshift
-$ETCDCTL set /servicebroker/openshift/username $API_NAME
-$ETCDCTL set /servicebroker/openshift/password $API_PASSWORD
+$ETCDCTL set /servicebroker/openshift/username asiainfo
+$ETCDCTL set /servicebroker/openshift/password MysqlGalera
 
 $ETCDCTL mkdir /servicebroker/openshift/instance
 
