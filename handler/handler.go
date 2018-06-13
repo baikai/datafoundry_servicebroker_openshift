@@ -175,6 +175,16 @@ func getenv(env string) string {
 	return env_value
 }
 
+func getenv_opitional(env string) string {
+	env_value := os.Getenv(env)
+	if env_value == "" {
+		fmt.Println("Optional env(" + env + ") not set")
+	} else {
+		fmt.Println("ENV:", env, env_value)
+	}
+	return env_value
+}
+
 func OC() *OpenshiftClient {
 	return theOC
 }
@@ -234,6 +244,14 @@ func ExternalZookeeperServer(n int) string {
 		n = 0
 	}
 	return externalZookeeperServers[n]
+}
+
+func EtcdRegistryInitFile() string {
+	return etcdRegistryInitFile
+}
+
+func ServiceAccountToken() string {
+	return serviceAccountToken
 }
 
 func EtcdImage() string {
@@ -419,6 +437,9 @@ var nodeAddresses []string
 var nodeDemains []string
 var externalZookeeperServers []string
 
+var etcdRegistryInitFile string
+var serviceAccountToken string
+
 var ocspOcm string
 var ocspOcmPort string
 var ocspHdpVersion string
@@ -492,6 +513,9 @@ func init() {
 	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
 	nodeDemains = strings.Split(getenv("NODE_DOMAINS"), ",")
 	externalZookeeperServers = strings.Split(getenv("EXTERNALZOOKEEPERSERVERS"), ",")
+	
+	etcdRegistryInitFile = getenv_opitional("ETCD_REGISTRY_INIT_FILE")
+	serviceAccountToken = getenv_opitional("SERVICE_ACCOUNT_TOKEN")
 
 	ocspOcm = getenv("OCSP_OCM")
 	ocspOcmPort = getenv("OCSP_OCM_PORT")

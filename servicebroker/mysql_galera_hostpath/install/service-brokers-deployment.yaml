@@ -121,6 +121,8 @@ spec:
           value: /test/mariadb
         - name: MARIADBGALERAHOSTPATHNODELABELS
           value: qaz=741
+        - name: MARIADBIMAGEFORHOSTPATH
+          value: registry.new.dataos.io/service-brokers/mariadb:10.2-custom-v26
         - name: MARIADBIMAGE
           value: registry.new.dataos.io/service-brokers/mariadb:10.2-custom-v21
         - name: PROMETHEUSMYSQLEXPORTERIMAGE

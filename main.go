@@ -64,6 +64,23 @@ import (
 	_ "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/servicebroker/anaconda3_pvc"
 )
 
+func initETCD() {
+	if handler.EtcdRegistryInitFile() != "" {
+		// todo ...
+	}
+/*
+	etcdapi.Set(context.Background(), "/servicebroker", "", &client.SetOptions{Dir: true})
+	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName, "", &client.SetOptions{Dir: true})
+	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance", "", &client.SetOptions{Dir: true})
+	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/catalog", "", &client.SetOptions{Dir: true})
+	
+	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/username", "user")
+	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/password", "password")
+	
+	etcdapi.Set(context.Background(), "/servicebroker", "", &client.SetOptions{Dir: true})
+*/
+}
+
 type myServiceBroker struct {
 }
 

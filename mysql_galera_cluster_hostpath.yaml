@@ -270,8 +270,8 @@ spec:
         volumeMounts:
         - name: mysql
           mountPath: /var/lib/mysql
-        - name: mysqlparent
-          mountPath: /mysqlparent
+        #- name: mysqlparent
+        #  mountPath: /mysqlparent
         - name: conf
           mountPath: /etc/mysql/conf.d
         - name: initdb
@@ -293,10 +293,10 @@ spec:
         hostPath:
           path: {{ .MySqlDataPath }}
           type: Directory
-      - name: mysqlparent
-        hostPath:
-          path: {{ .MySqlDataPathParent }}
-          type: Directory
+      #- name: mysqlparent
+      #  hostPath:
+      #    path: {{ .MySqlDataPathParent }}
+      #    type: Directory
       {{- if .NodeSelectorLabels }}
       nodeSelector:
         {{- range $key, $value := .NodeSelectorLabels }}

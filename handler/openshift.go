@@ -115,6 +115,14 @@ func newOpenshiftClient(host, username, password, defaultNamespace string) *Open
 }
 
 func (oc *OpenshiftClient) updateBearerToken() {
+	if ServiceAccountToken() != "" {
+		oc.setBearerToken(ServiceAccountToken())
+
+		println("Use ServiceAccountToken(). Length=", len(ServiceAccountToken()))
+		
+		return
+	}
+	
 	for {
 		clientConfig := &kclient.Config{}
 		clientConfig.Host = oc.host

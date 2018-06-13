@@ -56,6 +56,10 @@ var logger lager.Logger
 //
 //==============================================================
 
+const (
+	Key_MySqlDataPath = "datapath"
+)
+
 func getMariaDataPath(instanceID string) (string, string) {
 	return oshandler.MariadbGaleraHostPathDataPath(), oshandler.MariadbGaleraHostPathDataPath() + "/instance-" + instanceID
 }
@@ -107,6 +111,10 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceSpec := brokerapi.ProvisionedServiceSpec{IsAsync: asyncAllowed}
 	serviceInfo := oshandler.ServiceInfo{}
 
+	// ...
+	params := planInfo.MoreParameters // same as details.Parameters
+	mysqlDataPath, _ := oshandler.ParseString(params[Key_MySqlDataPath])
+
 	//if asyncAllowed == false {
 	//	return serviceSpec, serviceInfo, errors.New("Sync mode is not supported")
 	//}
@@ -134,6 +142,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	//serviceInfo.Volumes = volumes
 	serviceInfo.Miscs = map[string]string{}
 	serviceInfo.Miscs[oshandler.VolumeSize] = strconv.Itoa(planInfo.Volume_size)
+	serviceInfo.Miscs[Key_MySqlDataPath] = mysqlDataPath
 
 	//>> may be not optimized
 	var template mysqlResources_Master
@@ -141,7 +150,8 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		serviceInfo.Url,
 		serviceInfo.User,
 		serviceInfo.Password,
-		planInfo.Volume_size,
+		planInfo.Volume_size, // nonsense
+		"/data",              // nonsense
 		&template)
 	if err != nil {
 		return serviceSpec, oshandler.ServiceInfo{}, err
@@ -174,6 +184,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			serviceInfo.User,
 			serviceInfo.Password,
 			planInfo.Volume_size, // nonsense for this plan
+			serviceInfo.Miscs[Key_MySqlDataPath],
 		)
 		if err != nil {
 			println(" mysql createMysqlResources_Master error: ", err)
@@ -298,7 +309,7 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *mysqlResources_Master) (oshandler.Credentials, string) {
 	var master_res mysqlResources_Master
-	err := loadMysqlResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, 123, &master_res)
+	err := loadMysqlResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, 123, "/data", &master_res)
 	if err != nil {
 		return oshandler.Credentials{}, "error"
 	}
@@ -394,9 +405,9 @@ var MysqlTemplateData_Master []byte = nil
 
 var mysqlYamlTemplate = template.Must(template.ParseFiles("mysql_galera_cluster_hostpath.yaml"))
 
-func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volumeSize int, res *mysqlResources_Master) error {
+func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volumeSize int, dataPath string, res *mysqlResources_Master) error {
 
-	parentPath, dataPath := getMariaDataPath(instanceID)
+	//parentPath, dataPath := getMariaDataPath(instanceID)
 	var params = map[string]interface{}{
 		"InstanceID":                    instanceID,
 		//"MysqlDataDiskSize":             volumeSize, // Gb
@@ -409,7 +420,7 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		"HostPathServiceAccount": oshandler.HostPathServiceAccount(),
 		"NodeSelectorLabels":     oshandler.MariadbGaleraHostPathNodeLabels(),
 		"MySqlDataPath":          dataPath,
-		"MySqlDataPathParent":    parentPath,
+		//"MySqlDataPathParent":    parentPath,
 	}
 
 	var buf bytes.Buffer
@@ -446,9 +457,9 @@ type mysqlResources_Master struct {
 	//routePma   routeapi.Route
 }
 
-func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string, volumeSize int) (*mysqlResources_Master, *mysqlResources_Master, error) {
+func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mysqlPassword string, volumeSize int, datapath string) (*mysqlResources_Master, *mysqlResources_Master, error) {
 	var input mysqlResources_Master
-	err := loadMysqlResources_Master(instanceId, mysqlUser, mysqlPassword, volumeSize, &input)
+	err := loadMysqlResources_Master(instanceId, mysqlUser, mysqlPassword, volumeSize, datapath, &input)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -500,7 +511,7 @@ func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mys
 	var output mysqlResources_Master
 
 	var input mysqlResources_Master
-	err := loadMysqlResources_Master(instanceId, mysqlUser, mysqlPassword, 123/*volumes*/, &input)
+	err := loadMysqlResources_Master(instanceId, mysqlUser, mysqlPassword, 123/*volumes*/, "/data", &input)
 	if err != nil {
 		return &output, err
 	}
