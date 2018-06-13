@@ -113,7 +113,8 @@ func initETCD() {
 		keyvalue := strings.SplitN(remaining, " ", 2)
 		key, value := strings.TrimSpace(keyvalue[0]), ""
 		if len(keyvalue) > 1 {
-			value = strings.TrimSpace(keyvalue[1])
+			const cutset = ` '"`
+			value = strings.Trim(keyvalue[1], cutset)
 		}
 
 		fmt.Println("etcd", subCmd, keyvalue)
