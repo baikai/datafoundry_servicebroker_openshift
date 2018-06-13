@@ -1,10 +1,11 @@
 package handler
 
 import (
-	//"errors"
+	"bufio"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
+	//"errors"
 	"time"
 	"fmt"
 	"bytes"
@@ -241,6 +242,23 @@ func ParseString(v interface{}) (string, error) {
 		//return fmt.Sprint(v)
 		return "", fmt.Errorf("v is not string: %v", v)
 	}
+}
+
+//=======================================================
+
+func Readln(r *bufio.Reader) (string, error) {
+	var (
+		isPrefix bool = true
+		err error = nil
+		line, ln []byte
+	)
+
+	for isPrefix && err == nil {
+		line, isPrefix, err = r.ReadLine()
+		ln = append(ln, line...)
+	}
+
+	return string(ln),err
 }
 
 //=========================================================

@@ -164,7 +164,7 @@ func (handler *Handler) DoUnbind(myServiceInfo *ServiceInfo, mycredentials *Cred
 
 //=========================================================
 
-func getenv(env string) string {
+func Getenv_must(env string) string {
 	env_value := os.Getenv(env)
 	if env_value == "" {
 		fmt.Println("FATAL: NEED ENV", env)
@@ -175,7 +175,7 @@ func getenv(env string) string {
 	return env_value
 }
 
-func getenv_opitional(env string) string {
+func Getenv_must_opitional(env string) string {
 	env_value := os.Getenv(env)
 	if env_value == "" {
 		fmt.Println("Optional env(" + env + ") not set")
@@ -246,8 +246,8 @@ func ExternalZookeeperServer(n int) string {
 	return externalZookeeperServers[n]
 }
 
-func EtcdRegistryInitFile() string {
-	return etcdRegistryInitFile
+func EtcdRegistryInitInfo() string {
+	return etcdRegistryInitInfo
 }
 
 func ServiceAccountToken() string {
@@ -437,7 +437,7 @@ var nodeAddresses []string
 var nodeDemains []string
 var externalZookeeperServers []string
 
-var etcdRegistryInitFile string
+var etcdRegistryInitInfo string
 var serviceAccountToken string
 
 var ocspOcm string
@@ -487,10 +487,10 @@ var esclusterImage string
 
 func init() {
 	theOC = newOpenshiftClient(
-		getenv("OPENSHIFTADDR"),
-		getenv("OPENSHIFTUSER"),
-		getenv("OPENSHIFTPASS"),
-		getenv("SBNAMESPACE"),
+		Getenv_must("OPENSHIFTADDR"),
+		Getenv_must("OPENSHIFTUSER"),
+		Getenv_must("OPENSHIFTPASS"),
+		Getenv_must("SBNAMESPACE"),
 	)
 
 	svcDomainSuffix = os.Getenv("SERVICEDOMAINSUFFIX")
@@ -499,61 +499,61 @@ func init() {
 	}
 	svcDomainSuffixWithDot = "." + svcDomainSuffix
 
-	endpointSuffix = getenv("ENDPOINTSUFFIX")
+	endpointSuffix = Getenv_must("ENDPOINTSUFFIX")
 
-	storageClassName = getenv("STORAGECLASSNAME")
+	storageClassName = Getenv_must("STORAGECLASSNAME")
 	dfProxyApiPrefix = os.Getenv("DATAFOUNDRYPROXYADDR")
 	if dfProxyApiPrefix == "" {
 		logger.Error("int dfProxyApiPrefix error:", errors.New("DATAFOUNDRYPROXYADDR env is not set"))
 	}
 	dfProxyApiPrefix = "http://" + dfProxyApiPrefix + "/lapi/v1"
 
-	dnsmasqServer = getenv("DNSMASQ_SERVER")
+	dnsmasqServer = Getenv_must("DNSMASQ_SERVER")
 
-	nodeAddresses = strings.Split(getenv("NODE_ADDRESSES"), ",")
-	nodeDemains = strings.Split(getenv("NODE_DOMAINS"), ",")
-	externalZookeeperServers = strings.Split(getenv("EXTERNALZOOKEEPERSERVERS"), ",")
+	nodeAddresses = strings.Split(Getenv_must("NODE_ADDRESSES"), ",")
+	nodeDemains = strings.Split(Getenv_must("NODE_DOMAINS"), ",")
+	externalZookeeperServers = strings.Split(Getenv_must("EXTERNALZOOKEEPERSERVERS"), ",")
 	
-	etcdRegistryInitFile = getenv_opitional("ETCD_REGISTRY_INIT_FILE")
-	serviceAccountToken = getenv_opitional("SERVICE_ACCOUNT_TOKEN")
+	etcdRegistryInitInfo = Getenv_must_opitional("ETCD_REGISTRY_INIT_INFO") // format: init_script_file:api_user:api_password
+	serviceAccountToken = Getenv_must_opitional("SERVICE_ACCOUNT_TOKEN")
 
-	ocspOcm = getenv("OCSP_OCM")
-	ocspOcmPort = getenv("OCSP_OCM_PORT")
-	ocspHdpVersion = getenv("OCSP_HDP_VERSION")
+	ocspOcm = Getenv_must("OCSP_OCM")
+	ocspOcmPort = Getenv_must("OCSP_OCM_PORT")
+	ocspHdpVersion = Getenv_must("OCSP_HDP_VERSION")
 
-	etcdImage = getenv("ETCDIMAGE")
-	etcdbootImage = getenv("ETCDBOOTIMAGE")
-	zookeeperImage = getenv("ZOOKEEPERIMAGE")
-	zookeeperexhibitorImage = getenv("ZOOKEEPEREXHIBITORIMAGE")
-	redisImage = getenv("REDISIMAGE")
-	redis32Image = getenv("REDIS32IMAGE")
-	redisClusterImage = getenv("REDISCLUSTERIMAGE")
-	redisStatImage = getenv("REDISSTATIMAGE")
-	//redisClusterTribImage = getenv("REDISCLUSTERTRIBIMAGE")
-	redisphpadminImage = getenv("REDISPHPADMINIMAGE")
-	kafkaImage = getenv("KAFKAIMAGE")
-	stormImage = getenv("STORMIMAGE")
-	cassandraImage = getenv("CASSANDRAIMAGE")
-	tensorflowImage = getenv("TENSORFLOWIMAGE")
-	nifiImage = getenv("NIFIIMAGE")
-	kettleImage = getenv("KETTLEIMAGE")
-	simplefileuplaoderImage = getenv("SIMPLEFILEUPLOADERIMAGE")
-	rabbitmqImage = getenv("RABBITMQIMAGE")
-	sparkImage = getenv("SPARKIMAGE")
-	zepplinImage = getenv("ZEPPLINIMAGE")
-	pyspiderImage = getenv("PYSPIDERIMAGE")
-	etcdVolumeImage = getenv("ETCDVOLUMEIMAGE")
-	elasticsearchVolumeImage = getenv("ELASTICSEARCHVOLUMEIMAGE")
-	mongoVolumeImage = getenv("MONGOVOLUMEIMAGE")
-	kafkaVolumeImage = getenv("KAFKAVOLUMEIMAGE")
-	neo4jVolumeImage = getenv("NEO4JVOLUMEIMAGE")
-	stormExternalImage = getenv("STORMEXTERNALIMAGE")
-	ocspImage = getenv("OCSPIMAGE")
-	dataikuImage = getenv("DATAIKUIMAGE")
-	anacondaImage = getenv("ANACONDAIMAGE")
+	etcdImage = Getenv_must("ETCDIMAGE")
+	etcdbootImage = Getenv_must("ETCDBOOTIMAGE")
+	zookeeperImage = Getenv_must("ZOOKEEPERIMAGE")
+	zookeeperexhibitorImage = Getenv_must("ZOOKEEPEREXHIBITORIMAGE")
+	redisImage = Getenv_must("REDISIMAGE")
+	redis32Image = Getenv_must("REDIS32IMAGE")
+	redisClusterImage = Getenv_must("REDISCLUSTERIMAGE")
+	redisStatImage = Getenv_must("REDISSTATIMAGE")
+	//redisClusterTribImage = Getenv_must("REDISCLUSTERTRIBIMAGE")
+	redisphpadminImage = Getenv_must("REDISPHPADMINIMAGE")
+	kafkaImage = Getenv_must("KAFKAIMAGE")
+	stormImage = Getenv_must("STORMIMAGE")
+	cassandraImage = Getenv_must("CASSANDRAIMAGE")
+	tensorflowImage = Getenv_must("TENSORFLOWIMAGE")
+	nifiImage = Getenv_must("NIFIIMAGE")
+	kettleImage = Getenv_must("KETTLEIMAGE")
+	simplefileuplaoderImage = Getenv_must("SIMPLEFILEUPLOADERIMAGE")
+	rabbitmqImage = Getenv_must("RABBITMQIMAGE")
+	sparkImage = Getenv_must("SPARKIMAGE")
+	zepplinImage = Getenv_must("ZEPPLINIMAGE")
+	pyspiderImage = Getenv_must("PYSPIDERIMAGE")
+	etcdVolumeImage = Getenv_must("ETCDVOLUMEIMAGE")
+	elasticsearchVolumeImage = Getenv_must("ELASTICSEARCHVOLUMEIMAGE")
+	mongoVolumeImage = Getenv_must("MONGOVOLUMEIMAGE")
+	kafkaVolumeImage = Getenv_must("KAFKAVOLUMEIMAGE")
+	neo4jVolumeImage = Getenv_must("NEO4JVOLUMEIMAGE")
+	stormExternalImage = Getenv_must("STORMEXTERNALIMAGE")
+	ocspImage = Getenv_must("OCSPIMAGE")
+	dataikuImage = Getenv_must("DATAIKUIMAGE")
+	anacondaImage = Getenv_must("ANACONDAIMAGE")
 	{
 		mariadbGaleraHostPathNodeLabels = map[string]string{}
-		nodeLabels := strings.Split(getenv("MARIADBGALERAHOSTPATHNODELABELS"), ",")
+		nodeLabels := strings.Split(Getenv_must("MARIADBGALERAHOSTPATHNODELABELS"), ",")
 		for _, label := range nodeLabels {
 			words := strings.SplitN(label, "=", 2)
 			if len(words) >= 2 {
@@ -564,13 +564,13 @@ func init() {
 			}
 		}
 	}
-	hostPathServiceAccount = getenv("HOSTPATHSERVICEACCOUNT")
-	mariadbGaleraHostPathDataPath = getenv("MARIADBGALERAHOSTPATHDATAPATH")
-	mariadbImageForHostPath = getenv("MARIADBIMAGEFORHOSTPATH")
-	mariadbImage = getenv("MARIADBIMAGE")
-	prometheusMysqldExporterImage = getenv("PROMETHEUSMYSQLEXPORTERIMAGE")
-	phpMyAdminImage = getenv("PHPMYADMINIMAGE")
+	hostPathServiceAccount = Getenv_must("HOSTPATHSERVICEACCOUNT")
+	mariadbGaleraHostPathDataPath = Getenv_must("MARIADBGALERAHOSTPATHDATAPATH")
+	mariadbImageForHostPath = Getenv_must("MARIADBIMAGEFORHOSTPATH")
+	mariadbImage = Getenv_must("MARIADBIMAGE")
+	prometheusMysqldExporterImage = Getenv_must("PROMETHEUSMYSQLEXPORTERIMAGE")
+	phpMyAdminImage = Getenv_must("PHPMYADMINIMAGE")
 	
 
-	esclusterImage = getenv("ESCLUSTERIMAGE")
+	esclusterImage = Getenv_must("ESCLUSTERIMAGE")
 }

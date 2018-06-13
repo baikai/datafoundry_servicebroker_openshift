@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/base64"
@@ -65,20 +66,82 @@ import (
 )
 
 func initETCD() {
-	if handler.EtcdRegistryInitFile() != "" {
-		// todo ...
+	etcdRegInitInfo := handler.EtcdRegistryInitInfo()
+	if etcdRegInitInfo == "" {
+		return
 	}
-/*
-	etcdapi.Set(context.Background(), "/servicebroker", "", &client.SetOptions{Dir: true})
-	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName, "", &client.SetOptions{Dir: true})
-	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/instance", "", &client.SetOptions{Dir: true})
-	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/catalog", "", &client.SetOptions{Dir: true})
 	
-	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/username", "user")
-	etcdapi.Set(context.Background(), "/servicebroker/"+servcieBrokerName+"/password", "password")
+	// format: init_script_file:api_user:api_password
 	
-	etcdapi.Set(context.Background(), "/servicebroker", "", &client.SetOptions{Dir: true})
-*/
+	params := strings.SplitN(etcdRegInitInfo, ":", 3)
+	if len(params) < 3 {
+		logger.Info("ETCD_REGISTRY_INIT_INFO env may be invalid: " + etcdRegInitInfo)
+		os.Exit(1)
+	}
+	
+	etcdInitScriptFile := params[0]
+	apiUser := params[1]
+	apiPassword := params[2]
+	
+	f, err := os.Open(etcdInitScriptFile)
+	if err != nil {
+		logger.Error("error opening etcdInitScriptFile: " + etcdInitScriptFile, err)
+		os.Exit(1)
+	}
+	
+	r := bufio.NewReader(f)
+	for {
+		line, err := handler.Readln(r)
+		if err != nil && err != io.EOF {
+			logger.Error("error readline etcdInitScriptFile", err)
+			os.Exit(1)
+		}
+		
+		const etcdCmd = "$ETCDCTL"
+		if !strings.HasPrefix(line, etcdCmd) {
+			continue
+		}
+
+		line = strings.TrimLeft(line[len(etcdCmd):], " ")
+		index := strings.Index(line, " ")
+		if index <= 0 {
+			continue
+		}
+
+		subCmd := line[:index]
+		remaining := line[index+1:]
+		keyvalue := strings.SplitN(remaining, " ", 2)
+		key, value := strings.TrimSpace(keyvalue[0]), ""
+		if len(keyvalue) > 0 {
+			value = strings.TrimSpace(keyvalue[1])
+		}
+
+		fmt.Println("etcd", subCmd, keyvalue)
+
+		switch subCmd {
+		case "mkdir":
+			if key != "" {
+				_, err = etcdapi.Set(context.Background(), key, "", &client.SetOptions{Dir: true})
+			}
+		case "set":
+			switch key {
+			case "":
+			case "/servicebroker/"+servcieBrokerName+"/username":
+				_, err = etcdapi.Set(context.Background(), key, apiUser, nil)
+			case "/servicebroker/"+servcieBrokerName+"/password":
+				_, err = etcdapi.Set(context.Background(), key, apiPassword, nil)
+			default:
+				if value != "" {
+					_, err = etcdapi.Set(context.Background(), key, value, nil)
+				}
+			}
+		}
+
+		if err != nil {
+			logger.Error("etcd " + subCmd + " " + key + " error:", err)
+			os.Exit(1)
+		}
+	}
 }
 
 type myServiceBroker struct {
@@ -1029,7 +1092,7 @@ func getguid() string {
 	return getmd5string(base64.URLEncoding.EncodeToString(b))
 }
 
-func getenv(env string) string {
+func Getenv_must(env string) string {
 	env_value := os.Getenv(env)
 	if env_value == "" {
 		fmt.Println("FATAL: NEED ENV", env)
@@ -1050,10 +1113,10 @@ var brokerCredentials brokerapi.BrokerCredentials
 
 func main() {
 	//需要以下环境变量
-	etcdEndPoint = getenv("ETCDENDPOINT") //etcd的路径
-	etcdUser = getenv("ETCDUSER")
-	etcdPassword = getenv("ETCDPASSWORD")
-	serviceBrokerPort = getenv("BROKERPORT") //监听的端口
+	etcdEndPoint = handler.Getenv_must("ETCDENDPOINT") //etcd的路径
+	etcdUser = handler.Getenv_must_opitional("ETCDUSER")
+	etcdPassword = handler.Getenv_must_opitional("ETCDPASSWORD")
+	serviceBrokerPort = handler.Getenv_must("BROKERPORT") //监听的端口
 
 	//初始化日志对象，日志输出到stdout
 	logger = lager.NewLogger(servcieBrokerName)
@@ -1073,6 +1136,8 @@ func main() {
 		logger.Error("Can not init ectd client", err)
 	}
 	etcdapi = client.NewKeysAPI(c)
+	
+	initETCD()
 
 	//初始化serviceborker对象
 	serviceBroker := &myServiceBroker{}
