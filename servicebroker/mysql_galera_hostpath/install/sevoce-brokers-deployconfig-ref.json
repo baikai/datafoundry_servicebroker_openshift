@@ -1,0 +1,372 @@
+{
+    "apiVersion": "v1",
+    "kind": "DeploymentConfig",
+    "metadata": {
+        "creationTimestamp": "2018-04-28T04:27:05Z",
+        "generation": 225,
+        "labels": {
+            "app": "servicebroker-openshift"
+        },
+        "name": "servicebroker-openshift",
+        "namespace": "service-brokers",
+        "resourceVersion": "10253590",
+        "selfLink": "/oapi/v1/namespaces/service-brokers/deploymentconfigs/servicebroker-openshift",
+        "uid": "684c2eec-4a9c-11e8-ba43-fa163ef134de"
+    },
+    "spec": {
+        "replicas": 1,
+        "selector": {
+            "app": "servicebroker-openshift",
+            "deploymentconfig": "servicebroker-openshift"
+        },
+        "strategy": {
+            "activeDeadlineSeconds": 21600,
+            "resources": {},
+            "rollingParams": {
+                "intervalSeconds": 1,
+                "maxSurge": "25%",
+                "maxUnavailable": "25%",
+                "timeoutSeconds": 600,
+                "updatePeriodSeconds": 1
+            },
+            "type": "Rolling"
+        },
+        "template": {
+            "metadata": {
+                "annotations": {
+                    "openshift.io/generated-by": "OpenShiftNewApp"
+                },
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "servicebroker-openshift",
+                    "deploymentconfig": "servicebroker-openshift"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "BROKERPORT",
+                                "value": "8888"
+                            },
+                            {
+                                "name": "CASSANDRAIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/cassandra-openshift-orchestration-3"
+                            },
+                            {
+                                "name": "DATAFOUNDRYPROXYADDR",
+                                "value": "172.25.145.7:9095"
+                            },
+                            {
+                                "name": "DNSMASQ_SERVER",
+                                "value": "192.168.12.8"
+                            },
+                            {
+                                "name": "ELASTICSEARCHVOLUMEIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/elasticsearch"
+                            },
+                            {
+                                "name": "ENDPOINTSUFFIX",
+                                "value": "lo.dataos.io"
+                            },
+                            {
+                                "name": "ETCDBOOTIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/etcd-imported:v2.3.0"
+                            },
+                            {
+                                "name": "ETCDENDPOINT",
+                                "value": "http://10.1.234.40:2379"
+                            },
+                            {
+                                "name": "ETCDIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/etcd-openshift-orchestration-2"
+                            },
+                            {
+                                "name": "ETCDPASSWORD",
+                                "value": "rootpasswd"
+                            },
+                            {
+                                "name": "ETCDUSER",
+                                "value": "root"
+                            },
+                            {
+                                "name": "ETCDVOLUMEIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/service-brokers-etcd-volumes"
+                            },
+                            {
+                                "name": "KAFKAIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/kafka-openshift-orchestration"
+                            },
+                            {
+                                "name": "KETTLEIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/kettle-service-2"
+                            },
+                            {
+                                "name": "MONGOVOLUMEIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/mongo-volumes"
+                            },
+                            {
+                                "name": "NIFIIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/nifi-imported"
+                            },
+                            {
+                                "name": "NODE_ADDRESSES",
+                                "value": "10.1.234.35,10.1.234.36,10.1.234.37,10.1.234.38"
+                            },
+                            {
+                                "name": "OPENSHIFTADDR",
+                                "value": "10.1.234.34:443"
+                            },
+                            {
+                                "name": "OPENSHIFTPASS",
+                                "value": "1234"
+                            },
+                            {
+                                "name": "OPENSHIFTUSER",
+                                "value": "hack"
+                            },
+                            {
+                                "name": "PYSPIDERIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/pyspider"
+                            },
+                            {
+                                "name": "RABBITMQIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/service-brokers-rabbitmq-volumes"
+                            },
+                            {
+                                "name": "REDISIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/redis-single-master:3.2"
+                            },
+                            {
+                                "name": "REDISPHPADMINIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/php-redis-admin-imported"
+                            },
+                            {
+                                "name": "SBNAMESPACE",
+                                "value": "service-brokers"
+                            },
+                            {
+                                "name": "SIMPLEFILEUPLOADERIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/simple-file-uploader"
+                            },
+                            {
+                                "name": "SPARKIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/spark-imported"
+                            },
+                            {
+                                "name": "STORMIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/storm-openshift-orchestration:v10_dep_dns"
+                            },
+                            {
+                                "name": "TENSORFLOWIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/tensorflow-imported:0.8.0123123"
+                            },
+                            {
+                                "name": "ZEPPLINIMAGE",
+                                "value": "registry.new.dataos.io/zeppelin/zeppelin:0.7.3"
+                            },
+                            {
+                                "name": "ZOOKEEPEREXHIBITORIMAGE",
+                                "value": "registry.dataos.io/serviceborker/zookeeper-exhibitor-imported-2:latest"
+                            },
+                            {
+                                "name": "ZOOKEEPERIMAGE",
+                                "value": "registry.dataos.io/servicebroker/zookeeper-openshift-orchestration:latest"
+                            },
+                            {
+                                "name": "REDISCLUSTERIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/redis-cluster-plus-trib:4.0.2-v1"
+                            },
+                            {
+                                "name": "REDISCLUSTERTRIBIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/redis-cluster-plus-trib:4.0.2-v1"
+                            },
+                            {
+                                "name": "KAFKAVOLUMEIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/service-brokers-kafka-volumes"
+                            },
+                            {
+                                "name": "NEO4JVOLUMEIMAGE",
+                                "value": "172.25.163.133:5000/service-brokers/neo4j"
+                            },
+                            {
+                                "name": "REDIS32IMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/redis-single-master:3.2"
+                            },
+                            {
+                                "name": "NODE_DOMAINS",
+                                "value": "10.1.234.35.xip.io,10.1.234.36.xip.io,10.1.234.37.xip.io,10.1.234.38.xip.io"
+                            },
+                            {
+                                "name": "STORMEXTERNALIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/storm:multiple-workers-v1"
+                            },
+                            {
+                                "name": "EXTERNALZOOKEEPERSERVERS",
+                                "value": "172.25.187.24,172.25.75.20,172.25.213.2"
+                            },
+                            {
+                                "name": "OCSP_OCM",
+                                "value": "temp11"
+                            },
+                            {
+                                "name": "OCSP_OCM_PORT",
+                                "value": "temp11"
+                            },
+                            {
+                                "name": "OCSP_HDP_VERSION",
+                                "value": "temp11"
+                            },
+                            {
+                                "name": "OCSPIMAGE",
+                                "value": "temp"
+                            },
+                            {
+                                "name": "DATAIKUIMAGE",
+                                "value": "registry.new.dataos.io/dataiku/dataiku:latest"
+                            },
+                            {
+                                "name": "ANACONDAIMAGE",
+                                "value": "registry.new.dataos.io/lixw/base-notebook:v1"
+                            },
+                            {
+                                "name": "MARIADBIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/mariadb:10.2-custom-v21"
+                            },
+                            {
+                                "name": "PROMETHEUSMYSQLEXPORTERIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/prometheus-mysqld_exporter:v0.10.0"
+                            },
+                            {
+                                "name": "PHPMYADMINIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/phpmyadmin:4.6"
+                            },
+                            {
+                                "name": "STORAGECLASSNAME",
+                                "value": "gluster-heketi"
+                            },
+                            {
+                                "name": "ESCLUSTERIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/elasticsearch:6.2.2"
+                            },
+                            {
+                                "name": "REDISSTATIMAGE",
+                                "value": "registry.new.dataos.io/service-brokers/redis-stat:jre-alpine"
+                            },
+                            {
+                                "name": "MARIADBGALERAHOSTPATHDATAPATH",
+                                "value": "/test/mariadb"
+                            },
+                            {
+                                "name": "MARIADBGALERAHOSTPATHNODELABELS",
+                                "value": "qaz=741"
+                            },
+                            {
+                                "name": "HOSTPATHSERVICEACCOUNT",
+                                "value": "default"
+                            },
+                            {
+                                "name": "MARIADBIMAGEFORHOSTPATH",
+                                "value": "registry.new.dataos.io/service-brokers/mariadb:10.2-custom-v26"
+                            },
+                            {
+                                "name": "SERVICE_ACCOUNT_TOKEN",
+                                "value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJzZXJ2aWNlLWJyb2tlcnMiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiaG9zdHBhdGh1c2VyLXRva2VuLXN0cnQ5Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6Imhvc3RwYXRodXNlciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6ImUwNmM0OTFlLTZhZmQtMTFlOC04NTEzLWZhMTYzZWYxMzRkZSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpzZXJ2aWNlLWJyb2tlcnM6aG9zdHBhdGh1c2VyIn0.dPbBngxQsPrEZSJVddBpOyfp373gXAnKI2oViYMRvEoA-y6QJ7403Fbzps-A-IzK3KlPtqHAwbn8RgqZPRZwXg1y3we0UJ2XekR9e1q4fzQpDjtivOwAKJngRrQRtomS_x1TeMbCKEKcuhFGA2nS0X_S-FDh0D4qPUyP9POD_vADoQ1eJvbcnjMWGZ328mUqFH1gCNE39ZwxLHzBlXzbWzNpLyvEN9fDGgPOOwG7cdGx8bLmO9GBFogSILMKgDWXYu1lSQu5kER9AXgRijuZeKmlEPbVIgH7CK7JMg2A6MseZlOMPXGHzoQYRjLVTVckW43pD932vLomVEMDDArDfw"
+                            },
+                            {
+                                "name": "ETCD_REGISTRY_INIT_INFO",
+                                "value": "servicebroker/mysql_galera_hostpath/install/etcd.sh:asiainfoLDP:2016asia"
+                            }
+                        ],
+                        "image": "docker-registry.default.svc:5000/service-brokers/servicebroker-openshift@sha256:68c3ea380d69042c992ab862672274d52950b86050d72ea6b1a425e6b33e830e",
+                        "imagePullPolicy": "Always",
+                        "name": "servicebroker-openshift",
+                        "ports": [
+                            {
+                                "containerPort": 8888,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "resources": {
+                            "limits": {
+                                "cpu": "500m",
+                                "memory": "4Gi"
+                            }
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30
+            }
+        },
+        "test": false,
+        "triggers": [
+            {
+                "type": "ConfigChange"
+            },
+            {
+                "imageChangeParams": {
+                    "automatic": true,
+                    "containerNames": [
+                        "servicebroker-openshift"
+                    ],
+                    "from": {
+                        "kind": "ImageStreamTag",
+                        "name": "servicebroker-openshift:latest",
+                        "namespace": "service-brokers"
+                    },
+                    "lastTriggeredImage": "docker-registry.default.svc:5000/service-brokers/servicebroker-openshift@sha256:68c3ea380d69042c992ab862672274d52950b86050d72ea6b1a425e6b33e830e"
+                },
+                "type": "ImageChange"
+            }
+        ]
+    },
+    "status": {
+        "availableReplicas": 1,
+        "conditions": [
+            {
+                "lastTransitionTime": "2018-06-13T09:29:22Z",
+                "lastUpdateTime": "2018-06-13T09:29:22Z",
+                "message": "Deployment config has minimum availability.",
+                "status": "True",
+                "type": "Available"
+            },
+            {
+                "lastTransitionTime": "2018-06-13T10:14:50Z",
+                "lastUpdateTime": "2018-06-13T10:14:52Z",
+                "message": "replication controller \"servicebroker-openshift-121\" successfully rolled out",
+                "reason": "NewReplicationControllerAvailable",
+                "status": "True",
+                "type": "Progressing"
+            }
+        ],
+        "details": {
+            "causes": [
+                {
+                    "imageTrigger": {
+                        "from": {
+                            "kind": "ImageStreamTag",
+                            "name": "servicebroker-openshift:latest",
+                            "namespace": "service-brokers"
+                        }
+                    },
+                    "type": "ImageChange"
+                }
+            ],
+            "message": "image change"
+        },
+        "latestVersion": 121,
+        "observedGeneration": 225,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "unavailableReplicas": 0,
+        "updatedReplicas": 1
+    }
+}
+

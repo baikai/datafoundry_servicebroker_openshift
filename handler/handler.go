@@ -164,27 +164,6 @@ func (handler *Handler) DoUnbind(myServiceInfo *ServiceInfo, mycredentials *Cred
 
 //=========================================================
 
-func Getenv_must(env string) string {
-	env_value := os.Getenv(env)
-	if env_value == "" {
-		fmt.Println("FATAL: NEED ENV", env)
-		fmt.Println("Exit...........")
-		os.Exit(2)
-	}
-	fmt.Println("ENV:", env, env_value)
-	return env_value
-}
-
-func Getenv_must_opitional(env string) string {
-	env_value := os.Getenv(env)
-	if env_value == "" {
-		fmt.Println("Optional env(" + env + ") not set")
-	} else {
-		fmt.Println("ENV:", env, env_value)
-	}
-	return env_value
-}
-
 func OC() *OpenshiftClient {
 	return theOC
 }
@@ -517,43 +496,43 @@ func init() {
 	etcdRegistryInitInfo = Getenv_must_opitional("ETCD_REGISTRY_INIT_INFO") // format: init_script_file:api_user:api_password
 	serviceAccountToken = Getenv_must_opitional("SERVICE_ACCOUNT_TOKEN")
 
-	ocspOcm = Getenv_must("OCSP_OCM")
-	ocspOcmPort = Getenv_must("OCSP_OCM_PORT")
-	ocspHdpVersion = Getenv_must("OCSP_HDP_VERSION")
+	ocspOcm = Getenv_warning("OCSP_OCM")
+	ocspOcmPort = Getenv_warning("OCSP_OCM_PORT")
+	ocspHdpVersion = Getenv_warning("OCSP_HDP_VERSION")
 
-	etcdImage = Getenv_must("ETCDIMAGE")
-	etcdbootImage = Getenv_must("ETCDBOOTIMAGE")
-	zookeeperImage = Getenv_must("ZOOKEEPERIMAGE")
-	zookeeperexhibitorImage = Getenv_must("ZOOKEEPEREXHIBITORIMAGE")
-	redisImage = Getenv_must("REDISIMAGE")
-	redis32Image = Getenv_must("REDIS32IMAGE")
-	redisClusterImage = Getenv_must("REDISCLUSTERIMAGE")
-	redisStatImage = Getenv_must("REDISSTATIMAGE")
-	//redisClusterTribImage = Getenv_must("REDISCLUSTERTRIBIMAGE")
-	redisphpadminImage = Getenv_must("REDISPHPADMINIMAGE")
-	kafkaImage = Getenv_must("KAFKAIMAGE")
-	stormImage = Getenv_must("STORMIMAGE")
-	cassandraImage = Getenv_must("CASSANDRAIMAGE")
-	tensorflowImage = Getenv_must("TENSORFLOWIMAGE")
-	nifiImage = Getenv_must("NIFIIMAGE")
-	kettleImage = Getenv_must("KETTLEIMAGE")
-	simplefileuplaoderImage = Getenv_must("SIMPLEFILEUPLOADERIMAGE")
-	rabbitmqImage = Getenv_must("RABBITMQIMAGE")
-	sparkImage = Getenv_must("SPARKIMAGE")
-	zepplinImage = Getenv_must("ZEPPLINIMAGE")
-	pyspiderImage = Getenv_must("PYSPIDERIMAGE")
-	etcdVolumeImage = Getenv_must("ETCDVOLUMEIMAGE")
-	elasticsearchVolumeImage = Getenv_must("ELASTICSEARCHVOLUMEIMAGE")
-	mongoVolumeImage = Getenv_must("MONGOVOLUMEIMAGE")
-	kafkaVolumeImage = Getenv_must("KAFKAVOLUMEIMAGE")
-	neo4jVolumeImage = Getenv_must("NEO4JVOLUMEIMAGE")
-	stormExternalImage = Getenv_must("STORMEXTERNALIMAGE")
-	ocspImage = Getenv_must("OCSPIMAGE")
-	dataikuImage = Getenv_must("DATAIKUIMAGE")
-	anacondaImage = Getenv_must("ANACONDAIMAGE")
+	etcdImage = Getenv_warning("ETCDIMAGE")
+	etcdbootImage = Getenv_warning("ETCDBOOTIMAGE")
+	zookeeperImage = Getenv_warning("ZOOKEEPERIMAGE")
+	zookeeperexhibitorImage = Getenv_warning("ZOOKEEPEREXHIBITORIMAGE")
+	redisImage = Getenv_warning("REDISIMAGE")
+	redis32Image = Getenv_warning("REDIS32IMAGE")
+	redisClusterImage = Getenv_warning("REDISCLUSTERIMAGE")
+	redisStatImage = Getenv_warning("REDISSTATIMAGE")
+	//redisClusterTribImage = Getenv_warning("REDISCLUSTERTRIBIMAGE")
+	redisphpadminImage = Getenv_warning("REDISPHPADMINIMAGE")
+	kafkaImage = Getenv_warning("KAFKAIMAGE")
+	stormImage = Getenv_warning("STORMIMAGE")
+	cassandraImage = Getenv_warning("CASSANDRAIMAGE")
+	tensorflowImage = Getenv_warning("TENSORFLOWIMAGE")
+	nifiImage = Getenv_warning("NIFIIMAGE")
+	kettleImage = Getenv_warning("KETTLEIMAGE")
+	simplefileuplaoderImage = Getenv_warning("SIMPLEFILEUPLOADERIMAGE")
+	rabbitmqImage = Getenv_warning("RABBITMQIMAGE")
+	sparkImage = Getenv_warning("SPARKIMAGE")
+	zepplinImage = Getenv_warning("ZEPPLINIMAGE")
+	pyspiderImage = Getenv_warning("PYSPIDERIMAGE")
+	etcdVolumeImage = Getenv_warning("ETCDVOLUMEIMAGE")
+	elasticsearchVolumeImage = Getenv_warning("ELASTICSEARCHVOLUMEIMAGE")
+	mongoVolumeImage = Getenv_warning("MONGOVOLUMEIMAGE")
+	kafkaVolumeImage = Getenv_warning("KAFKAVOLUMEIMAGE")
+	neo4jVolumeImage = Getenv_warning("NEO4JVOLUMEIMAGE")
+	stormExternalImage = Getenv_warning("STORMEXTERNALIMAGE")
+	ocspImage = Getenv_warning("OCSPIMAGE")
+	dataikuImage = Getenv_warning("DATAIKUIMAGE")
+	anacondaImage = Getenv_warning("ANACONDAIMAGE")
 	{
 		mariadbGaleraHostPathNodeLabels = map[string]string{}
-		nodeLabels := strings.Split(Getenv_must("MARIADBGALERAHOSTPATHNODELABELS"), ",")
+		nodeLabels := strings.Split(Getenv_warning("MARIADBGALERAHOSTPATHNODELABELS"), ",")
 		for _, label := range nodeLabels {
 			words := strings.SplitN(label, "=", 2)
 			if len(words) >= 2 {
@@ -564,13 +543,12 @@ func init() {
 			}
 		}
 	}
-	hostPathServiceAccount = Getenv_must("HOSTPATHSERVICEACCOUNT")
-	mariadbGaleraHostPathDataPath = Getenv_must("MARIADBGALERAHOSTPATHDATAPATH")
-	mariadbImageForHostPath = Getenv_must("MARIADBIMAGEFORHOSTPATH")
-	mariadbImage = Getenv_must("MARIADBIMAGE")
-	prometheusMysqldExporterImage = Getenv_must("PROMETHEUSMYSQLEXPORTERIMAGE")
-	phpMyAdminImage = Getenv_must("PHPMYADMINIMAGE")
-	
+	hostPathServiceAccount = Getenv_warning("HOSTPATHSERVICEACCOUNT")
+	mariadbGaleraHostPathDataPath = Getenv_warning("MARIADBGALERAHOSTPATHDATAPATH")
+	mariadbImageForHostPath = Getenv_warning("MARIADBIMAGEFORHOSTPATH")
+	mariadbImage = Getenv_warning("MARIADBIMAGE")
+	prometheusMysqldExporterImage = Getenv_warning("PROMETHEUSMYSQLEXPORTERIMAGE")
+	phpMyAdminImage = Getenv_warning("PHPMYADMINIMAGE")
 
-	esclusterImage = Getenv_must("ESCLUSTERIMAGE")
+	esclusterImage = Getenv_warning("ESCLUSTERIMAGE")
 }

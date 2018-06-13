@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"bytes"
 	"io"
+	"os"
 	"strconv"
 	"math"
 	mathrand "math/rand"
@@ -242,6 +243,38 @@ func ParseString(v interface{}) (string, error) {
 		//return fmt.Sprint(v)
 		return "", fmt.Errorf("v is not string: %v", v)
 	}
+}
+
+//=======================================================
+
+func Getenv_must(env string) string {
+	env_value := os.Getenv(env)
+	if env_value == "" {
+		fmt.Println("FATAL: NEED ENV", env)
+		fmt.Println("Exit...........")
+		os.Exit(2)
+	}
+	fmt.Println("ENV:", env, env_value)
+	return env_value
+}
+
+func Getenv_warning(env string) string {
+	env_value := os.Getenv(env)
+	if env_value == "" {
+		fmt.Println("WARNING: ENV", env, "is not set")
+	}
+	fmt.Println("ENV:", env, env_value)
+	return env_value
+}
+
+func Getenv_must_opitional(env string) string {
+	env_value := os.Getenv(env)
+	if env_value == "" {
+		fmt.Println("Optional env(" + env + ") not set")
+	} else {
+		fmt.Println("ENV:", env, env_value)
+	}
+	return env_value
 }
 
 //=======================================================

@@ -2,12 +2,12 @@ apiVersion: v1
 kind: DeploymentConfig
 metadata:
   creationTimestamp: 2018-04-28T04:27:05Z
-  generation: 151
+  generation: 223
   labels:
     app: servicebroker-openshift
   name: servicebroker-openshift
   namespace: service-brokers
-  resourceVersion: "9614515"
+  resourceVersion: "10251862"
   selfLink: /oapi/v1/namespaces/service-brokers/deploymentconfigs/servicebroker-openshift
   uid: 684c2eec-4a9c-11e8-ba43-fa163ef134de
 spec:
@@ -144,7 +144,15 @@ spec:
           value: /test/mariadb
         - name: MARIADBGALERAHOSTPATHNODELABELS
           value: qaz=741
-        image: docker-registry.default.svc:5000/service-brokers/servicebroker-openshift@sha256:2e62828ab456a12fc5a59dc5970c33337109458df6803501d961883d4c6e20c9
+        - name: HOSTPATHSERVICEACCOUNT
+          value: default
+        - name: MARIADBIMAGEFORHOSTPATH
+          value: registry.new.dataos.io/service-brokers/mariadb:10.2-custom-v26
+        - name: SERVICE_ACCOUNT_TOKEN
+          value: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJzZXJ2aWNlLWJyb2tlcnMiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiaG9zdHBhdGh1c2VyLXRva2VuLXN0cnQ5Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6Imhvc3RwYXRodXNlciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6ImUwNmM0OTFlLTZhZmQtMTFlOC04NTEzLWZhMTYzZWYxMzRkZSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpzZXJ2aWNlLWJyb2tlcnM6aG9zdHBhdGh1c2VyIn0.dPbBngxQsPrEZSJVddBpOyfp373gXAnKI2oViYMRvEoA-y6QJ7403Fbzps-A-IzK3KlPtqHAwbn8RgqZPRZwXg1y3we0UJ2XekR9e1q4fzQpDjtivOwAKJngRrQRtomS_x1TeMbCKEKcuhFGA2nS0X_S-FDh0D4qPUyP9POD_vADoQ1eJvbcnjMWGZ328mUqFH1gCNE39ZwxLHzBlXzbWzNpLyvEN9fDGgPOOwG7cdGx8bLmO9GBFogSILMKgDWXYu1lSQu5kER9AXgRijuZeKmlEPbVIgH7CK7JMg2A6MseZlOMPXGHzoQYRjLVTVckW43pD932vLomVEMDDArDfw
+        - name: ETCD_REGISTRY_INIT_INFO
+          value: servicebroker/mysql_galera_hostpath/install/etcd.sh:asiainfoLDP:2016asia
+        image: docker-registry.default.svc:5000/service-brokers/servicebroker-openshift@sha256:56cb6853569eb97cd7f8ebbdfadae870e2e20ac5ec8cb7d0432304bd0e3a7698
         imagePullPolicy: Always
         name: servicebroker-openshift
         ports:
@@ -172,30 +180,36 @@ spec:
         kind: ImageStreamTag
         name: servicebroker-openshift:latest
         namespace: service-brokers
-      lastTriggeredImage: docker-registry.default.svc:5000/service-brokers/servicebroker-openshift@sha256:2e62828ab456a12fc5a59dc5970c33337109458df6803501d961883d4c6e20c9
+      lastTriggeredImage: docker-registry.default.svc:5000/service-brokers/servicebroker-openshift@sha256:56cb6853569eb97cd7f8ebbdfadae870e2e20ac5ec8cb7d0432304bd0e3a7698
     type: ImageChange
 status:
   availableReplicas: 1
   conditions:
-  - lastTransitionTime: 2018-05-30T07:08:04Z
-    lastUpdateTime: 2018-05-30T07:08:04Z
+  - lastTransitionTime: 2018-06-13T09:29:22Z
+    lastUpdateTime: 2018-06-13T09:29:22Z
     message: Deployment config has minimum availability.
     status: "True"
     type: Available
-  - lastTransitionTime: 2018-06-08T08:43:13Z
-    lastUpdateTime: 2018-06-08T08:43:14Z
-    message: replication controller "servicebroker-openshift-84" successfully rolled
+  - lastTransitionTime: 2018-06-13T09:59:06Z
+    lastUpdateTime: 2018-06-13T09:59:08Z
+    message: replication controller "servicebroker-openshift-120" successfully rolled
       out
     reason: NewReplicationControllerAvailable
     status: "True"
     type: Progressing
   details:
     causes:
-    - type: ConfigChange
-    message: config change
-  latestVersion: 84
-  observedGeneration: 151
+    - imageTrigger:
+        from:
+          kind: ImageStreamTag
+          name: servicebroker-openshift:latest
+          namespace: service-brokers
+      type: ImageChange
+    message: image change
+  latestVersion: 120
+  observedGeneration: 223
   readyReplicas: 1
   replicas: 1
   unavailableReplicas: 0
   updatedReplicas: 1
+
