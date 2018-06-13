@@ -1,51 +1,33 @@
 
 
+kubernetes auth: through service account (need create priledge).
+
+
+etcd cluster in k8s (deplyment.yaml)
+* etcd 3
+* auto init plan infos
+* https://github.com/coreos/etcd/blob/master/Documentation/op-guide/clustering.md
+* https://github.com/coreos/etcd-operator/blob/master/doc/user/install_guide.md (need k8s 1.8+)
+
+need a mysql monitor (with web frontend).
+* https://github.com/bmildren/docker-mysql-monitoring
+* https://hub.docker.com/r/logzio/mysql-monitor/
+* https://gitee.com/ruzuojun/Lepus
+* https://github.com/prometheus/mysqld_exporter
+
+https://mariadb.com/kb/en/library/galera-cluster-system-variables/#wsrep_max_ws_rows: no limits in fact.
+https://mariadb.com/kb/en/library/galera-cluster-system-variables/#wsrep_max_ws_size: 2GB
+* This restriction will probably be fixed in Galera 4.0. http://www.fromdual.com/limitations-of-galera-cluster
+
 # 安装 operator_mariadb_galera
 
-### 上传镜像
+### (k8s集群管理员) 上传镜像
 
-将镜像上传放置到合适位置（须保证k8s集群可以拉取）：
+将两个镜像上传放置到合适位置（须保证k8s集群可以拉取）：
 1. mariadb:10.2-custom-v21 （此镜像地址将配置在operator_mariadb_galera程序环境变量中）
 1. phpmyadmin:4.6 （此镜像地址将配置在operator_mariadb_galera程序环境变量中）
+1. etcd:v3.x.y
 1. operator_mariadb_galera:latest (当前项目镜像)
-1. etcd:2.3.1 (注册表使用)
-
-### (k8s集群管理员) 在k8s集群中创建一个namespace, operator_mariadb_galera程序资源（deployment）将创建在此namespace中。
-
-推荐namespace名: asiainfo-operators
-
-### (k8s集群管理员) 在k8s集群中创建一个namespace, 所有的garela集群的资源（svc, statefulset等）将创建存储在此namespace中。
-
-为方便，此namespace可以和上面的namespace使用同一个。
-
-以下假设此namespace为 mariadb-galera-instances
-
-此namespace名称和一个对此namespace有创建将配置在operator_mariadb_galera程序环境变量中.
-
-### (k8s集群管理员) 在k8s集群中存储garela资源的namespace下创建一个特殊的ServiceAccount
-
-使用此ServiceAccount的pods将有权访问node本地卷（hostPath）。假设此ServiceAccount为 hostpathuser
-
-```
-kubectl create serviceaccount -n mariadb-galera-instances hostpathuser
-kubectl adm policy add-scc-to-user privileged -n mariadb-galera-instances -z hostpathuser
-```
-
-此ServiceAccount将配置在operator_mariadb_galera程序环境变量中.
-
-### (k8s集群管理员) 在k8s集群中运行MySQL pods的三个nodes上创建MySQL数据目录
-
-Example:
-```
-# log into node 0/1/2
-mkdir -p /asiainfo-operators/mariadb-galera
-chmod 777 /asiainfo-operators/mariadb-galera
-```
-
-每个Galera集群的数据将会存储在此目录下的一个子目录。
-* 其中operator_mariadb_galera程序的数据子目录名为operator-data
-* 其它每个galera实例对应的子目录名为galera-xxx (xxx为instance Id)
-```
 
 ### (k8s集群管理员) 给k8s集群中运行MySQL pods的三个nodes打label
 
@@ -58,105 +40,124 @@ kubectl label nodes node-name-1 asiainfo-operator-mariadb-galera=host-path
 kubectl label nodes node-name-2 asiainfo-operator-mariadb-galera=host-path
 ```
 
-### 启动 etcd 程序
+此标签将设置在MARIADBGALERAHOSTPATHNODELABELS环境变量中。
 
-### 写入 etcd 注册表
+### (k8s集群管理员) 在k8s集群中创建一个namespace
 
+operator_mariadb_galera程序和所有生成的MySQL集群资源将创建在此namespace中。
+
+此namespace将被配置在SBNAMESPACE环境变量中。
+
+### (k8s集群管理员) 在上述namespace中创建一个具有edit角色的ServiceAccount
+
+创建ServiceAccount范例：
+```
+oc create serviceaccount rescreator
 ```
 
-ETCD_USER=xxx
-ETCD_PASSWORD=xxx
-ETCD_ADDRESS=http://xxx:2379
-
-export ETCDCTL="etcdctl --timeout 15s --total-timeout 30s --endpoints $ETCD_ADDRESS --username $ETCD_USER:$ETCD_PASSWORD"
-
-API_NAME=xxx
-API_PASSWORD=xxx
-
-$ETCDCTL mkdir /servicebroker
-$ETCDCTL mkdir /servicebroker/openshift
-$ETCDCTL set /servicebroker/openshift/username $API_NAME
-$ETCDCTL set /servicebroker/openshift/password $API_PASSWORD
-
-$ETCDCTL mkdir /servicebroker/openshift/instance
-
-$ETCDCTL mkdir /servicebroker/openshift/catalog
-
-
-###创建服务 MySQL
-$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9 #服务id
-
-###创建服务级的配置
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/name "MySQL"
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/description "A Sample MySQL cluster on Openshift"
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/bindable true
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/planupdatable false
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/tags 'mysql,openshift'
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/metadata '{"displayName":"MySQL","imageUrl":"https://labs.mysql.com/common/logos/mysql-logo.svg?v2","longDescription":"Managed, highly available MySQL clusters in the cloud.","providerDisplayName":"Asiainfo","documentationUrl":"https://dev.mysql.com/doc/","supportUrl":"https://www.mysql.com/"}'
-
-###创建套餐目录
-$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan
-
-###创建套餐2 (hostpath)
-$ETCDCTL mkdir /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/name "hostpath_ha_cluster"
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/description "HA MySQL With HostPath Support on Kubernetes"
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/metadata '{"bullets":["1 GB of Disk","20 connections"],"displayName":"Shared and Free" }'
-$ETCDCTL set /servicebroker/openshift/catalog/0f96b0f0-6a25-4018-8225-8f1cd090b1f9/plan/b80b0b7d-5108-4038-b560-67d82e6a43b7/free false
+或者从yaml创建：
+```
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: service-brokers
+  namespace: rescreator
 ```
 
-### 启动 operator_mariadb_galera 程序
-
-修改下面yaml中的
-* operator_mariadb_galera image
-* hostPath volume: 
-* serice account name
-* enviroment variables
-  * mariadb image
-  * phpmysqladmin image
-  * hostPath volume
-  * service instance namespace
-  * privileged account service
-
-注意：需要的环境变量
+为此ServiceAccount添加role的yaml范例1（需要查一下apiVersion）：
 ```
-        - name: NODE_ADDRESSES
-          value: 10.1.234.35,10.1.234.36,10.1.234.37,10.1.234.38
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+kind: RoleBinding
+metadata:
+  name: edit
+  namespace: service-brokers
+roleRef:
+  name: edit
+subjects:
+- kind: ServiceAccount
+  name: rescreator
+  namespace: service-brokers
+userNames:
+- system:serviceaccount:service-brokers:rescreator
+```
 
-
-        - name: HOSTPATHSERVICEACCOUNT
-          value: hostpathuser
-        - name: MARIADBGALERAHOSTPATHDATAPATH
-          value: /test/mariadb
-        - name: MARIADBGALERAHOSTPATHNODELABELS
-          value: qaz=741
+为此ServiceAccount添加role的yaml范例2：
+```
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+kind: ClusterRoleBinding
+metadata:
+  name: rescreator
+  namespace: ""
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: rescreator
+  namespace: service-brokers
 ```
 
 
-(k8s集群管理员) 运行:
+
+operator_mariadb_galera程序将使用此AccountService的token。
+此token的base64加密形式可以从其对应secret中提取。
+使用`echo <token> | base64 -d`命令可以获取此token。
+
+此token将被配置在SERVICE_ACCOUNT_TOKEN环境变量中。
+
+
+
+### (k8s集群管理员) 创建ETCD程序
+
+ETCD的信息应配置在以下几个环境变量中：
 ```
-kubectl create -f operator_mariadb_galera.yaml
+ETCDENDPOINT: http://xxx:2379
+ETCDUSER: xxx
+ETCDPASSWORD: xxx
 ```
 
-# 通过 operator_mariadb_galera 程序创建新的 mariadb galera 集群服务实例
+ETCD的初始化脚本可以选配在环境变量ETCD_REGISTRY_INIT_INFO中：格式为init_script_file:api_user:api_password
 
+比如：
+```
+servicebroker/mysql_galera_hostpath/install/etcd.sh:asiainfoLDP:2016asia
 ```
 
-# provision
-curl -i -X PUT http://xxx/v2/service_instances/mysql-host-path-test -d '{
+### (k8s集群管理员) 创建operator_mariadb_galera程序
+
+注意设置上面提到的环境变量。
+
+
+# 创建MySQL实例
+
+### 需在三个k8s node上预先创建好同名mysql data目录
+
+此data目录将在调用operator的provision API的时候做为参数(datapath)传入。
+详见下面的curl范例。
+
+### curl范例
+
+```
+curl -i -X PUT http://apiuser:apipass@operator-address/v2/service_instances/mysql-host-path-test -d '{
   "service_id":"0f96b0f0-6a25-4018-8225-8f1cd090b1f9",
   "plan_id":"b80b0b7d-5108-4038-b560-67d82e6a43b7",
   "organization_guid": "default",
   "space_guid":"space-guid",
   "accepts_incomplete":true,
-  "parameters": {"ami_id":"ami-ecb68a84"}
+  "parameters": {"ami_id":"ami-ecb68a84", "datapath": "/var/lib/mysql"}
 }' -H "Content-Type: application/json"
 
-
-# deprovision
-curl -i -X DELETE -L 'http://xxx/v2/service_instances/mysql-host-path-test?service_id=0f96b0f0-6a25-4018-8225-8f1cd090b1f9&plan_id=b80b0b7d-5108-4038-b560-67d82e6a43b7'
-
+curl -i -X DELETE -L 'http://apiuser:apipass@operator-address/v2/service_instances/mysql-host-path-test?service_id=0f96b0f0-6a25-4018-8225-8f1cd090b1f9&plan_id=b80b0b7d-5108-4038-b560-67d82e6a43b7'
 ```
+
+
+
+
+
+
+
+
 
 
 
