@@ -112,7 +112,7 @@ func initETCD() {
 		remaining := line[index+1:]
 		keyvalue := strings.SplitN(remaining, " ", 2)
 		key, value := strings.TrimSpace(keyvalue[0]), ""
-		if len(keyvalue) > 0 {
+		if len(keyvalue) > 1 {
 			value = strings.TrimSpace(keyvalue[1])
 		}
 
