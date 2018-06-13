@@ -92,7 +92,10 @@ func initETCD() {
 	r := bufio.NewReader(f)
 	for {
 		line, err := handler.Readln(r)
-		if err != nil && err != io.EOF {
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			logger.Error("error readline etcdInitScriptFile", err)
 			os.Exit(1)
 		}
