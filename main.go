@@ -122,6 +122,7 @@ func initETCD() {
 		case "mkdir":
 			if key != "" {
 				_, err = etcdapi.Set(context.Background(), key, "", &client.SetOptions{Dir: true})
+				err = nil // tolerate mkdir errors
 			}
 		case "set":
 			switch key {
