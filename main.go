@@ -66,7 +66,6 @@ import (
 )
 
 func initETCD() {
-	fmt.Println(etcdapi.Get(context.Background(), "/dafafafafafa", &client.GetOptions{Recursive: false}))
 	_, err := etcdapi.Get(context.Background(), "/servicebroker", &client.GetOptions{Recursive: false})
 	if err == nil {
 		return
