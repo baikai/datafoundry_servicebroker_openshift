@@ -145,11 +145,14 @@ kind: Service
 metadata:
   name: sb-{{ .InstanceID }}-mysql
 spec:
-  type: NodePort
+  # type: NodePort
   ports:
   - name: mysql
     port: 3306
     targetPort: 3306
+  - name: prometheus
+    port: 9104
+    targetPort: 9104
   selector:
     app: sb-{{ .InstanceID }}-mariadb
 
@@ -276,13 +279,13 @@ spec:
           mountPath: /etc/mysql/conf.d
         - name: initdb
           mountPath: /docker-entrypoint-initdb.d
-      #- name: metrics
-      #  image: {{ .PrometheusMysqldExporterImage }}
-      #  env:
-      #  - name: DATA_SOURCE_NAME
-      #    value: root@(localhost:3306)/
-      #  ports:
-      #  - containerPort: 9104
+      - name: metrics
+        image: {{ .PrometheusMysqldExporterImage }}
+        env:
+        - name: DATA_SOURCE_NAME
+          value: root@(localhost:3306)/
+        ports:
+        - containerPort: 9104
       volumes:
       - name: conf
         configMap:
@@ -311,7 +314,7 @@ kind: Service
 metadata:
   name: sb-{{ .InstanceID }}-myadmin
 spec:
-  type: NodePort
+  # type: NodePort
   ports:
   - name: admin
     port: 80

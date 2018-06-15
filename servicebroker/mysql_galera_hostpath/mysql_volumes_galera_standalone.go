@@ -145,6 +145,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	serviceInfo.Miscs[Key_MySqlDataPath] = mysqlDataPath
 
 	//>> may be not optimized
+	/*
 	var template mysqlResources_Master
 	err := loadMysqlResources_Master(
 		serviceInfo.Url,
@@ -166,6 +167,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		go destroyMysqlResources_Master(&template, serviceBrokerNamespace)
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
+	*/
 
 	// ...
 	go func() {
@@ -202,7 +204,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	//serviceSpec.DashboardURL = "http://" + template.routePma.Spec.Host
 
 	//>>>
-	serviceSpec.Credentials, serviceSpec.DashboardURL = getCredentialsOnPrivision(&serviceInfo, nodePort)
+	serviceSpec.Credentials, serviceSpec.DashboardURL = getCredentialsOnPrivision(&serviceInfo) // , nodePort)
 	//<<<
 
 	return serviceSpec, serviceInfo, nil
@@ -307,13 +309,14 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 }
 
 // please note: the bsi may be still not fully initialized when calling the function.
-func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *mysqlResources_Master) (oshandler.Credentials, string) {
+func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo/*, nodePort *mysqlResources_Master*/) (oshandler.Credentials, string) {
 	var master_res mysqlResources_Master
 	err := loadMysqlResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, 123, "/data", &master_res)
 	if err != nil {
 		return oshandler.Credentials{}, "error"
 	}
-
+	
+	/*
 	mariamysql_port := oshandler.GetServicePortByName(&master_res.serviceMaria, "mysql")
 	if mariamysql_port == nil {
 		return oshandler.Credentials{}, "error"
@@ -321,7 +324,18 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *m
 
 	svchost := fmt.Sprintf("%s.%s.%s", master_res.serviceMaria.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	svcport := strconv.Itoa(mariamysql_port.Port)
+	*/
+	
+	mysql_port := oshandler.GetServicePortByName(&master_res.serviceMysql, "mysql")
+	if mysql_port == nil {
+		return oshandler.Credentials{}, "error"
+	}
 
+	svchost := fmt.Sprintf("%s.%s.%s", master_res.serviceMysql.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
+	svcport := strconv.Itoa(mysql_port.Port)
+	
+
+	/*
 	ndhost := oshandler.RandomNodeAddress()
 	var ndport string = ""
 	if nodePort != nil && len(nodePort.serviceMysql.Spec.Ports) > 0 {
@@ -333,20 +347,21 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo, nodePort *m
 		pmaNdport = strconv.Itoa(nodePort.servicePma.Spec.Ports[0].NodePort)
 	}
 	dashboardUrl := "http://" + ndhost + ":" + pmaNdport
+	*/
 
 	return oshandler.Credentials{
-		Uri:      fmt.Sprintf(
-			"external address: %s:%s, internal address: %s:%s, dashboard address: %s",
-			ndhost, ndport,
-			svchost, svcport,
-			dashboardUrl,
-		),
-		//Hostname: svchost, //ndhost,
-		//Port:     svcport, //ndport,
+		//Uri:      fmt.Sprintf(
+		//	"external address: %s:%s, internal address: %s:%s, dashboard address: %s",
+		//	ndhost, ndport,
+		//	svchost, svcport,
+		//	dashboardUrl,
+		//),
+		Hostname: svchost, //ndhost,
+		Port:     svcport, //ndport,
 		Username: myServiceInfo.User,
 		Password: myServiceInfo.Password,
 		//Vhost:    svchost,
-	}, dashboardUrl
+	}, "" // dashboardUrl
 }
 
 func (handler *Mysql_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindingID string, details brokerapi.BindDetails) (brokerapi.Binding, oshandler.Credentials, error) {
@@ -413,7 +428,7 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		//"MysqlDataDiskSize":             volumeSize, // Gb
 		"RootPassword":                  mysqlPassword,
 		"MariadbImage":                  oshandler.MariadbImageForHostPath(),
-		//"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
+		"PrometheusMysqldExporterImage": oshandler.PrometheusMysqldExporterImage(),
 		"PhpMyAdminImage":               oshandler.PhpMyAdminImage(),
 		//"StorageClassName":              oshandler.StorageClassName(),
 		// "EndPointSuffix":                oshandler.EndPointSuffix(),
@@ -473,9 +488,9 @@ func createMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, 
 	osr.
 		KPost(prefix+"/configmaps", &input.cmConfigD, &output.cmConfigD).
 		KPost(prefix+"/services", &input.serviceMaria, &output.serviceMaria).
-		// KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql).
+		KPost(prefix+"/services", &input.serviceMysql, &output.serviceMysql).
 		Post(prefix+"/statefulsets", &input.statefulset, &output.statefulset, "/apis/apps/v1beta1").
-		// KPost(prefix+"/services", &input.servicePma, &output.servicePma).
+		KPost(prefix+"/services", &input.servicePma, &output.servicePma).
 		KPost(prefix+"/replicationcontrollers", &input.rcPma, &output.rcPma)//.
 		//OPost(prefix+"/routes", &input.routePma, &output.routePma)
 

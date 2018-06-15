@@ -3,10 +3,21 @@
 k8s statefulset api group unknown, 
 
 need a host path to store credential and service instance info
+* etcd path
 
 need a API to store/load credentials
 
 operator_mariadb_galera程序负责创建删除 /asiainfo-operator/mariadb-galera 下的子目录
+
+need nodeport to visit pma
+
+https://v1-6.docs.kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+
+need know node ips
+
+MARIADBGALERAHOSTPATHNODELABELS=qaz=741
+MARIADBGALERAHOSTPATHDATAPATH=/test/mariadb
+
 
 =========================================================
 
@@ -14,6 +25,10 @@ need a special serviceaccount:
 
 	kubectl create serviceaccount -n mysql-galear-cluster hostpathuser
 	kubectl adm policy add-scc-to-user privileged -n mysql-galear-cluster -z hostpathuser
+	
+	
+	kubectl create serviceaccount -n service-brokers hostpathuser
+	kubectl adm policy add-scc-to-user privileged -n service-brokers -z hostpathuser
 
 prepare host directory (on each k8s node)
 
