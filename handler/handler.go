@@ -493,8 +493,8 @@ func init() {
 	nodeDemains = strings.Split(Getenv_must("NODE_DOMAINS"), ",")
 	externalZookeeperServers = strings.Split(Getenv_must("EXTERNALZOOKEEPERSERVERS"), ",")
 	
-	etcdRegistryInitInfo = Getenv_must_opitional("ETCD_REGISTRY_INIT_INFO") // format: init_script_file:api_user:api_password
-	serviceAccountToken = Getenv_must_opitional("SERVICE_ACCOUNT_TOKEN")
+	etcdRegistryInitInfo = Getenv_opitional("ETCD_REGISTRY_INIT_INFO") // format: init_script_file:api_user:api_password
+	serviceAccountToken = Getenv_opitional("SERVICE_ACCOUNT_TOKEN")
 
 	ocspOcm = Getenv_warning("OCSP_OCM")
 	ocspOcmPort = Getenv_warning("OCSP_OCM_PORT")

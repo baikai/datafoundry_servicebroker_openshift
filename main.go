@@ -1108,16 +1108,16 @@ func getguid() string {
 	return getmd5string(base64.URLEncoding.EncodeToString(b))
 }
 
-func Getenv_must(env string) string {
-	env_value := os.Getenv(env)
-	if env_value == "" {
-		fmt.Println("FATAL: NEED ENV", env)
-		fmt.Println("Exit...........")
-		os.Exit(1)
-	}
-	fmt.Println("ENV:", env, env_value)
-	return env_value
-}
+//func Getenv_must(env string) string {
+//	env_value := os.Getenv(env)
+//	if env_value == "" {
+//		fmt.Println("FATAL: NEED ENV", env)
+//		fmt.Println("Exit...........")
+//		os.Exit(1)
+//	}
+//	fmt.Println("ENV:", env, env_value)
+//	return env_value
+//}
 
 //定义日志和etcd的全局变量，以及其他变量
 var logger lager.Logger
@@ -1130,8 +1130,8 @@ var brokerCredentials brokerapi.BrokerCredentials
 func main() {
 	//需要以下环境变量
 	etcdEndPoint = handler.Getenv_must("ETCDENDPOINT") //etcd的路径
-	etcdUser = handler.Getenv_must_opitional("ETCDUSER")
-	etcdPassword = handler.Getenv_must_opitional("ETCDPASSWORD")
+	etcdUser = handler.Getenv_opitional("ETCDUSER")
+	etcdPassword = handler.Getenv_opitional("ETCDPASSWORD")
 	serviceBrokerPort = handler.Getenv_must("BROKERPORT") //监听的端口
 
 	//初始化日志对象，日志输出到stdout

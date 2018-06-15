@@ -267,7 +267,7 @@ func Getenv_warning(env string) string {
 	return env_value
 }
 
-func Getenv_must_opitional(env string) string {
+func Getenv_opitional(env string) string {
 	env_value := os.Getenv(env)
 	if env_value == "" {
 		fmt.Println("Optional env(" + env + ") not set")
