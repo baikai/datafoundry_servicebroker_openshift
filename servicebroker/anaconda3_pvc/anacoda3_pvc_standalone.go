@@ -320,6 +320,8 @@ func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, p
 
 func (handler *Anacoda_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
+	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
+	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
 	go func() {
 		// ...
 		volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
