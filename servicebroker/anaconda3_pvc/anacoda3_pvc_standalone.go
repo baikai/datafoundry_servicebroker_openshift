@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //==============================================================
@@ -319,14 +320,31 @@ func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, p
 
 func (handler *Anacoda_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
-
-	println("to destroy resources")
-
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
+	go func() {
+		// ...
+		volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
+		if volumeJob != nil {
+			volumeJob.Cancel()
 
-	master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu,myServiceInfo.Volumes)
-	destroyAnacodaResources_Master(master_res, myServiceInfo.Database)
+			// wait job to exit
+			for {
+				time.Sleep(7 * time.Second)
+				if nil == oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url)) {
+					break
+				}
+			}
+		}
+
+		master_res, _ := getAnacodaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory,cpu,myServiceInfo.Volumes)
+		destroyAnacodaResources_Master(master_res, myServiceInfo.Database)
+		// ...
+
+		fmt.Println("to destroy volumes:", myServiceInfo.Volumes)
+
+		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
+	}()
 
 	return brokerapi.IsAsync(false), nil
 }
