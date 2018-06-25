@@ -1261,11 +1261,16 @@ func updateRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisP
 	
 	kdel_rc(serviceBrokerNamespace, &input.rc)
 	
-	//>> ensure to finish the deleting
-	kdel(serviceBrokerNamespace, "replicationcontrollers", input.rc.Name) // 
+	//>> ensure to finish the deleting before the following re-creating.
+	kdel(serviceBrokerNamespace, "replicationcontrollers", input.rc.Name)
 	time.Sleep(time.Second * 5)
 	//<<
 
+	stat, _ := getRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisPassword, serverIPs)
+	if stat.service.Name == "" && stat.route.Name == "" {
+		return nil, errors.New("reids cluster " + instanceID + " has already been deprovisioned.")
+	}
+	
 	var output redisResources_Stat
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 	prefix := "/namespaces/" + serviceBrokerNamespace
