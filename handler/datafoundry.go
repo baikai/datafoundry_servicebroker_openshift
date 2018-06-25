@@ -47,7 +47,7 @@ func dfRequestWithTimeout(timeout time.Duration, method, url, bearerToken string
 
 	//println("22222 len(data) = ", len(data), " , res.StatusCode = ", res.StatusCode)
 
-	logger.Debug("dfRequest(), status code=" + strconv.Itoa(res.StatusCode) + ", data=" + string(data))
+	//logger.Debug("dfRequest(), status code=" + strconv.Itoa(res.StatusCode) + ", data=" + string(data))
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
 		err = errors.New(string(data))
 		logger.Error("dfRequest(), unknown status code "+strconv.Itoa(res.StatusCode), err)

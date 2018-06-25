@@ -1259,7 +1259,8 @@ func updateRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisP
 		return nil, err
 	}
 	
-	kdel_rc(serviceBrokerNamespace, &input.rc)
+	rc := input.rc
+	kdel_rc(serviceBrokerNamespace, &rc)
 	
 	//>> ensure to finish the deleting before the following re-creating.
 	kdel(serviceBrokerNamespace, "replicationcontrollers", input.rc.Name)
