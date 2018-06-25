@@ -1259,18 +1259,18 @@ func updateRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisP
 		return nil, err
 	}
 	
-	err = kdel(serviceBrokerNamespace, "replicationcontrollers", input.rc.Name)
-	if err != nil {
-		return nil, err
-	}
+	kdel_rc(serviceBrokerNamespace, &input.rc)
+	
+	//>> ensure to finish the deleting
+	kdel(serviceBrokerNamespace, "replicationcontrollers", input.rc.Name) // 
+	time.Sleep(time.Second * 5)
+	//<<
 
 	var output redisResources_Stat
 	osr := oshandler.NewOpenshiftREST(oshandler.OC())
 	prefix := "/namespaces/" + serviceBrokerNamespace
 	osr.KPost(prefix+"/replicationcontrollers", &input.rc, &output.rc)
-	if osr.Err != nil {
-		logger.Error("updateRedisClusterResources_Stat error", osr.Err)
-	} else {
+	if osr.Err == nil {
 		// n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Labels)
 		n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Spec.Selector)
 		println("updateRedisClusterResources_Stat:", n, "pods are deleted.")
