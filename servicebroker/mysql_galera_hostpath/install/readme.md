@@ -7,6 +7,11 @@ Need:
 * 带图表的独立监控系统。
   * 创建一个独立的Promethous + MySQL Exporter。
   * 或者使用D3.js + custom data collector。
+  * ref
+    * https://hub.docker.com/r/logzio/mysql-monitor/
+    * https://github.com/bmildren/docker-mysql-monitoring
+    * galera official monitor
+    * 天兔
 * 限制表空间大小。
   * MySQL本身并不支持此功能。
   * 一般利用磁盘的物理极限来做此限制。
