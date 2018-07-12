@@ -1127,7 +1127,14 @@ var etcdEndPoint, etcdUser, etcdPassword string
 var serviceBrokerPort string
 var brokerCredentials brokerapi.BrokerCredentials
 
+var (
+	gitrev = "[not set]" // will be injected at build time
+)
+
+
 func main() {
+	fmt.Println("git revision:", gitrev)
+
 	//需要以下环境变量
 	etcdEndPoint = handler.Getenv_must("ETCDENDPOINT") //etcd的路径
 	etcdUser = handler.Getenv_opitional("ETCDUSER")

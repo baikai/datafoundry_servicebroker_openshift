@@ -15,6 +15,6 @@ WORKDIR /go/src/github.com/asiainfoLDP/datafoundry_servicebroker_openshift
 #RUN go get github.com/tools/godep \
 #    && godep go build 
 
-RUN go build 
+RUN go build -ldflags="-X main.gitrev=`git log  --format="%H" -1`"
 
 CMD ["sh", "-c", "./datafoundry_servicebroker_openshift"]

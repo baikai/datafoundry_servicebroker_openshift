@@ -210,7 +210,6 @@ $ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E3
 #$ETCDCTL set /servicebroker/openshift/catalog/9972923D-0787-4271-839C-D000BD87E309/plan/EDCB798A-C03F-11E6-8220-AB033AF07E38/free false
 
 
-
 ###创建服务 Cassandra
 #$ETCDCTL mkdir /servicebroker/openshift/catalog/3D7D7D07-D704-4B22-B492-EE5AE5301A55 #服务id
 
