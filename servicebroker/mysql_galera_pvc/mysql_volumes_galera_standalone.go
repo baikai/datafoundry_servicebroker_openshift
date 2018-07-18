@@ -223,7 +223,7 @@ func (handler *Mysql_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
 		}
-		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
+		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels, func(phase kapi.PodPhase) bool {return phase == kapi.PodRunning})
 		return n >= *rc.Spec.Replicas
 	}
 
@@ -502,7 +502,7 @@ func getMysqlResources_Master(instanceId, serviceBrokerNamespace, mysqlUser, mys
 func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 	
-	pvclabels := masterRes.statefulset.Spec.Template.ObjectMeta.Labels
+	pvclabels := masterRes.statefulset.Spec.Template.ObjectMeta.Labels // also pod labels
 	
 	go func() { kdel(serviceBrokerNamespace, "configmaps", masterRes.cmConfigD.Name) }()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceMaria.Name) }()
@@ -520,11 +520,20 @@ func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBroke
 		// sometimes, one pod and the statefulset ifself will not be deleted. Retry?
 		time.Sleep(time.Second * 15)
 		del(serviceBrokerNamespace, "statefulsets", masterRes.statefulset.Name, "/apis/apps/v1beta1", opt)
+		time.Sleep(time.Second * 5)
+		for {
+			n, err := statRunningPodsByLabels(serviceBrokerNamespace, pvclabels, func(phase kapi.PodPhase) bool {return true})
+			if n == 0 && err == nil {
+				break
+			}
+			time.Sleep(time.Second * 15)
+		}
+		deletePvcsByLabels(serviceBrokerNamespace, pvclabels)
 	}()
 	go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicePma.Name) }()
 	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rcPma) }()
 	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routePma.Name) }()
-	go func() { deletePvcsByLabels(serviceBrokerNamespace, pvclabels) }()
+	// go func() { deletePvcsByLabels(serviceBrokerNamespace, pvclabels) }() // delete them after all pods are deleted now.
 }
 
 //===============================================================
@@ -735,7 +744,7 @@ type watchReplicationControllerStatus struct {
 	Object kapi.ReplicationController `json:"object"`
 }
 
-func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
+func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string, phaseCheck func(phase kapi.PodPhase) bool) (int, error) {
 
 	println("to list pods in", serviceBrokerNamespace)
 
@@ -755,7 +764,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
-		if pod.Status.Phase == kapi.PodRunning {
+		if phaseCheck(pod.Status.Phase) {
 			nrunnings++
 		}
 	}
