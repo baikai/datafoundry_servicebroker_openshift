@@ -222,8 +222,8 @@ spec:
         env:
         - name: MYSQL_ROOT_HOST
           value: "localhost"
-        - name: MYSQL_ALLOW_EMPTY_PASSWORD
-          value: "yes"
+        #- name: MYSQL_ALLOW_EMPTY_PASSWORD
+        #  value: "yes"
         - name: MYSQL_ROOT_PASSWORD
           value: "{{ .RootPassword }}"
         - name: MYSQL_INITDB_SKIP_TZINFO

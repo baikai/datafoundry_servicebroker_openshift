@@ -2,6 +2,7 @@
 
 sleep 3
 
+echo "[-] modify privileges"
 mysql -uroot -p${MYSQL_ROOT_PASSWORD} -e "use mysql; update user set host = '%' where user = 'root'; flush privileges; select host, user from user;"
 
 while [ $? -ne 0 ]; do
@@ -9,3 +10,5 @@ while [ $? -ne 0 ]; do
 	sleep 3
 	mysql -uroot -p${MYSQL_ROOT_PASSWORD} -e "use mysql; update user set host = '%' where user = 'root'; flush privileges; select host, user from user;"
 done
+
+echo ======================== $?
