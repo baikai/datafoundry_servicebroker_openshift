@@ -432,6 +432,7 @@ var redisImage string
 var redis32Image string
 var redisClusterImage string
 var redisStatImage string
+
 //var redisClusterTribImage string // merged into redisClusterImage
 var redisphpadminImage string // looks useless
 var kafkaImage string
@@ -464,7 +465,11 @@ var phpMyAdminImage string
 // added by Jared
 var esclusterImage string
 
+// will be injected at build time
+var Gitrev string = "[not set]"
+
 func init() {
+	fmt.Println("git revision:", Gitrev)
 	theOC = newOpenshiftClient(
 		Getenv_must("OPENSHIFTADDR"),
 		Getenv_must("OPENSHIFTUSER"),
@@ -492,7 +497,7 @@ func init() {
 	nodeAddresses = strings.Split(Getenv_must("NODE_ADDRESSES"), ",")
 	nodeDemains = strings.Split(Getenv_must("NODE_DOMAINS"), ",")
 	externalZookeeperServers = strings.Split(Getenv_must("EXTERNALZOOKEEPERSERVERS"), ",")
-	
+
 	etcdRegistryInitInfo = Getenv_opitional("ETCD_REGISTRY_INIT_INFO") // format: init_script_file:api_user:api_password
 	serviceAccountToken = Getenv_opitional("SERVICE_ACCOUNT_TOKEN")
 
