@@ -1,14 +1,15 @@
 package brokerapi
 
 type Service struct {
-	ID              string                  `json:"id"`
-	Name            string                  `json:"name"`
-	Description     string                  `json:"description"`
-	Bindable        bool                    `json:"bindable"`
-	Tags            []string                `json:"tags,omitempty"`
-	PlanUpdatable   bool                    `json:"plan_updateable"`
-	Plans           []ServicePlan           `json:"plans"`
-	Metadata        *ServiceMetadata        `json:"metadata,omitempty"`
+	ID            string                 `json:"id"`
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description"`
+	Bindable      bool                   `json:"bindable"`
+	Tags          []string               `json:"tags,omitempty"`
+	PlanUpdatable bool                   `json:"plan_updateable"`
+	Plans         []ServicePlan          `json:"plans"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	// Metadata        *ServiceMetadata        `json:"metadata,omitempty"`
 	DashboardClient *ServiceDashboardClient `json:"dashboard_client,omitempty"`
 }
 
