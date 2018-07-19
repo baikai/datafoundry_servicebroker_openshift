@@ -3,6 +3,7 @@ package ocsp
 import (
 	"errors"
 	"fmt"
+
 	//marathon "github.com/gambol99/go-marathon"
 	//kapi "golang.org/x/build/kubernetes/api"
 	//"golang.org/x/build/kubernetes"
@@ -10,6 +11,7 @@ import (
 	//"net/http"
 	"bytes"
 	"encoding/json"
+
 	//"net"
 	"strconv"
 	"strings"
@@ -21,6 +23,7 @@ import (
 	//"io"
 	"io/ioutil"
 	"os"
+
 	//"sync"
 
 	"github.com/pivotal-golang/lager"
@@ -36,7 +39,7 @@ import (
 //
 //==============================================================
 
-const OcspServcieBrokerName_Standalone = "Ocsp_standalone"
+const OcspServcieBrokerName_Standalone = "OCSP_standalone"
 
 func init() {
 	oshandler.Register(OcspServcieBrokerName_Standalone, &Ocsp_freeHandler{})
