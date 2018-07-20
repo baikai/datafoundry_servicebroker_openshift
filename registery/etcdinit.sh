@@ -435,6 +435,8 @@ $ETCDCTL set /servicebroker/openshift/catalog/e4871703-a37e-427b-bbfc-313c1fbf68
 
 
 ###创建服务 Zeppelin
+$ETCDCTL mkdir /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F
+
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/name "Zeppelin"
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/description "Zeppelin on Openshift"
 $ETCDCTL set /servicebroker/openshift/catalog/A326EF4F-74D0-4B60-9CA0-CAED94D7E50F/bindable true
