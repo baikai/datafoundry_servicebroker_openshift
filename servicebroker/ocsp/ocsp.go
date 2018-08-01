@@ -379,6 +379,12 @@ func (handler *Ocsp_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo,
 			myServiceInfo.Volumes,
 		)
 		destroyOcspResources_Master(master_res, myServiceInfo.Database)
+
+		// ...
+
+		println("to destroy volumes:", myServiceInfo.Volumes)
+
+		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
 
 	return brokerapi.IsAsync(false), nil
