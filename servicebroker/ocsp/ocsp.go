@@ -51,6 +51,24 @@ func init() {
 var logger lager.Logger
 
 //==============================================================
+//挂卷
+//==============================================================
+
+// version 1:
+//   one peer volume,
+
+func volumeBaseName(instanceId string) string {
+	return "ocsp-" + instanceId
+}
+
+func peerPvcName0(volumes []oshandler.Volume) string {
+	if len(volumes) > 0 {
+		return volumes[0].Volume_name
+	}
+	return ""
+}
+
+//==============================================================
 //
 //==============================================================
 
@@ -176,12 +194,23 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
 	println()
 
+	volumeBaseName := volumeBaseName(instanceIdInTempalte)
+	volumes := []oshandler.Volume{
+		// one peer volume
+		{
+			Volume_size: planInfo.Volume_size,
+			Volume_name: volumeBaseName + "-0",
+		},
+	}
+
 	// master ocsp
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
 	serviceInfo.User = ocspUser
-	serviceInfo.Password = ocspPassword //NEO4J_AUTH
+	serviceInfo.Password = ocspPassword
+
+	serviceInfo.Volumes = volumes
 
 	var ocspPara Ocsp_Parameters = Ocsp_Parameters{}
 	if err := ocspPara.GetParaMeters(&details); err != nil {
@@ -195,6 +224,21 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 			return
 		}
 
+		// create volumes
+
+		result := oshandler.StartCreatePvcVolumnJob(
+			volumeBaseName,
+			serviceInfo.Database,
+			serviceInfo.Volumes,
+		)
+
+		err = <-result
+		if err != nil {
+			logger.Error("rabbitmq create volume", err)
+			handler.DoDeprovision(&serviceInfo, true)
+			return
+		}
+
 		println("createOcspResources_Master ...")
 
 		// create master res
@@ -204,6 +248,7 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 			serviceInfo.Database,
 			serviceInfo.User,
 			serviceInfo.Password,
+			serviceInfo.Volumes,
 			details,
 		)
 		if err != nil {
@@ -246,6 +291,7 @@ func (handler *Ocsp_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInf
 		myServiceInfo.Database,
 		myServiceInfo.User,
 		myServiceInfo.Password,
+		myServiceInfo.Volumes,
 	)
 
 	//ok := func(rc *kapi.ReplicationController) bool {
@@ -330,6 +376,7 @@ func (handler *Ocsp_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo,
 			myServiceInfo.Database,
 			myServiceInfo.User,
 			myServiceInfo.Password,
+			myServiceInfo.Volumes,
 		)
 		destroyOcspResources_Master(master_res, myServiceInfo.Database)
 	}()
@@ -340,7 +387,7 @@ func (handler *Ocsp_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo,
 // please note: the bsi may be still not fully initialized when calling the function.
 func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.Credentials {
 	var master_res ocspResources_Master
-	err := loadOcspResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, nil, &master_res)
+	err := loadOcspResources_Master(myServiceInfo.Url, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes, nil, &master_res)
 	if err != nil {
 		return oshandler.Credentials{}
 	}
@@ -368,6 +415,7 @@ func (handler *Ocsp_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindin
 		myServiceInfo.Database,
 		myServiceInfo.User,
 		myServiceInfo.Password,
+		myServiceInfo.Volumes,
 	)
 	if err != nil {
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
@@ -408,7 +456,7 @@ func (handler *Ocsp_Handler) DoUnbind(myServiceInfo *oshandler.ServiceInfo, mycr
 
 var OcspTemplateData_Master []byte = nil
 
-func loadOcspResources_Master(instanceID, ocspUser, ocspPassword string, details *brokerapi.ProvisionDetails, res *ocspResources_Master) error {
+func loadOcspResources_Master(instanceID, ocspUser, ocspPassword string, volumes []oshandler.Volume, details *brokerapi.ProvisionDetails, res *ocspResources_Master) error {
 	if OcspTemplateData_Master == nil {
 		f, err := os.Open("ocsp.yaml")
 		if err != nil {
@@ -460,6 +508,12 @@ func loadOcspResources_Master(instanceID, ocspUser, ocspPassword string, details
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("**OCM**"), []byte(oshandler.OcspOcm()), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("**OCM_PORT**"), []byte(oshandler.OcspOcmPort()), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("**HDP_VERSION**"), []byte(oshandler.OcspHdpVersion()), -1)
+	
+	volumeName0 := "non-exist-klurdw"
+	if len(volumes) > 0 {
+		volumeName0 = volumes[0].Volume_name
+	}
+	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****"), []byte(volumeName0), -1)
 
 	//println("========= Boot yamlTemplates ===========")
 	//println(string(yamlTemplates))
@@ -480,9 +534,9 @@ type ocspResources_Master struct {
 	route   routeapi.Route
 }
 
-func createOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, ocspPassword string, details brokerapi.ProvisionDetails) (*ocspResources_Master, error) {
+func createOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, ocspPassword string, volumes []oshandler.Volume, details brokerapi.ProvisionDetails) (*ocspResources_Master, error) {
 	var input ocspResources_Master
-	err := loadOcspResources_Master(instanceId, ocspUser, ocspPassword, &details, &input)
+	err := loadOcspResources_Master(instanceId, ocspUser, ocspPassword, volumes, &details, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -506,11 +560,11 @@ func createOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, oc
 	return &output, osr.Err
 }
 
-func getOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, ocspPassword string) (*ocspResources_Master, error) {
+func getOcspResources_Master(instanceId, serviceBrokerNamespace, ocspUser, ocspPassword string, volumes []oshandler.Volume) (*ocspResources_Master, error) {
 	var output ocspResources_Master
 
 	var input ocspResources_Master
-	err := loadOcspResources_Master(instanceId, ocspUser, ocspPassword, nil, &input)
+	err := loadOcspResources_Master(instanceId, ocspUser, ocspPassword, volumes, nil, &input)
 	if err != nil {
 		return &output, err
 	}

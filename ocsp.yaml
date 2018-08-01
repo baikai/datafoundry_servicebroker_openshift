@@ -37,6 +37,13 @@ spec:
           value: "**OCSP_USER**"
         - name: CODIS_ADDR 
           value: "**CODIS_ADDR**"
+        volumeMounts:
+        - name: ocsp-volume
+          mountPath: /opt/ocsp/web/uploads
+      volumes:
+      - name: ocsp-volume
+        persistentVolumeClaim:
+          claimName: "pvcname*****"
 ---
 kind: Service
 apiVersion: v1
