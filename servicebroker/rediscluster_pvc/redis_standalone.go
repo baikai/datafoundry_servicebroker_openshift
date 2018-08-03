@@ -659,7 +659,7 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 
 		//>> ...
 		go func() {
-			for i := 0; i < len(myServiceInfo.Volumes); i++ {
+			for i := 1; i <= len(myServiceInfo.Volumes); i++ {
 				deleteRedisTribPod(myServiceInfo.Database, myServiceInfo.Url, i)
 			}
 		}()
