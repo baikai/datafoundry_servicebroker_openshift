@@ -198,7 +198,7 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 	volumes := []oshandler.Volume{
 		// one peer volume
 		{
-			Volume_size: planInfo.Volume_size,
+			Volume_size: 1, //planInfo.Volume_size,
 			Volume_name: volumeBaseName + "-0",
 		},
 	}
