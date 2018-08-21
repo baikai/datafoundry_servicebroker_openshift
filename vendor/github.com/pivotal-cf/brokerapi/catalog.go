@@ -26,6 +26,7 @@ type ServicePlan struct {
 	Free        *bool                  `json:"free,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	// Metadata    *ServicePlanMetadata `json:"metadata,omitempty"`
+	Schemas map[string]interface{} `json:"schemas,omitempty"`
 }
 
 type ServicePlanMetadata struct {

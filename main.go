@@ -281,6 +281,8 @@ func (myBroker *myServiceBroker) Services() []brokerapi.Service {
 							myPlan.Free = brokerapi.FreeValue(myPlanfree)
 						case lowernodekey + "/metadata":
 							json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value), &myPlan.Metadata)
+						case lowernodekey + "/schemas":
+							json.Unmarshal([]byte(resp.Node.Nodes[i].Nodes[j].Nodes[k].Nodes[n].Value), &myPlan.Schemas)
 						}
 					}
 					//装配plan需要返回的值，按照有多少个plan往里面装
