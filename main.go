@@ -636,13 +636,13 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 		logger.Debug("Successful get instance information from etcd. NodeInfo is " + resp.Node.Key)
 	}
 
-	var servcie_id, plan_id string
+	var service_id, plan_id string
 	//从etcd中取得参数。
 	for i := 0; i < len(resp.Node.Nodes); i++ {
 		if !resp.Node.Nodes[i].Dir {
 			switch strings.ToLower(resp.Node.Nodes[i].Key) {
 			case strings.ToLower(resp.Node.Key) + "/service_id":
-				servcie_id = resp.Node.Nodes[i].Value
+				service_id = resp.Node.Nodes[i].Value
 			case strings.ToLower(resp.Node.Key) + "/plan_id":
 				plan_id = resp.Node.Nodes[i].Value
 			}
@@ -650,9 +650,9 @@ func (myBroker *myServiceBroker) Deprovision(instanceID string, details brokerap
 	}
 
 	//并且要核对一下detail里面的service_id和plan_id。出错消息现在是500，需要更改一下源代码，以便更改出错代码
-	if servcie_id != details.ServiceID || plan_id != details.PlanID {
+	if service_id != details.ServiceID || plan_id != details.PlanID {
 		logger.Info("ServiceID or PlanID not correct!!")
-		return brokerapi.IsAsync(false), errors.New("ServiceID or PlanID not correct!! instanceID " + instanceID)
+		return brokerapi.IsAsync(false), errors.New("ServiceID (" + service_id + ") or PlanID (" + plan_id + ") not correct!! instanceID " + instanceID)
 	}
 	//是否要判断里面有没有绑定啊？todo
 

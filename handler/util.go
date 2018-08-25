@@ -143,7 +143,7 @@ func NewElevenLengthID() string {
 	t := time.Now().UnixNano()
 	bs := make([]byte, 8)
 	for i := uint(0); i < 8; i++ {
-		bs[i] = byte((t >> i) & 0xff)
+		bs[i] = byte((t >> (i * 8)) & 0xff)
 	}
 	return string(base64.RawURLEncoding.EncodeToString(bs))
 }
@@ -154,7 +154,7 @@ func NewThirteenLengthID() string {
 	t := time.Now().UnixNano()
 	bs := make([]byte, 8)
 	for i := uint(0); i < 8; i++ {
-		bs[i] = byte((t >> i) & 0xff)
+		bs[i] = byte((t >> (i * 8)) & 0xff)
 	}
 
 	dest := make([]byte, 16)
@@ -167,7 +167,7 @@ func NewTenLengthID() string {
 	t /= 100000 // unit: 0.1ms
 	bs := make([]byte, 8)
 	for i := uint(0); i < 8; i++ {
-		bs[i] = byte((t >> i) & 0xff)
+		bs[i] = byte((t >> (i * 8)) & 0xff)
 	}
 
 	dest := make([]byte, 16)
