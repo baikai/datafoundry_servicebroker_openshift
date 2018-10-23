@@ -543,32 +543,46 @@ func getEtcdResources_HA(instanceId, serviceBrokerNamespace, rootPassword, user,
 func destroyEtcdResources_HA(haRes *etcdResources_HA, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc1.Name) }()
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc2.Name) }()
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc3.Name) }()
+	// All are changed to synced to avoid deleting res behind volumes are deleted.
 
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc1.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc2.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc3.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc0.Name) }()
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc1.Name) }()
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc2.Name) }()
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc3.Name) }()
+	odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc1.Name)
+	odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc2.Name)
+	odel(serviceBrokerNamespace, "deploymentconfigs", haRes.etcddc3.Name)
 
-	go func() { odel(serviceBrokerNamespace, "routes", haRes.route.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc1.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc2.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc3.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.etcdsvc0.Name) }()
+	kdel(serviceBrokerNamespace, "services", haRes.etcdsvc1.Name)
+	kdel(serviceBrokerNamespace, "services", haRes.etcdsvc2.Name)
+	kdel(serviceBrokerNamespace, "services", haRes.etcdsvc3.Name)
+	kdel(serviceBrokerNamespace, "services", haRes.etcdsvc0.Name)
 
-	go func() { kdel(serviceBrokerNamespace, "pods", haRes.pod.Name) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", haRes.route.Name) }()
+	odel(serviceBrokerNamespace, "routes", haRes.route.Name)
+
+	//go func() { kdel(serviceBrokerNamespace, "pods", haRes.pod.Name) }()
+	kdel(serviceBrokerNamespace, "pods", haRes.pod.Name)
 
 	rcs, _ := statRunningRCByLabels(serviceBrokerNamespace, haRes.etcddc1.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, haRes.etcddc2.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, haRes.etcddc3.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 }
 

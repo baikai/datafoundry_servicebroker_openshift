@@ -494,10 +494,16 @@ func getRabbitmqResources_Master(instanceId, serviceBrokerNamespace, rabbitmqUse
 func destroyRabbitmqResources_Master(masterRes *rabbitmqResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
+
+	// Change to synced to avoid being deleted behind bolumes.
+	kdel_rc(serviceBrokerNamespace, &masterRes.rc)
+	odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.service.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name)
 }
 
 //===============================================================

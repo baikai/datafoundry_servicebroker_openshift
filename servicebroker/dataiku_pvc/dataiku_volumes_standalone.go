@@ -227,6 +227,7 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 
 		if err != nil {
 			destroyDataikuResources_HA(output, serviceBrokerNamespace)
+			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
 
 			return
 		}
@@ -528,9 +529,14 @@ func getDataikuResources_HA(instanceId, serviceBrokerNamespace, dataikuUser, dat
 func destroyDataikuResources_HA(masterRes *dataikuResources_HA, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+
+	// avoid deleting behind deleting volumes.
+	kdel_rc(serviceBrokerNamespace, &masterRes.rc)
+	odel(serviceBrokerNamespace, "routes", masterRes.route.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.service.Name)
 }
 
 

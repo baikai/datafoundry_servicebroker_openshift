@@ -737,23 +737,34 @@ func getKafkaResources_Master(instanceId, serviceBrokerNamespace string, volumes
 func destroyKafkaResources_Master(masterRes *kafkaResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc1.Name) }()
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc2.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.svc1.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.svc2.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.svc3.Name) }()
-	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
+	// All are changed to synced to avoid deleting them behind volumes.
+
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc1.Name) }()
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc2.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.svc1.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.svc2.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.svc3.Name) }()
+	////go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
+
+	odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc1.Name)
+	odel(serviceBrokerNamespace, "deploymentconfigs", masterRes.dc2.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.svc1.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.svc2.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.svc3.Name)
+	//kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name)
 
 	fmt.Println("kafka dc1 lables:", masterRes.dc1.Labels)
 	rcs, _ := statRunningRCByLabels(serviceBrokerNamespace, masterRes.dc1.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
 	fmt.Println("kafka dc2 lables:", masterRes.dc2.Labels)
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, masterRes.dc2.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 }
 

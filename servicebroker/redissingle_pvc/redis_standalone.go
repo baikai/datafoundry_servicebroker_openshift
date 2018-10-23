@@ -490,8 +490,12 @@ func getRedisSingleResources_Master(instanceId, serviceBrokerNamespace, redisPas
 func destroyRedisSingleResources_Master(masterRes *redisResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+
+	// Change to synced to avoid being deleted behind bolumes.
+	kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name)
+	kdel_rc(serviceBrokerNamespace, &masterRes.rc)
 }
 
 
@@ -583,9 +587,14 @@ func destroyRedisClusterResources_Stat(statRes *redisResources_Stat, serviceBrok
 	if statRes == nil {
 		return
 	}
-	go func() { kdel_rc(serviceBrokerNamespace, &statRes.rc) }()
-	go func() { kdel(serviceBrokerNamespace, "services", statRes.service.Name) }()
-	go func() { odel(serviceBrokerNamespace, "routes", statRes.route.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &statRes.rc) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", statRes.service.Name) }()
+	//go func() { odel(serviceBrokerNamspace, "routes", statRes.route.Name) }()
+
+	// Change to synced to avoid being deleted behind bolumes.go func() { kdel_rc(serviceBrokerNamespace, &statRes.rc) }()
+	kdel(serviceBrokerNamespace, "services", statRes.service.Name)
+	odel(serviceBrokerNamespace, "routes", statRes.route.Name)
+
 }
 
 //===============================================================

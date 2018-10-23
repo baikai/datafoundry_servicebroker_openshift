@@ -661,8 +661,12 @@ func getRedisResources_Master(instanceId, serviceBrokerNamespace, redisPassword 
 func destroyRedisResources_Master(masterRes *redisResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	//go func() {kdel (serviceBrokerNamespace, "pods", masterRes.pod.Name)}()
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+	////go func() {kdel (serviceBrokerNamespace, "pods", masterRes.pod.Name)}()
+	//go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+
+	// Changed to synced to avoid being deleted behind volumes.
+	//kdel (serviceBrokerNamespace, "pods", masterRes.pod.Name)
+	kdel_rc(serviceBrokerNamespace, &masterRes.rc)
 }
 
 func (job *redisOrchestrationJob) createRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword string, volumes []oshandler.Volume) error {
@@ -721,10 +725,27 @@ func getRedisResources_More(instanceId, serviceBrokerNamespace, redisPassword st
 func destroyRedisResources_More(moreRes *redisResources_More, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel(serviceBrokerNamespace, "services", moreRes.serviceSentinel.Name) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rc1) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rc2) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rcSentinel) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", moreRes.serviceSentinel.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rc1) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rc2) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rcSentinel) }()
+
+	//go func() { kdel(serviceBrokerNamespace, "services", moreRes.serviceSentinel.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rc1) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rc2) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &moreRes.rcSentinel) }()
+
+	// Changed to synced to avoid being deleted behind volumes.
+
+	kdel(serviceBrokerNamespace, "services", moreRes.serviceSentinel.Name)
+	kdel_rc(serviceBrokerNamespace, &moreRes.rc1)
+	kdel_rc(serviceBrokerNamespace, &moreRes.rc2)
+	kdel_rc(serviceBrokerNamespace, &moreRes.rcSentinel)
+
+	kdel(serviceBrokerNamespace, "services", moreRes.serviceSentinel.Name)
+	kdel_rc(serviceBrokerNamespace, &moreRes.rc1)
+	kdel_rc(serviceBrokerNamespace, &moreRes.rc2)
+	kdel_rc(serviceBrokerNamespace, &moreRes.rcSentinel)
 }
 
 //===============================================================

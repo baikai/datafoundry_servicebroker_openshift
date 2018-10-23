@@ -444,28 +444,41 @@ func getESResources_HA(instanceId, serviceBrokerNamespace, rootPassword, user, p
 func destroyESResources_HA(haRes *esResources_HA, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc1.Name) }()
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc2.Name) }()
-	go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc3.Name) }()
+	// LiuXu: now all calls are changed to synced to 
+	// avoid deleting resources behind deleting volumes.
+	
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc1.Name) }()
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc2.Name) }()
+	//go func() { odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc3.Name) }()
+	odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc1.Name)
+	odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc2.Name)
+	odel(serviceBrokerNamespace, "deploymentconfigs", haRes.dc3.Name)
 
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc1.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc2.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc3.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", haRes.svc.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.svc1.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.svc2.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.svc3.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", haRes.svc.Name) }()
+	kdel(serviceBrokerNamespace, "services", haRes.svc1.Name)
+	kdel(serviceBrokerNamespace, "services", haRes.svc2.Name)
+	kdel(serviceBrokerNamespace, "services", haRes.svc3.Name)
+	kdel(serviceBrokerNamespace, "services", haRes.svc.Name)
 
 	rcs, _ := statRunningRCByLabels(serviceBrokerNamespace, haRes.dc1.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, haRes.dc2.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, haRes.dc3.Labels)
 	for _, rc := range rcs {
-		go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
+		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 }
 

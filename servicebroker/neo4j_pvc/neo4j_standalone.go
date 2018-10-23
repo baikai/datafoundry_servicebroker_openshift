@@ -608,11 +608,18 @@ func getNeo4jResources_Master(instanceId, serviceBrokerNamespace, neo4jUser, neo
 func destroyNeo4jResources_Master(masterRes *neo4jResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
-	//go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicebolt.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name) }()
+	////go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.servicebolt.Name) }()
+
+	// change to synced to avoid deleting behind volumes.
+	kdel_rc(serviceBrokerNamespace, &masterRes.rc)
+	odel(serviceBrokerNamespace, "routes", masterRes.routeAdmin.Name)
+	//odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.service.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.servicebolt.Name)
 }
 
 //===============================================================

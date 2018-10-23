@@ -596,10 +596,16 @@ func destroyOcspResources_Master(masterRes *ocspResources_Master, serviceBrokerN
 	if masterRes == nil {
 		return
 	}
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
-	//go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
+	////go func() {odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)}()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	
+	// change to synced to avoid deleting behind volumes.
+	kdel_rc(serviceBrokerNamespace, &masterRes.rc)
+	odel(serviceBrokerNamespace, "routes", masterRes.route.Name)
+	//odel (serviceBrokerNamespace, "routes", masterRes.routeMQ.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.service.Name)
 }
 
 //===============================================================

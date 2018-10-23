@@ -252,6 +252,7 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		if err != nil {
 			logger.Error("createAnacodaResources_Master error ", err)
 			destroyAnacodaResources_Master(output, serviceBrokerNamespace)
+			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
 			return
 		}
 
@@ -544,9 +545,14 @@ func getAnacodaResources_Master(instanceId, serviceBrokerNamespace, anacodaUser,
 func destroyAnacodaResources_Master(masterRes *anacodaResources_Master, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &masterRes.rc) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", masterRes.route.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", masterRes.service.Name) }()
+	
+	// avoid deleting behind volumes are deleted.
+	kdel_rc(serviceBrokerNamespace, &masterRes.rc)
+	odel(serviceBrokerNamespace, "routes", masterRes.route.Name)
+	kdel(serviceBrokerNamespace, "services", masterRes.service.Name)
 }
 
 //===============================================================

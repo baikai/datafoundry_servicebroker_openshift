@@ -559,8 +559,12 @@ func getStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUser, 
 func destroyStormResources_Nimbus(nimbusRes *stormResources_Nimbus, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel(serviceBrokerNamespace, "services", nimbusRes.service.Name) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &nimbusRes.rc) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", nimbusRes.service.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &nimbusRes.rc) }()
+
+	// synced now to avoid being deleted behind volumes.
+	kdel(serviceBrokerNamespace, "services", nimbusRes.service.Name)
+	kdel_rc(serviceBrokerNamespace, &nimbusRes.rc)
 }
 
 func (job *stormOrchestrationJob) createStormResources_UiSuperviser(instanceId, serviceBrokerNamespace /*, stormUser, stormPassword*/ string) error {
@@ -620,10 +624,16 @@ func getStormResources_UiSuperviser(instanceId, serviceBrokerNamespace /*, storm
 func destroyStormResources_UiSuperviser(uisuperviserRes *stormResources_UiSuperviser, serviceBrokerNamespace string) {
 	// todo: add to retry queue on fail
 
-	go func() { kdel_rc(serviceBrokerNamespace, &uisuperviserRes.superviserrc) }()
-	go func() { kdel_rc(serviceBrokerNamespace, &uisuperviserRes.uirc) }()
-	go func() { odel(serviceBrokerNamespace, "routes", uisuperviserRes.uiroute.Name) }()
-	go func() { kdel(serviceBrokerNamespace, "services", uisuperviserRes.uiservice.Name) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &uisuperviserRes.superviserrc) }()
+	//go func() { kdel_rc(serviceBrokerNamespace, &uisuperviserRes.uirc) }()
+	//go func() { odel(serviceBrokerNamespace, "routes", uisuperviserRes.uiroute.Name) }()
+	//go func() { kdel(serviceBrokerNamespace, "services", uisuperviserRes.uiservice.Name) }()
+
+	// synced now to avoid being deleted behind volumes.
+	kdel_rc(serviceBrokerNamespace, &uisuperviserRes.superviserrc)
+	kdel_rc(serviceBrokerNamespace, &uisuperviserRes.uirc)
+	odel(serviceBrokerNamespace, "routes", uisuperviserRes.uiroute.Name)
+	kdel(serviceBrokerNamespace, "services", uisuperviserRes.uiservice.Name)
 }
 
 //===============================================================
