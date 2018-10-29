@@ -212,7 +212,7 @@ spec:
         - name: DATADIR
           value: /var/lib/mysql/data/db
         - name: AUTO_NEW_CLUSTER
-          value: "false"
+          value: "true"
         volumeMounts:
         - name: mysql
           mountPath: /var/lib/mysql
