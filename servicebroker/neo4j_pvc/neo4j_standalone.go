@@ -141,10 +141,10 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		},
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIdInTempalte = ", instanceIdInTempalte)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	// master neo4j
 
@@ -199,7 +199,7 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			return
 		}
 
-		println("createNeo4jResources_Master ...")
+		logger.Infoln("createNeo4jResources_Master ...")
 
 		// create master res
 
@@ -211,7 +211,7 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			serviceInfo.Volumes,
 		)
 		if err != nil {
-			println(" neo4j createNeo4jResources_Master error: ", err)
+			logger.Infoln(" neo4j createNeo4jResources_Master error: ", err)
 			logger.Error("neo4j createNeo4jResources_Master error", err)
 
 			destroyNeo4jResources_Master(output, serviceBrokerNamespace)
@@ -240,18 +240,18 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		}
 		if _, ok := details.Parameters[G_VolumeSize]; !ok {
 			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] not exist")
-			println(err)
+			logger.Infoln(err)
 			return
 		}
 		sSize, ok := details.Parameters[G_VolumeSize].(string)
 		if !ok {
 			err = errors.New("getVolumeSize:idetails.Parameters[volumeSize] cannot be converted to string")
-			println(err)
+			logger.Infoln(err)
 			return
 		}
 		fSize, e := strconv.ParseFloat(sSize, 64)
 		if e != nil {
-			println("getVolumeSize: input parameter volumeSize :", sSize, e)
+			logger.Infoln("getVolumeSize: input parameter volumeSize :", sSize, e)
 			err = e
 			return
 		}
@@ -304,7 +304,7 @@ func (handler *Neo4j_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		return n >= *rc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&master_res.rc) {
 		return brokerapi.LastOperation{
@@ -336,7 +336,7 @@ func (handler *Neo4j_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 			return
 		}
 
-		println("neo4j expand volumens done")
+		logger.Infoln("neo4j expand volumens done")
 
 		for i := range myServiceInfo.Volumes {
 			myServiceInfo.Volumes[i].Volume_size = planInfo.Volume_size
@@ -367,7 +367,7 @@ func (handler *Neo4j_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		println("to destroy resources:", myServiceInfo.Url)
+		logger.Infoln("to destroy resources:", myServiceInfo.Url)
 
 		master_res, _ := getNeo4jResources_Master(
 			myServiceInfo.Url,
@@ -380,7 +380,7 @@ func (handler *Neo4j_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Infoln("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
@@ -514,9 +514,9 @@ func loadNeo4jResources_Master(instanceID, neo4jUser, neo4jPassword string, volu
 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****node"), []byte(peerPvcName0), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -628,7 +628,7 @@ func destroyNeo4jResources_Master(masterRes *neo4jResources_Master, serviceBroke
 //===============================================================
 
 func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -652,7 +652,7 @@ RETRY:
 }
 
 func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -680,7 +680,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -707,7 +707,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -742,7 +742,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -805,7 +805,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -821,7 +821,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

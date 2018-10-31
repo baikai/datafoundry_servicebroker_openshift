@@ -167,12 +167,12 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	//获取memory参数，获取不到就设置为默认的2000
 	dataikuMemory, err := retrieveMemoryFromPlanInfo(planInfo, DefaultDataikuMemory) // Mi
 	if err != nil {
-		println("retrieveMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	dataikuCPU, err := retrieveCPUFromPlanInfo(planInfo, DefaultDataikuCPU)
 	if err != nil {
-		println("retrieveCPUFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
 	logger.Info("Dataiku Limit parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(dataikuCPU, 'f', 1, 64), "memory": strconv.Itoa(dataikuMemory) + "Mi"})
@@ -268,7 +268,7 @@ func (handler *Dataiku_Handler) DoLastOperation(myServiceInfo *oshandler.Service
 		return n >= *rc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	// todo: check if http get dashboard request is ok
 
@@ -301,7 +301,7 @@ func (handler *Dataiku_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceIn
 
 
 	/*
-	println("to destroy resources")
+	logger.Infoln("to destroy resources")
 
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_DataikuMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_DataikuCPU], 64)
@@ -333,12 +333,12 @@ func (handler *Dataiku_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceIn
 		ha_res, _ := getDataikuResources_HA(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,memory, cpu, myServiceInfo.Volumes)
 
 		destroyDataikuResources_HA(ha_res, myServiceInfo.Database)
-		println("destroy master resources done")
+		logger.Infoln("destroy master resources done")
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Infoln("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
-		println("to destroy volumes done")
+		logger.Infoln("to destroy volumes done")
 
 	}()
 
@@ -543,7 +543,7 @@ func destroyDataikuResources_HA(masterRes *dataikuResources_HA, serviceBrokerNam
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -559,7 +559,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++
@@ -574,7 +574,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -601,7 +601,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -637,7 +637,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 

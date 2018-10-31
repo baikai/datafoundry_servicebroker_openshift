@@ -128,10 +128,10 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	mysqlUser := "root" // oshandler.NewElevenLengthID()
 	mysqlPassword := oshandler.BuildPassword(20)
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIdInTempalte = ", instanceIdInTempalte)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	// master mysql
 
@@ -177,7 +177,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			return
 		}
 
-		println("createMysqlResources_Master ...")
+		logger.Infoln("createMysqlResources_Master ...")
 
 		// create master res
 
@@ -190,7 +190,7 @@ func (handler *Mysql_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			serviceInfo.Miscs[Key_MySqlDataPath],
 		)
 		if err != nil {
-			println(" mysql createMysqlResources_Master error: ", err)
+			logger.Infoln(" mysql createMysqlResources_Master error: ", err)
 			logger.Error("mysql createMysqlResources_Master error", err)
 			
 			if input != nil {
@@ -249,7 +249,7 @@ func (handler *Mysql_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		return n >= *rc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&master_res.rcPma) {
 		return brokerapi.LastOperation{
@@ -288,7 +288,7 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		println("to destroy resources:", myServiceInfo.Url)
+		logger.Infoln("to destroy resources:", myServiceInfo.Url)
 
 		master_res, _ := getMysqlResources_Master(
 			myServiceInfo.Url,
@@ -301,7 +301,7 @@ func (handler *Mysql_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		//println("to destroy volumes:", myServiceInfo.Volumes)
+		//logger.Infoln("to destroy volumes:", myServiceInfo.Volumes)
 		//
 		//oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
@@ -445,9 +445,9 @@ func loadMysqlResources_Master(instanceID, mysqlUser, mysqlPassword string, volu
 		return err
 	}
 	
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(buf.Bytes()))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(buf.Bytes()))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(buf.Bytes())
 	decoder.
@@ -584,7 +584,7 @@ func destroyMysqlResources_Master(masterRes *mysqlResources_Master, serviceBroke
 //===============================================================
 
 func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -608,7 +608,7 @@ RETRY:
 }
 
 func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -636,7 +636,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -663,7 +663,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -691,7 +691,7 @@ func del(serviceBrokerNamespace, typeName, resName string, apiGroup string, opt 
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -726,7 +726,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -789,7 +789,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -805,7 +805,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++
@@ -817,7 +817,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 func deletePvcsByLabels(serviceBrokerNamespace string, labels map[string]string) error {
 
-	println("to delete pvcs in", serviceBrokerNamespace)
+	logger.Infoln("to delete pvcs in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/persistentvolumeclaims"
 

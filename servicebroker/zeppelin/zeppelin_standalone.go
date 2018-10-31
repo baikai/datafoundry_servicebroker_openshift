@@ -156,12 +156,12 @@ func (handler *Zeppelin_Handler) DoProvision(etcdSaveResult chan error, instance
 	//获取memory参数，获取不到就设置为默认的500
 	zeppelinMemory, err := retrieveMemoryFromPlanInfo(planInfo, DefaultZeppelinMemory) // Mi
 	if err != nil {
-		println("retrieveMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	zeppelinCPU, err := retrieveCPUFromPlanInfo(planInfo, DefaultZeppelinCPU)
 	if err != nil {
-		println("retrieveCPUFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
 	logger.Info("Zeppelin Limit parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(zeppelinCPU, 'f', 1, 64), "memory": strconv.Itoa(zeppelinMemory) + "Mi"})
@@ -275,12 +275,12 @@ func (handler *Zeppelin_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 
 	newMemory, err := retrieveMemoryFromPlanInfo(planInfo, oldMemory) // Mi
 	if err != nil {
-		println("retrieveMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	newCPU, err := retrieveCPUFromPlanInfo(planInfo, oldCPU)
 	if err != nil {
-		println("retrieveCPUFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
 	logger.Info("Zeppelin old parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(oldCPU, 'f', 1, 64), "memory": strconv.Itoa(oldMemory) + "Mi"})
@@ -292,7 +292,7 @@ func (handler *Zeppelin_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 		authInfoChanged := myServiceInfo.Miscs[Key_ZeppelinMemory] != strconv.Itoa(newMemory) ||
 			myServiceInfo.Miscs[Key_ZeppelinCPU] != strconv.FormatFloat(newCPU, 'f', 1, 64)
 
-		println("To update Zeppelin instance.")
+		logger.Infoln("To update Zeppelin instance.")
 
 		go func() {
 			if authInfoChanged {
@@ -300,12 +300,12 @@ func (handler *Zeppelin_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 				err := updateZeppelinResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,
 					newMemory, newCPU, authInfoChanged)
 				if err != nil {
-					println("Failed to update storm external instance (nimbus). Error:", err.Error())
+					logger.Infoln("Failed to update storm external instance (nimbus). Error:", err.Error())
 					return
 				}
 			}
 
-			println("Zeppelin instance is updated.")
+			logger.Infoln("Zeppelin instance is updated.")
 
 			myServiceInfo.Miscs[Key_ZeppelinMemory] = strconv.Itoa(newMemory)
 			myServiceInfo.Miscs[Key_ZeppelinCPU] = strconv.FormatFloat(newCPU, 'f', 1, 64)
@@ -317,7 +317,7 @@ func (handler *Zeppelin_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, 
 
 		}()
 	} else {
-		println("Zeppelin instance is not update.")
+		logger.Infoln("Zeppelin instance is not update.")
 	}
 
 	return nil
@@ -390,7 +390,7 @@ func updateZeppelinResources(instanceId, serviceBrokerNamespace, zeppelinUsr, ze
 
 	if authInfoChanged {
 		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.rc.Labels)
-		println("updateStormResources_Nimbus:", n, "pods are deleted.")
+		logger.Infoln("updateStormResources_Nimbus:", n, "pods are deleted.")
 		if err2 != nil {
 			err = err2
 		} else {
@@ -403,7 +403,7 @@ func updateZeppelinResources(instanceId, serviceBrokerNamespace, zeppelinUsr, ze
 
 func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to delete created pods in", serviceBrokerNamespace)
+	logger.Infoln("to delete created pods in", serviceBrokerNamespace)
 	if len(labels) == 0 {
 		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
 	}
@@ -422,7 +422,7 @@ func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase != kapi.PodSucceeded {
 			ndeleted++
@@ -436,7 +436,7 @@ func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]
 func (handler *Zeppelin_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
-	println("to destroy resources")
+	logger.Infoln("to destroy resources")
 
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_ZeppelinMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_ZeppelinCPU], 64)
@@ -637,7 +637,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -664,7 +664,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -693,7 +693,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -754,7 +754,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -770,7 +770,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

@@ -188,7 +188,7 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 			return
 		}
 
-		println("createZookeeperResources_Master ...")
+		logger.Infoln("createZookeeperResources_Master ...")
 
 		// todo: consider if DoDeprovision is called now, ...
 
@@ -280,14 +280,14 @@ func (handler *Zookeeper_Handler) DoDeprovision(myServiceInfo *oshandler.Service
 			}
 		}
 
-		println("to destroy master resources")
+		logger.Infoln("to destroy master resources")
 
 		master_res, _ := GetZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
 		// under current frame, it is not a good idea to return here
 
 		DestroyZookeeperResources_Master(master_res, myServiceInfo.Database)
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Infoln("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
@@ -392,7 +392,7 @@ func WatchZookeeperOrchestration(instanceId, serviceBrokerNamespace, zookeeperUs
 			if rc.Status.Replicas < *rc.Spec.Replicas {
 				rc.Status.Replicas, _ = statRunningPodsByLabels(serviceBrokerNamespace, rc.Labels)
 
-				println("rc = ", rc, ", rc.Status.Replicas = ", rc.Status.Replicas)
+				logger.Infoln("rc = ", rc, ", rc.Status.Replicas = ", rc.Status.Replicas)
 			}
 
 			return rc.Status.Replicas >= *rc.Spec.Replicas
@@ -638,7 +638,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -665,7 +665,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -694,7 +694,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -757,7 +757,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -773,7 +773,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

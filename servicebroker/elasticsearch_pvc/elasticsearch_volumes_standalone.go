@@ -98,10 +98,10 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 		},
 	}
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIdInTempalte = ", instanceIdInTempalte)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	// boot etcd
 
@@ -132,7 +132,7 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 			return
 		}
 
-		println("create Elasticsearch Resources ...")
+		logger.Infoln("create Elasticsearch Resources ...")
 
 		// todo: consider if DoDeprovision is called now, ...
 
@@ -142,7 +142,7 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 			instanceIdInTempalte, serviceBrokerNamespace, volumes)
 
 		if err != nil {
-			println("etcd createESResources_HA error: ", err)
+			logger.Infoln("etcd createESResources_HA error: ", err)
 			logger.Error("etcd createESResources_HA error", err)
 
 			destroyESResources_HA(output, serviceBrokerNamespace)
@@ -151,7 +151,7 @@ func (handler *Elasticsearch_handler) DoProvision(etcdSaveResult chan error, ins
 			return
 		}
 
-		println("create etcd Resources done")
+		logger.Infoln("create etcd Resources done")
 
 	}()
 
@@ -192,7 +192,7 @@ func (handler *Elasticsearch_handler) DoLastOperation(myServiceInfo *oshandler.S
 		myServiceInfo.Url, myServiceInfo.Database,
 		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password, myServiceInfo.Volumes)
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&ha_res.dc1) && ok(&ha_res.dc2) && ok(&ha_res.dc3) {
 		return brokerapi.LastOperation{
@@ -488,7 +488,7 @@ func destroyESResources_HA(haRes *esResources_HA, serviceBrokerNamespace string)
 //===============================================================
 
 func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -512,7 +512,7 @@ RETRY:
 }
 
 func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -540,7 +540,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -567,7 +567,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -602,7 +602,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -665,7 +665,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -682,7 +682,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++
@@ -693,7 +693,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 }
 
 func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]string) ([]kapi.ReplicationController, error) {
-	println("to list RC in", serviceBrokerNamespace)
+	logger.Infoln("to list RC in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers"
 

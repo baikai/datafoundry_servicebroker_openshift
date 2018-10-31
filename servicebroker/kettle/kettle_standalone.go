@@ -108,10 +108,10 @@ func (handler *Kettle_Handler) DoProvision(etcdSaveResult chan error, instanceID
 	kettleUser := oshandler.NewElevenLengthID()
 	kettlePassword := oshandler.GenGUID()
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIdInTempalte = ", instanceIdInTempalte)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
@@ -171,7 +171,7 @@ func (handler *Kettle_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceI
 		return n >= *rc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 	/*
 		rcs, err := oshandler.GetReplicationControllersByLabels(myServiceInfo.Database, master_res.dc.Spec.Selector)
 		if err != nil {
@@ -211,7 +211,7 @@ func (handler *Kettle_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pl
 func (handler *Kettle_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
-	println("to destroy resources")
+	logger.Infoln("to destroy resources")
 
 	master_res, _ := getKettleResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password)
 	destroyKettleResources_Master(master_res, myServiceInfo.Database)
@@ -336,9 +336,9 @@ func loadKettleResources_Master(instanceID, kettleUser, kettlePassword string, r
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("user*****"), []byte(kettleUser), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pass*****"), []byte(kettlePassword), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -433,7 +433,7 @@ func destroyKettleResources_Master(masterRes *kettleResources_Master, serviceBro
 //===============================================================
 
 func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -457,7 +457,7 @@ RETRY:
 }
 
 func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -485,7 +485,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -512,7 +512,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -547,7 +547,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -610,7 +610,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -627,7 +627,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Name =", pod.Name, ", Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Name =", pod.Name, ", Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

@@ -67,10 +67,10 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 	serviceInfo.User = etcduser
 	serviceInfo.Password = etcdPassword
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIdInTempalte = ", instanceIdInTempalte)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	// boot etcd
 
@@ -117,7 +117,7 @@ func (handler *Etcd_sampleHandler) DoLastOperation(myServiceInfo *oshandler.Serv
 		myServiceInfo.Url, myServiceInfo.Database,
 		myServiceInfo.Admin_password, myServiceInfo.User, myServiceInfo.Password)
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&ha_res.etcdrc1) && ok(&ha_res.etcdrc2) && ok(&ha_res.etcdrc3) && ok(&ha_res.etcdrc0) {
 		return brokerapi.LastOperation{
@@ -160,7 +160,7 @@ func getCredentialsOnPrivision(myServiceInfo *oshandler.ServiceInfo) oshandler.C
 	}
 
 	etcd_addr, host, port := ha_res.endpoint()
-	println("etcd addr: ", etcd_addr)
+	logger.Infoln("etcd addr: ", etcd_addr)
 	//etcd_addrs := []string{etcd_addr}
 
 	return oshandler.Credentials{
@@ -184,7 +184,7 @@ func (handler *Etcd_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceInfo, 
 	}
 
 	etcd_addr, host, port := ha_res.endpoint()
-	println("etcd addr: ", etcd_addr)
+	logger.Infoln("etcd addr: ", etcd_addr)
 	//etcd_addrs := []string{etcd_addr}
 
 	mycredentials := oshandler.Credentials{
@@ -394,7 +394,7 @@ func destroyEtcdResources_HA(haRes *etcdResources_HA, serviceBrokerNamespace str
 //===============================================================
 
 func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -418,7 +418,7 @@ RETRY:
 }
 
 func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -446,7 +446,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -473,7 +473,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -502,7 +502,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -563,7 +563,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -579,7 +579,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

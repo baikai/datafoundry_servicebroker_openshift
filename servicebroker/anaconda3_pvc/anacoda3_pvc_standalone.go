@@ -180,12 +180,12 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	//获取memory参数，获取不到就设置为默认的2000
 	anacondaMemory, err := retrieveMemoryFromPlanInfo(planInfo, DefaultAnacondaMemory) // Mi
 	if err != nil {
-		println("retrieveMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	anacondaCPU, err := retrieveCPUFromPlanInfo(planInfo, DefaultAnacondaCPU)
 	if err != nil {
-		println("retrieveCPUFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
 	logger.Info("Anaconda Limit parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(anacondaCPU, 'f', 1, 64), "memory": strconv.Itoa(anacondaMemory) + "Mi"})
@@ -500,9 +500,9 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 
 
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -565,7 +565,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -592,7 +592,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -627,7 +627,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -687,7 +687,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -703,7 +703,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

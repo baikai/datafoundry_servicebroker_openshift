@@ -109,7 +109,7 @@ func (handler *Cassandra_sampleHandler) DoLastOperation(myServiceInfo *oshandler
 		}
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
 
-		println("n = ", n, ", *rc.Spec.Replicas = ", *rc.Spec.Replicas)
+		logger.Infoln("n = ", n, ", *rc.Spec.Replicas = ", *rc.Spec.Replicas)
 
 		return n >= *rc.Spec.Replicas
 	}
@@ -166,7 +166,7 @@ func (handler *Cassandra_sampleHandler) DoDeprovision(myServiceInfo *oshandler.S
 
 		// ...
 
-		println("to destroy resources")
+		logger.Infoln("to destroy resources")
 
 		// must before destroying boot_rs
 		ha_res, _ := getCassandraResources_HA(myServiceInfo.Url, myServiceInfo.Database)
@@ -202,14 +202,14 @@ func (handler *Cassandra_sampleHandler) DoBind(myServiceInfo *oshandler.ServiceI
 	newusername := oshandler.NewThirteenLengthID() // NewElevenLengthID() // oshandler.GenGUID()[:16]
 	newpassword := oshandler.GenGUID()
 
-	println("super user:", myServiceInfo.User, ", super password:", myServiceInfo.Password)
-	println("new user:", newusername, ", new password:", newpassword)
+	logger.Infoln("super user:", myServiceInfo.User, ", super password:", myServiceInfo.Password)
+	logger.Infoln("new user:", newusername, ", new password:", newpassword)
 
 	tries := 5
 
 RETRY: // maybe not needed now
 
-	println("tries:", tries)
+	logger.Infoln("tries:", tries)
 
 	cassandra_session, err := newAuthrizedCassandraSession([]string{host}, port, "", myServiceInfo.User, myServiceInfo.Password)
 	//cassandra_session, err := newAuthrizedCassandraSession ([]string{host}, port, "", "cassandra", "cassandra")
@@ -264,7 +264,7 @@ func (handler *Cassandra_sampleHandler) DoUnbind(myServiceInfo *oshandler.Servic
 
 RETRY: // maybe not needed now
 
-	println("tries:", tries)
+	logger.Infoln("tries:", tries)
 
 	cassandra_session, err := newAuthrizedCassandraSession([]string{host}, port, "", myServiceInfo.User, myServiceInfo.Password)
 	//cassandra_session, err := newAuthrizedCassandraSession ([]string{host}, port, "", "cassandra", "cassandra")
@@ -280,7 +280,7 @@ RETRY: // maybe not needed now
 	}
 	defer cassandra_session.Close()
 
-	println("to delete user: ", mycredentials.Username)
+	logger.Infoln("to delete user: ", mycredentials.Username)
 
 	if err := cassandra_session.Query(
 		//`DROP USER ?`, mycredentials.Username).Exec(); err != nil {
@@ -371,7 +371,7 @@ CHECK_POD_STATE_0: // todo: check if seed pod is running
 	{
 		n, _ := statRunningPodsByLabels(serviceInfo.Database, job.bootResources.rc.Labels)
 
-		println("n = ", n, ", *job.bootResources.rc.Spec.Replicas = ", *job.bootResources.rc.Spec.Replicas)
+		logger.Infoln("n = ", n, ", *job.bootResources.rc.Spec.Replicas = ", *job.bootResources.rc.Spec.Replicas)
 
 		if n < *job.bootResources.rc.Spec.Replicas {
 			time.Sleep(20 * time.Second)
@@ -379,7 +379,7 @@ CHECK_POD_STATE_0: // todo: check if seed pod is running
 		}
 	}
 
-	println("seed pod is running now")
+	logger.Infoln("seed pod is running now")
 
 CHECK_POD_STATE_1: // todo: check if Cassandra pods fully init
 
@@ -408,7 +408,7 @@ CHECK_POD_STATE_1: // todo: check if Cassandra pods fully init
 
 	// ...
 
-	println("to create HA resources")
+	logger.Infoln("to create HA resources")
 
 	// create HA resources
 
@@ -430,7 +430,7 @@ CHECK_POD_STATE_2: // todo: start runing pod by labels
 	{
 		n, _ := statRunningPodsByLabels(serviceInfo.Database, ha_res.rc.Labels)
 
-		println("n = ", n, ", *ha_res.rc.Spec.Replicas = ", *ha_res.rc.Spec.Replicas)
+		logger.Infoln("n = ", n, ", *ha_res.rc.Spec.Replicas = ", *ha_res.rc.Spec.Replicas)
 
 		if n < *ha_res.rc.Spec.Replicas {
 			goto CHECK_POD_STATE_2
@@ -441,7 +441,7 @@ CHECK_POD_STATE_2: // todo: start runing pod by labels
 		return
 	}
 
-	println("cassandra ha pods are all running now")
+	logger.Infoln("cassandra ha pods are all running now")
 
 CHECK_POD_STATE_3: // todo: check if Cassandra pods fully init
 
@@ -486,7 +486,7 @@ RETRY_CREATE_NEW_USER: // todo: create new super user
 		return
 	}
 
-	println("to create new super user")
+	logger.Infoln("to create new super user")
 
 	f1 := func() bool {
 		cassandra_session, err := newAuthrizedCassandraSession([]string{host}, port, "", default_root_user, default_root_password)
@@ -517,7 +517,7 @@ RETRY_DELETE_DEFAULT_USER: // todo: delete user cassandra
 
 	time.Sleep(30 * time.Second)
 
-	println("to delete user cassandra")
+	logger.Infoln("to delete user cassandra")
 
 	f2 := func() bool {
 		cassandra_session, err := newAuthrizedCassandraSession([]string{host}, port, "", serviceInfo.User, serviceInfo.Password)
@@ -543,7 +543,7 @@ RETRY_DELETE_DEFAULT_USER: // todo: delete user cassandra
 	}
 
 	end_time := time.Now()
-	println("cassandra cluster inited fully. Used", end_time.Sub(start_time).String())
+	logger.Infoln("cassandra cluster inited fully. Used", end_time.Sub(start_time).String())
 }
 
 func newCassandraClusterConfig(cassandraEndPoints []string, port int, initialKeyspace string) *cassandra.ClusterConfig {
@@ -585,13 +585,13 @@ func checkIfCassandraPodsFullyInited(serviceBrokerNamespace string, labels map[s
 				[]string{pod.Status.PodIP}, port.ContainerPort,
 				initialKeyspace, cassandraUser, cassandraPassword)
 			if err != nil {
-				println("pod ", pod.Name, " has not inited yet")
+				logger.Infoln("pod ", pod.Name, " has not inited yet")
 
 				inited = false
 			} else {
 				cassandra_session.Close()
 
-				println("pod ", pod.Name, " fully inited already")
+				logger.Infoln("pod ", pod.Name, " fully inited already")
 			}
 		}
 	})
@@ -648,9 +648,9 @@ func loadCassandraResources_Boot(instanceID, serviceBrokerNamespace string, res 
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
 		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -691,9 +691,9 @@ func loadCassandraResources_HA(instanceID, serviceBrokerNamespace string, res *c
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
 		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
-	//println("========= HA yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= HA yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -843,7 +843,7 @@ func destroyCassandraResources_HA(haRes *cassandraResources_HA, serviceBrokerNam
 //===============================================================
 
 func (job *cassandraOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -870,7 +870,7 @@ RETRY:
 }
 
 func (job *cassandraOrchestrationJob) opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -901,7 +901,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -928,7 +928,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -963,13 +963,13 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
 	// modfiy rc replicas to 0
 
-	println("to delete rc, uri:", uri)
+	logger.Infoln("to delete rc, uri:", uri)
 
 	zero := 0
 	rc.Spec.Replicas = &zero
@@ -1028,7 +1028,7 @@ type PodObserver func(pod *kapi.Pod)
 
 func (podObserver PodObserver) ObserveRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) error {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -1061,7 +1061,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 /*
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -1077,7 +1077,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings ++

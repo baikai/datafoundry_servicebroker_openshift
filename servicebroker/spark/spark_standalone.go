@@ -238,7 +238,7 @@ func (handler *Spark_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		println("to destroy resources")
+		logger.Infoln("to destroy resources")
 
 		zeppelin_res, _ := getSparkResources_Zeppelin(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 		destroySparkResources_Zeppelin(zeppelin_res, myServiceInfo.Database)
@@ -427,7 +427,7 @@ func (job *sparkOrchestrationJob) run() {
 			return
 		}
 
-		println("watch master rs status.replicas: ", wrcs.Object.Status.Replicas)
+		logger.Infoln("watch master rs status.replicas: ", wrcs.Object.Status.Replicas)
 
 		if wrcs.Object.Status.Replicas >= *wrcs.Object.Spec.Replicas {
 			close(cancel)
@@ -445,7 +445,7 @@ func (job *sparkOrchestrationJob) run() {
 		//
 		n, _ := statRunningPodsByLabels(serviceInfo.Database, rc.Labels)
 
-		println("running pods = ", n)
+		logger.Infoln("running pods = ", n)
 
 		if n >= *rc.Spec.Replicas {
 			break
@@ -469,7 +469,7 @@ func (job *sparkOrchestrationJob) run() {
 
 	// ...
 
-	println("to create workers resources")
+	logger.Infoln("to create workers resources")
 
 	err = job.createSparkResources_Workers(serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
 	if err != nil {
@@ -479,7 +479,7 @@ func (job *sparkOrchestrationJob) run() {
 
 	// ...
 
-	println("to create zeppelin resources")
+	logger.Infoln("to create zeppelin resources")
 
 	err = job.createSparkResources_Zeppelin(serviceInfo.Url, serviceInfo.Database, serviceInfo.Password)
 	if err != nil {
@@ -816,7 +816,7 @@ func destroySparkResources_Zeppelin(zeppelinRes *sparkResources_Zeppelin, servic
 //===============================================================
 
 func (job *sparkOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -843,7 +843,7 @@ RETRY:
 }
 
 func (job *sparkOrchestrationJob) opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -874,7 +874,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -901,7 +901,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -930,7 +930,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -993,7 +993,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -1009,7 +1009,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

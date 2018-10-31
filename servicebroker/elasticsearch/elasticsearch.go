@@ -128,10 +128,10 @@ func (handler *SrvBrokerHandler) DoProvision(etcdSaveResult chan error, instance
 		logger.Debug("DoProvision(), memory information missed")
 	}
 
-	println()
-	println("instanceIDInTemplate = ", instanceIDInTemplate)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIDInTemplate = ", instanceIDInTemplate)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	logger.Debug("DoProvision(), serviceInfo: " + instanceIDInTemplate + "," + serviceBrokerNamespace + "," +
 		serviceInfo.Service_name)
@@ -201,12 +201,12 @@ func (handler *SrvBrokerHandler) DoLastOperation(myServiceInfo *oshandler.Servic
 	esRes, _ := getSrvResources(myServiceInfo.Url, myServiceInfo.Database, nil)
 
 	ok := func(sts *kapiv1b1.StatefulSet) bool {
-		println("rc.Name =", sts.Name)
+		logger.Infoln("rc.Name =", sts.Name)
 		if sts == nil || sts.Name == "" || sts.Spec.Replicas == nil || sts.Status.Replicas < *sts.Spec.Replicas {
 			return false
 		}
 		n, _ := countRunningPodsByLabels(myServiceInfo.Database, sts.Labels)
-		println("n =", n)
+		logger.Infoln("n =", n)
 		return n >= *sts.Spec.Replicas
 	}
 
@@ -520,7 +520,7 @@ func (job *srvOrchestrationJob) run() {
 		}
 	}
 
-	println("instance is running now")
+	logger.Infoln("instance is running now")
 
 	time.Sleep(5 * time.Second)
 
@@ -786,7 +786,7 @@ func destroySrvResources(esRes *esResources, serviceBrokerNamespace string) {
 //===============================================================
 
 func (job *srvOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -813,7 +813,7 @@ RETRY:
 }
 
 func (job *srvOrchestrationJob) opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -878,7 +878,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -994,7 +994,7 @@ func countRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]s
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase)
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase)
 
 		if pod.Status.Phase == kapiv1.PodRunning {
 			nrunnings++

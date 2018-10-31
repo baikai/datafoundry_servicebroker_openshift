@@ -147,7 +147,7 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	more_res, _ := getRedisResources_More(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 
 	ok := func(rc *kapi.ReplicationController) bool {
-		println("rc.Name =", rc.Name)
+		logger.Infoln("rc.Name =", rc.Name)
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
 		}
@@ -155,7 +155,7 @@ func (handler *Redis_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		// todo: rc.Labels -> rc.Spec.Selector
 		//       also for other services.
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
-		println("n =", n)
+		logger.Infoln("n =", n)
 		return n >= *rc.Spec.Replicas
 	}
 
@@ -193,7 +193,7 @@ func (handler *Redis_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		println("to destroy resources")
+		logger.Infoln("to destroy resources")
 
 		more_res, _ := getRedisResources_More(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Password)
 		destroyRedisResources_More(more_res, myServiceInfo.Database)
@@ -331,7 +331,7 @@ func (job *redisOrchestrationJob) run() {
 
 		n, _ := statRunningPodsByLabels(serviceInfo.Database, rc.Labels)
 
-		println("n = ", n, ", *job.masterResources.rc.Spec.Replicas = ", *rc.Spec.Replicas)
+		logger.Infoln("n = ", n, ", *job.masterResources.rc.Spec.Replicas = ", *rc.Spec.Replicas)
 
 		if n < *rc.Spec.Replicas {
 			time.Sleep(10 * time.Second)
@@ -340,7 +340,7 @@ func (job *redisOrchestrationJob) run() {
 		}
 	}
 
-	println("redis master pod is running now")
+	logger.Infoln("redis master pod is running now")
 
 	time.Sleep(5 * time.Second)
 
@@ -560,7 +560,7 @@ func destroyRedisResources_More(moreRes *redisResources_More, serviceBrokerNames
 //===============================================================
 
 func (job *redisOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -587,7 +587,7 @@ RETRY:
 }
 
 func (job *redisOrchestrationJob) opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -618,7 +618,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -647,7 +647,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -710,7 +710,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -726,7 +726,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

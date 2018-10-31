@@ -233,20 +233,20 @@ func (handler *Storm_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 	numSupervisors, err := retrieveNumNodesFromPlanInfo(planInfo, DefaultNumSupervisors)
 	if err != nil {
-		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveNumNodesFromPlanInfo error: ", err.Error())
 	}
 
 	supervisorMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, DefaultSupervisorMemory) // Mi
 	if err != nil {
-		println("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	numWorkersPerSupervisor, err := retrieveNumWorkersPerSupervisorFromPlanInfo(planInfo, DefaultNumWorkersPerSupervisor)
 	if err != nil {
-		println("retrieveNumWorkersPerSupervisorFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveNumWorkersPerSupervisorFromPlanInfo error: ", err.Error())
 	}
 
-	println("new storm cluster parameters: numSupervisors=", numSupervisors,
+	logger.Infoln("new storm cluster parameters: numSupervisors=", numSupervisors,
 		", supervisorMemory=", supervisorMemory, "Mi",
 		", numWorkersPerSupervisor=", numWorkersPerSupervisor)
 
@@ -379,7 +379,7 @@ func (handler *Storm_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		return int32(n) >= *rc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&nimbus_res.rc) && oksts(&uisuperviserdrps_res.sssts) && ok(&uisuperviserdrps_res.uirc) && ok(&uisuperviserdrps_res.drpcrc) {
 		return brokerapi.LastOperation{
@@ -438,23 +438,23 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 
 	numSupervisors, err := retrieveNumNodesFromPlanInfo(planInfo, oldNumSupervisors)
 	if err != nil {
-		println("[DoUpdate] retrieveNumNodesFromPlanInfo error: ", err.Error())
+		logger.Infoln("[DoUpdate] retrieveNumNodesFromPlanInfo error: ", err.Error())
 	}
 
 	supervisorMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, oldSupervisorMemory) // Mi
 	if err != nil {
-		println("[DoUpdate] retrieveNodeMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("[DoUpdate] retrieveNodeMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	numWorkersPerSupervisor, err := retrieveNumWorkersPerSupervisorFromPlanInfo(planInfo, oldNumWorkers)
 	if err != nil {
-		println("[DoUpdate] retrieveNumWorkersPerSupervisorFromPlanInfo error: ", err.Error())
+		logger.Infoln("[DoUpdate] retrieveNumWorkersPerSupervisorFromPlanInfo error: ", err.Error())
 	}
 
-	println("[DoUpdate] new storm cluster parameters: numSupervisors=", numSupervisors,
+	logger.Infoln("[DoUpdate] new storm cluster parameters: numSupervisors=", numSupervisors,
 		", supervisorMemory=", supervisorMemory, "Mi",
 		", numWorkersPerSupervisor=", numWorkersPerSupervisor)
-	println("[DoUpdate] old storm cluster parameters: oldNumSupervisors=", oldNumSupervisors,
+	logger.Infoln("[DoUpdate] old storm cluster parameters: oldNumSupervisors=", oldNumSupervisors,
 		", oldSupervisorMemory=", oldSupervisorMemory, "Mi",
 		", oldNumWorkers=", oldNumWorkers)
 
@@ -465,7 +465,7 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 			myServiceInfo.Miscs[Key_KafkaClientServiceName] != kafkaServiceName ||
 			myServiceInfo.Miscs[Key_KafaClientPrincipal] != kafkaPrincipal
 
-		println("To update storm external instance.")
+		logger.Infoln("To update storm external instance.")
 
 		go func() {
 			if authInfoChanged {
@@ -474,7 +474,7 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 					krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal,
 					authInfoChanged)
 				if err != nil {
-					println("Failed to update storm external instance (nimbus). Error:", err.Error())
+					logger.Infoln("Failed to update storm external instance (nimbus). Error:", err.Error())
 					return
 				}
 			}
@@ -484,11 +484,11 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 				krb5ConfContent, kafkaKeyTabContent, kafkaServiceName, kafkaPrincipal,
 				authInfoChanged)
 			if err != nil {
-				println("Failed to update storm external instance (other res). Error:", err.Error())
+				logger.Infoln("Failed to update storm external instance (other res). Error:", err.Error())
 				return
 			}
 
-			println("Storm external instance is updated.")
+			logger.Infoln("Storm external instance is updated.")
 
 			myServiceInfo.Miscs[Key_NumSupervisors] = strconv.Itoa(numSupervisors)
 			myServiceInfo.Miscs[Key_SupervisorMemory] = strconv.Itoa(supervisorMemory)
@@ -506,7 +506,7 @@ func (handler *Storm_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, pla
 
 		}()
 	} else {
-		println("Storm external instance is not update.")
+		logger.Infoln("Storm external instance is not update.")
 	}
 
 	return nil
@@ -527,7 +527,7 @@ func (handler *Storm_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 			}
 		}
 
-		println("to destroy storm resources")
+		logger.Infoln("to destroy storm resources")
 
 		nimbus_res, _ := getStormResources_Nimbus(myServiceInfo.Url, myServiceInfo.Database) //, myServiceInfo.User, myServiceInfo.Password)
 		destroyStormResources_Nimbus(nimbus_res, myServiceInfo.Database)
@@ -655,7 +655,7 @@ func (job *stormOrchestrationJob) cancel() {
 
 func (job *stormOrchestrationJob) run() {
 
-	println("  to create storm numbus resources")
+	logger.Infoln("  to create storm numbus resources")
 
 	var err error
 	job.nimbusResources, err = job.createStormResources_Nimbus(job.serviceInfo.Url, job.serviceInfo.Database, // job.serviceInfo.User, job.serviceInfo.Password)
@@ -680,7 +680,7 @@ func (job *stormOrchestrationJob) run() {
 		if rc.Status.Replicas < *rc.Spec.Replicas {
 			rc.Status.Replicas, _ = statRunningPodsByLabels(job.serviceInfo.Database, rc.Labels)
 
-			println("rc = ", rc, ", rc.Status.Replicas = ", rc.Status.Replicas)
+			logger.Infoln("rc = ", rc, ", rc.Status.Replicas = ", rc.Status.Replicas)
 		}
 
 		return rc.Status.Replicas >= *rc.Spec.Replicas
@@ -713,7 +713,7 @@ func (job *stormOrchestrationJob) run() {
 		return
 	}
 
-	println("  to create storm ui+supervisor+drps resources")
+	logger.Infoln("  to create storm ui+supervisor+drps resources")
 
 	err = job.createStormResources_UiSuperviserDrpc(job.serviceInfo.Url, job.serviceInfo.Database, //, job.serviceInfo.User, job.serviceInfo.Password)
 		job.numSuperVisors, job.numWorkers, job.supervisorMemory,
@@ -1366,7 +1366,7 @@ func updateStormResources_Nimbus(instanceId, serviceBrokerNamespace /*, stormUse
 
 	if authInfoChanged {
 		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.rc.Labels)
-		println("updateStormResources_Nimbus:", n, "pods are deleted.")
+		logger.Infoln("updateStormResources_Nimbus:", n, "pods are deleted.")
 		if err2 != nil {
 			err = err2
 		} else {
@@ -1474,7 +1474,7 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 
 	//update ss svc
 	func() {
-		println("TODO if numWorkers changed, svc ports also needs to be update.")
+		logger.Infoln("TODO if numWorkers changed, svc ports also needs to be update.")
 	}()
 	// kerberOS
 	{
@@ -1498,16 +1498,16 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 
 	//
 	n, err := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.sssts.Labels)
-	println("updateStormResources_Superviser:", n, "pods are deleted.")
+	logger.Infoln("updateStormResources_Superviser:", n, "pods are deleted.")
 
 	if authInfoChanged {
 		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.drpcrc.Labels)
-		println("updateStormResources_drpc:", n, "pods are deleted.")
+		logger.Infoln("updateStormResources_drpc:", n, "pods are deleted.")
 		if err == nil && err2 != nil { // not perfect
 			err = err2
 		}
 		n, err2 = deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.uirc.Labels)
-		println("updateStormResources_ui:", n, "pods are deleted.")
+		logger.Infoln("updateStormResources_ui:", n, "pods are deleted.")
 		if err == nil && err2 != nil { // not perfect
 			err = err2
 		}
@@ -1521,7 +1521,7 @@ func updateStormResources_Superviser(instanceId, serviceBrokerNamespace /*, stor
 //===============================================================
 
 func (job *stormOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -1548,7 +1548,7 @@ RETRY:
 }
 
 func (job *stormOrchestrationJob) kb1post(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -1575,7 +1575,7 @@ RETRY:
 }
 
 func (job *stormOrchestrationJob) opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -1606,7 +1606,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -1633,7 +1633,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -1657,16 +1657,16 @@ RETRY:
 
 func kdel_sts(serviceBrokerNamespace string, sts *kapiv1b1.StatefulSet) {
 	_, _ = serviceBrokerNamespace, sts
-	println("TODO del statefulsets", sts.Name)
+	logger.Infoln("TODO del statefulsets", sts.Name)
 }
 
 func del(serviceBrokerNamespace, typeName, resName string, apiGroup string, opt *kapi.DeleteOptions) error {
-	println(serviceBrokerNamespace, typeName, resName, apiGroup)
+	logger.Infoln(serviceBrokerNamespace, typeName, resName, apiGroup)
 	if resName == "" {
 		return nil
 	}
 
-	println("to delete", typeName, "/", resName)
+	logger.Infoln("to delete", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -1695,7 +1695,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -1759,7 +1759,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -1775,7 +1775,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++
@@ -1787,7 +1787,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to delete created pods in", serviceBrokerNamespace)
+	logger.Infoln("to delete created pods in", serviceBrokerNamespace)
 	if len(labels) == 0 {
 		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
 	}
@@ -1806,7 +1806,7 @@ func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase != kapi.PodSucceeded {
 			ndeleted++

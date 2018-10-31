@@ -156,12 +156,12 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	//获取memory参数，获取不到就设置为默认的500
 	anacondaMemory, err := retrieveMemoryFromPlanInfo(planInfo, DefaultAnacondaMemory) // Mi
 	if err != nil {
-		println("retrieveMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	anacondaCPU, err := retrieveCPUFromPlanInfo(planInfo, DefaultAnacondaCPU)
 	if err != nil {
-		println("retrieveCPUFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
 	logger.Info("Anaconda Limit parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(anacondaCPU, 'f', 1, 64), "memory": strconv.Itoa(anacondaMemory) + "Mi"})
@@ -286,12 +286,12 @@ func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, p
 
 	newMemory, err := retrieveMemoryFromPlanInfo(planInfo, oldMemory) // Mi
 	if err != nil {
-		println("retrieveMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	newCPU, err := retrieveCPUFromPlanInfo(planInfo, oldCPU)
 	if err != nil {
-		println("retrieveCPUFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveCPUFromPlanInfo error: ", err.Error())
 	}
 
 	logger.Info("Anaconda old parameters...", map[string]interface{}{"cpu": strconv.FormatFloat(oldCPU, 'f', 1, 64), "memory": strconv.Itoa(oldMemory) + "Mi"})
@@ -303,7 +303,7 @@ func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, p
 		authInfoChanged := myServiceInfo.Miscs[Key_AnacondaMemory] != strconv.Itoa(newMemory) ||
 			myServiceInfo.Miscs[Key_AnacondaCPU] != strconv.FormatFloat(newCPU, 'f', 1, 64)
 
-		println("To update Anaconda instance.")
+		logger.Infoln("To update Anaconda instance.")
 
 		go func() {
 			if authInfoChanged {
@@ -311,12 +311,12 @@ func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, p
 				err := updateAnacondaResources(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.User, myServiceInfo.Password,
 					newMemory, newCPU, authInfoChanged)
 				if err != nil {
-					println("Failed to update storm external instance (nimbus). Error:", err.Error())
+					logger.Infoln("Failed to update storm external instance (nimbus). Error:", err.Error())
 					return
 				}
 			}
 
-			println("Zeppelin instance is updated.")
+			logger.Infoln("Zeppelin instance is updated.")
 
 			myServiceInfo.Miscs[Key_AnacondaMemory] = strconv.Itoa(newMemory)
 			myServiceInfo.Miscs[Key_AnacondaCPU] = strconv.FormatFloat(newCPU, 'f', 1, 64)
@@ -328,7 +328,7 @@ func (handler *Anacoda_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, p
 
 		}()
 	} else {
-		println("Zeppelin instance is not update.")
+		logger.Infoln("Zeppelin instance is not update.")
 	}
 
 	return nil
@@ -401,7 +401,7 @@ func updateAnacondaResources(instanceId, serviceBrokerNamespace, zeppelinUsr, ze
 
 	if authInfoChanged {
 		n, err2 := deleteCreatedPodsByLabels(serviceBrokerNamespace, middle.rc.Labels)
-		println("updateStormResources_Nimbus:", n, "pods are deleted.")
+		logger.Infoln("updateStormResources_Nimbus:", n, "pods are deleted.")
 		if err2 != nil {
 			err = err2
 		} else {
@@ -414,7 +414,7 @@ func updateAnacondaResources(instanceId, serviceBrokerNamespace, zeppelinUsr, ze
 
 func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to delete created pods in", serviceBrokerNamespace)
+	logger.Infoln("to delete created pods in", serviceBrokerNamespace)
 	if len(labels) == 0 {
 		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
 	}
@@ -433,7 +433,7 @@ func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase != kapi.PodSucceeded {
 			ndeleted++
@@ -448,7 +448,7 @@ func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]
 func (handler *Anacoda_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo, asyncAllowed bool) (brokerapi.IsAsync, error) {
 	// ...
 
-	println("to destroy resources")
+	logger.Infoln("to destroy resources")
 
 	memory, _ := strconv.Atoi(myServiceInfo.Miscs[Key_AnacondaMemory])
 	cpu, _ := strconv.ParseFloat(myServiceInfo.Miscs[Key_AnacondaCPU], 64)
@@ -578,9 +578,9 @@ func loadAnacodaResources_Master(instanceID, anacodaUser, anacodaPassword string
 
 
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -664,7 +664,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -691,7 +691,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -726,7 +726,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -786,7 +786,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -802,7 +802,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

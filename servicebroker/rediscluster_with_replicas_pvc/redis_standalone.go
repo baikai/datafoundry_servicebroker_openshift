@@ -191,20 +191,20 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	// ...
 	numMasters, err := retrieveNumNodesFromPlanInfo(planInfo, DefaultNumNodes)
 	if err != nil {
-		println("retrieveNumNodesFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveNumNodesFromPlanInfo error: ", err.Error())
 	}
 
 	containerMemory, err := retrieveNodeMemoryFromPlanInfo(planInfo, 500) // Mi
 	if err != nil {
-		println("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveNodeMemoryFromPlanInfo error: ", err.Error())
 	}
 
 	numReplicas, err := retrieveNumReplicasFromPlanInfo(planInfo, DefaultNumReplicas)
 	if err != nil {
-		println("retrieveNumReplicasFromPlanInfo error: ", err.Error())
+		logger.Infoln("retrieveNumReplicasFromPlanInfo error: ", err.Error())
 	}
 
-	println("new redis cluster parameters: numMasters=", numMasters, ", numReplicas=", numReplicas, ", containerMemory=", containerMemory, "Mi, enableAuth=", enableAuth)
+	logger.Infoln("new redis cluster parameters: numMasters=", numMasters, ", numReplicas=", numReplicas, ", containerMemory=", containerMemory, "Mi, enableAuth=", enableAuth)
 
 	serviceSpec.IsAsync = true
 
@@ -312,7 +312,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			return
 		}
 
-		println("createRedisClusterResources_Peer ...")
+		logger.Infoln("createRedisClusterResources_Peer ...")
 
 		// create master res
 
@@ -359,7 +359,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			return
 		}
 		
-		println("redis cluster", serviceInfo.Database, "created.")
+		logger.Infoln("redis cluster", serviceInfo.Database, "created.")
 	}()
 
 	// ...
@@ -438,16 +438,16 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		return errors.New("auth must be enabled on creating")
 	}
 
-	println("[DoUpdate] redis cluster ...")
+	logger.Infoln("[DoUpdate] redis cluster ...")
 	fmt.Println("[DoUpdate] redis cluster ...")
 	go func() (finalError error) {
 		defer func() {
 			if finalError != nil {
-				println("[DoUpdate] redis cluster done with error:", finalError.Error())
+				logger.Infoln("[DoUpdate] redis cluster done with error:", finalError.Error())
 				fmt.Println("[DoUpdate] redis cluster done with error:", finalError.Error())
 			}
 
-			println("[DoUpdate] redis cluster. Updated exit.")
+			logger.Infoln("[DoUpdate] redis cluster. Updated exit.")
 			fmt.Println("[DoUpdate] redis cluster. Updated exit.")
 		}()
 
@@ -540,7 +540,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			}
 		}
 
-		println("[DoUpdate] new redis cluster parameters: newNumMasters=", newNumMasters, ", newNumReplicas=", newNumReplicas, ", newNodeMemory=", newNodeMemory)
+		logger.Infoln("[DoUpdate] new redis cluster parameters: newNumMasters=", newNumMasters, ", newNumReplicas=", newNumReplicas, ", newNodeMemory=", newNodeMemory)
 		fmt.Println("[DoUpdate] new redis cluster parameters: newNumMasters=", newNumMasters, ", newNumReplicas=", newNumReplicas, ", newNodeMemory=", newNodeMemory)
 
 		//===========================================================================
@@ -585,7 +585,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			return err
 		}
 
-		println("[DoUpdate] redis cluster. NodePort svcs created done")
+		logger.Infoln("[DoUpdate] redis cluster. NodePort svcs created done")
 		fmt.Println("[DoUpdate] redis cluster. NodePort svcs created done")
 
 		// create new volumes
@@ -634,7 +634,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			outputs[i] = o
 		}
 
-		println("[DoUpdate] redis cluster. new dcs are created.")
+		logger.Infoln("[DoUpdate] redis cluster. new dcs are created.")
 		fmt.Println("[DoUpdate] redis cluster. new dcs are created.")
 
 		err = waitAllRedisPodsAreReady(nodePorts, outputs)
@@ -643,7 +643,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 			return err
 		}
 
-		println("[DoUpdate] redis cluster. new pods are running.")
+		logger.Infoln("[DoUpdate] redis cluster. new pods are running.")
 		fmt.Println("[DoUpdate] redis cluster. new pods are running.")
 
 		// add new nodes to cluster and rebalance
@@ -686,7 +686,7 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		
 		// ...
 		
-		println("[DoUpdate] redis cluster. updated info saved.")
+		logger.Infoln("[DoUpdate] redis cluster. updated info saved.")
 		fmt.Println("[DoUpdate] redis cluster. updated info saved.")
 
 		// ...
@@ -707,7 +707,7 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 
 			// wait job to exit
 			for {
-				println("wait CreatePvcVolumnJob done")
+				logger.Infoln("wait CreatePvcVolumnJob done")
 				time.Sleep(7 * time.Second)
 				if nil == oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url)) {
 					break
@@ -936,7 +936,7 @@ func addRedisNewPeersAndRebalance(serviceBrokerNamespace, instanceId string,
 func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisResources_Peer) error {
 	time.Sleep(time.Second)
 	for {
-		println("===== check redis pod status ...")
+		logger.Infoln("===== check redis pod status ...")
 		for i, res := range nodeports {
 			svc := res.serviceNodePort
 			osr := oshandler.NewOpenshiftREST(oshandler.OC())
@@ -948,11 +948,11 @@ func waitAllRedisPodsAreReady(nodeports []*redisResources_Peer, dcs []*redisReso
 			dc := dcs[i].dc
 			n, _ := statRunningPodsByLabels(dc.Namespace, dc.Spec.Selector)
 			if n < dc.Spec.Replicas {
-				println(dc.Name, " is not ready")
+				logger.Infoln(dc.Name, " is not ready")
 				goto CheckAgain
 			}
 
-			println(dc.Name, " is ready")
+			logger.Infoln(dc.Name, " is ready")
 			// todo: PING redis pod
 		}
 		break
@@ -1284,7 +1284,7 @@ func updateRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisP
 	if osr.Err == nil {
 		// n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Labels)
 		n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Spec.Selector)
-		println("updateRedisClusterResources_Stat:", n, "pods are deleted.")
+		logger.Infoln("updateRedisClusterResources_Stat:", n, "pods are deleted.")
 	}
 
 	return &output, osr.Err
@@ -1335,7 +1335,7 @@ func destroyRedisClusterResources_Stat(statRes *redisResources_Stat, serviceBrok
 //===============================================================
 
 func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -1363,7 +1363,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -1392,7 +1392,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -1458,7 +1458,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -1482,7 +1482,7 @@ RETRY:
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -1498,7 +1498,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++
@@ -1510,7 +1510,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 
 func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to delete created pods in", serviceBrokerNamespace)
+	logger.Infoln("to delete created pods in", serviceBrokerNamespace)
 	if len(labels) == 0 {
 		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
 	}
@@ -1529,7 +1529,7 @@ func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase != kapi.PodSucceeded {
 			ndeleted++

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	
+
 	//"github.com/pivotal-golang/lager"
 	logger "github.com/golang/glog"
 
@@ -140,7 +140,7 @@ func watchZookeeperOrchestration(instanceId, serviceBrokerNamespace string, volu
 					}
 				}
 
-				println("> WatchZookeeperOrchestration valid:", valid)
+				logger.Infoln("> WatchZookeeperOrchestration valid:", valid)
 			*/
 
 			if !valid {
@@ -205,9 +205,9 @@ func loadZookeeperResources_Master(instanceID string, volumes []oshandler.Volume
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("zk-pvc-name-replace2"), []byte(peerPvcName1), -1)
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("zk-pvc-name-replace3"), []byte(peerPvcName2), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.

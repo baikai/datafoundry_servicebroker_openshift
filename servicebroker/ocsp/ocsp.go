@@ -190,10 +190,10 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 	ocspUser := " "
 	ocspPassword := " " //oshandler.GenGUID()
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIdInTempalte = ", instanceIdInTempalte)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	volumeBaseName := volumeBaseName(instanceIdInTempalte)
 	volumes := []oshandler.Volume{
@@ -240,7 +240,7 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 			return
 		}
 
-		println("createOcspResources_Master ...")
+		logger.Infoln("createOcspResources_Master ...")
 
 		// create master res
 
@@ -253,7 +253,7 @@ func (handler *Ocsp_Handler) DoProvision(etcdSaveResult chan error, instanceID s
 			details,
 		)
 		if err != nil {
-			println(" ocsp createOcspResources_Master error: ", err)
+			logger.Infoln(" ocsp createOcspResources_Master error: ", err)
 			logger.Error("ocsp createOcspResources_Master error", err)
 
 			destroyOcspResources_Master(output, serviceBrokerNamespace)
@@ -309,7 +309,7 @@ func (handler *Ocsp_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInf
 		return n >= *rc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&master_res.rc) {
 		return brokerapi.LastOperation{
@@ -341,7 +341,7 @@ func (handler *Ocsp_Handler) DoUpdate(myServiceInfo *oshandler.ServiceInfo, plan
 			return
 		}
 
-		println("ocsp expand volumens done")
+		logger.Infoln("ocsp expand volumens done")
 
 		for i := range myServiceInfo.Volumes {
 			myServiceInfo.Volumes[i].Volume_size = planInfo.Volume_size
@@ -370,7 +370,7 @@ func (handler *Ocsp_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo,
 			}
 		}*/
 
-		println("to destroy resources:", myServiceInfo.Url)
+		logger.Infoln("to destroy resources:", myServiceInfo.Url)
 
 		master_res, _ := getOcspResources_Master(
 			myServiceInfo.Url,
@@ -383,7 +383,7 @@ func (handler *Ocsp_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo,
 
 		// ...
 
-		println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Infoln("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()
@@ -522,9 +522,9 @@ func loadOcspResources_Master(instanceID, ocspUser, ocspPassword string, volumes
 	}
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("pvcname*****"), []byte(volumeName0), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -614,7 +614,7 @@ func destroyOcspResources_Master(masterRes *ocspResources_Master, serviceBrokerN
 //===============================================================
 
 func kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -638,7 +638,7 @@ RETRY:
 }
 
 func opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -666,7 +666,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -693,7 +693,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -728,7 +728,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -791,7 +791,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -807,7 +807,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

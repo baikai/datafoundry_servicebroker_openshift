@@ -98,10 +98,10 @@ func (handler *Kafka_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 	zookeeperUser := "super" // oshandler.NewElevenLengthID()
 	zookeeperPassword := oshandler.GenGUID()
 
-	println()
-	println("instanceIdInTempalte = ", instanceIdInTempalte)
-	println("serviceBrokerNamespace = ", serviceBrokerNamespace)
-	println()
+	logger.Infoln()
+	logger.Infoln("instanceIdInTempalte = ", instanceIdInTempalte)
+	logger.Infoln("serviceBrokerNamespace = ", serviceBrokerNamespace)
+	logger.Infoln()
 
 	serviceInfo.Url = instanceIdInTempalte
 	serviceInfo.Database = serviceBrokerNamespace // may be not needed
@@ -179,7 +179,7 @@ func (handler *Kafka_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 		return n >= *rc.Spec.Replicas
 	}
 
-	//println("num_ok_rcs = ", num_ok_rcs)
+	//logger.Infoln("num_ok_rcs = ", num_ok_rcs)
 
 	if ok(&master_res.rc) {
 		return brokerapi.LastOperation{
@@ -215,14 +215,14 @@ func (handler *Kafka_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		println("to destroy zookeeper resources")
+		logger.Infoln("to destroy zookeeper resources")
 
 		zookeeper_res, _ := zookeeper.GetZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Admin_user, myServiceInfo.Admin_password)
 		zookeeper.DestroyZookeeperResources_Master(zookeeper_res, myServiceInfo.Database)
 
 		// ...
 
-		println("to destroy kafka resources")
+		logger.Infoln("to destroy kafka resources")
 
 		master_res, _ := getKafkaResources_Master(myServiceInfo.Url, myServiceInfo.Database) //, myServiceInfo.User, myServiceInfo.Password)
 		destroyKafkaResources_Master(master_res, myServiceInfo.Database)
@@ -373,7 +373,7 @@ func (job *kafkaOrchestrationJob) cancel() {
 }
 
 func (job *kafkaOrchestrationJob) run() {
-	println("-- kafkaOrchestrationJob start --")
+	logger.Infoln("-- kafkaOrchestrationJob start --")
 
 	result, cancel, err := zookeeper.WatchZookeeperOrchestration(job.serviceInfo.Url, job.serviceInfo.Database, job.serviceInfo.Admin_user, job.serviceInfo.Admin_password)
 	if err != nil {
@@ -392,16 +392,16 @@ func (job *kafkaOrchestrationJob) run() {
 		break
 	}
 
-	println("-- kafkaOrchestrationJob done, succeeded:", succeeded)
+	logger.Infoln("-- kafkaOrchestrationJob done, succeeded:", succeeded)
 
 	if succeeded {
-		println("  to create kafka resources")
+		logger.Infoln("  to create kafka resources")
 
 		err = job.createKafkaResources_Master(job.serviceInfo.Url, job.serviceInfo.Database) //, job.serviceInfo.User, job.serviceInfo.Password)
 		if err != nil {
 			logger.Error("createKafkaResources_Master", err)
 		} else {
-			println("  succeeded to create kafka resources")
+			logger.Infoln("  succeeded to create kafka resources")
 		}
 	}
 }
@@ -441,9 +441,9 @@ func loadKafkaResources_Master(instanceID, serviceBrokerNamespace /*, kafkaUser,
 	yamlTemplates = bytes.Replace(yamlTemplates, []byte("local-service-postfix-place-holder"),
 		[]byte(serviceBrokerNamespace+oshandler.ServiceDomainSuffix(true)), -1)
 
-	//println("========= Boot yamlTemplates ===========")
-	//println(string(yamlTemplates))
-	//println()
+	//logger.Infoln("========= Boot yamlTemplates ===========")
+	//logger.Infoln(string(yamlTemplates))
+	//logger.Infoln()
 
 	decoder := oshandler.NewYamlDecoder(yamlTemplates)
 	decoder.
@@ -531,7 +531,7 @@ func destroyKafkaResources_Master(masterRes *kafkaResources_Master, serviceBroke
 //===============================================================
 
 func (job *kafkaOrchestrationJob) kpost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -558,7 +558,7 @@ RETRY:
 }
 
 func (job *kafkaOrchestrationJob) opost(serviceBrokerNamespace, typeName string, body interface{}, into interface{}) error {
-	println("to create ", typeName)
+	logger.Infoln("to create ", typeName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s", serviceBrokerNamespace, typeName)
 	i, n := 0, 5
@@ -589,7 +589,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -616,7 +616,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -651,7 +651,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -712,7 +712,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -728,7 +728,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++

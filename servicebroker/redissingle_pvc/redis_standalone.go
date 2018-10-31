@@ -180,7 +180,7 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 			return
 		}
 
-		println("createRedisSingleResources_Master ...")
+		logger.Infoln("createRedisSingleResources_Master ...")
 
 		// create master res
 
@@ -249,12 +249,12 @@ func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.Ser
 	}
 
 	ok := func(rc *kapi.ReplicationController) bool {
-		println("rc.Name =", rc.Name)
+		logger.Infoln("rc.Name =", rc.Name)
 		if rc == nil || rc.Name == "" || rc.Spec.Replicas == nil || rc.Status.Replicas < *rc.Spec.Replicas {
 			return false
 		}
 		n, _ := statRunningPodsByLabels(myServiceInfo.Database, rc.Labels)
-		println("n =", n)
+		logger.Infoln("n =", n)
 		return n >= *rc.Spec.Replicas
 	}
 
@@ -552,7 +552,7 @@ func updateRedisClusterResources_Stat(serviceBrokerNamespace, instanceID, redisP
 	} else {
 		// n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Labels)
 		n, _ := deleteCreatedPodsByLabels(serviceBrokerNamespace, output.rc.Spec.Selector)
-		println("updateRedisClusterResources_Stat:", n, "pods are deleted.")
+		logger.Infoln("updateRedisClusterResources_Stat:", n, "pods are deleted.")
 	}
 
 	return &output, osr.Err
@@ -607,7 +607,7 @@ func kdel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -636,7 +636,7 @@ func kdel_rc(serviceBrokerNamespace string, rc *kapi.ReplicationController) {
 		return
 	}
 
-	println("to delete pods on replicationcontroller", rc.Name)
+	logger.Infoln("to delete pods on replicationcontroller", rc.Name)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/replicationcontrollers/" + rc.Name
 
@@ -699,7 +699,7 @@ type watchReplicationControllerStatus struct {
 
 func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to list pods in", serviceBrokerNamespace)
+	logger.Infoln("to list pods in", serviceBrokerNamespace)
 
 	uri := "/namespaces/" + serviceBrokerNamespace + "/pods"
 
@@ -715,7 +715,7 @@ func statRunningPodsByLabels(serviceBrokerNamespace string, labels map[string]st
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase == kapi.PodRunning {
 			nrunnings++
@@ -730,7 +730,7 @@ func odel(serviceBrokerNamespace, typeName, resName string) error {
 		return nil
 	}
 
-	println("to delete ", typeName, "/", resName)
+	logger.Infoln("to delete ", typeName, "/", resName)
 
 	uri := fmt.Sprintf("/namespaces/%s/%s/%s", serviceBrokerNamespace, typeName, resName)
 	i, n := 0, 5
@@ -754,7 +754,7 @@ RETRY:
 
 func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]string) (int, error) {
 
-	println("to delete created pods in", serviceBrokerNamespace)
+	logger.Infoln("to delete created pods in", serviceBrokerNamespace)
 	if len(labels) == 0 {
 		return 0, errors.New("labels can't be blank in deleteCreatedPodsByLabels")
 	}
@@ -773,7 +773,7 @@ func deleteCreatedPodsByLabels(serviceBrokerNamespace string, labels map[string]
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 
-		println("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
+		logger.Infoln("\n pods.Items[", i, "].Status.Phase =", pod.Status.Phase, "\n")
 
 		if pod.Status.Phase != kapi.PodSucceeded {
 			ndeleted++
