@@ -8,7 +8,8 @@ import (
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 	"io/ioutil"
 	kresource "k8s.io/kubernetes/pkg/api/resource"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
@@ -38,11 +39,11 @@ const (
 func init() {
 	oshandler.Register(ZeppelinServcieBrokerName_Standalone, &Zeppelin_freeHandler{})
 
-	logger = lager.NewLogger(ZeppelinServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(ZeppelinServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 var httpClient = &http.Client{
 	Transport: &http.Transport{},

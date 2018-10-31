@@ -8,7 +8,8 @@ import (
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	cassandra "github.com/gocql/gocql"
 	"github.com/pivotal-cf/brokerapi"
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 	"io/ioutil"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"os"
@@ -27,11 +28,11 @@ const CassandraServcieBrokerName_Standalone = "Cassandra_standalone"
 func init() {
 	oshandler.Register(CassandraServcieBrokerName_Standalone, &Cassandra_sampleHandler{})
 
-	logger = lager.NewLogger(CassandraServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(CassandraServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

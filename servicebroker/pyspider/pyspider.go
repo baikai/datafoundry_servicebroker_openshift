@@ -23,7 +23,8 @@ import (
 	"os"
 	//"sync"
 
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 
 	//"k8s.io/kubernetes/pkg/util/yaml"
 	routeapi "github.com/openshift/origin/route/api/v1"
@@ -41,11 +42,11 @@ const PySpiderServcieBrokerName_Standalone = "PySpider_standalone"
 func init() {
 	oshandler.Register(PySpiderServcieBrokerName_Standalone, &PySpider_freeHandler{})
 
-	logger = lager.NewLogger(PySpiderServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(PySpiderServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

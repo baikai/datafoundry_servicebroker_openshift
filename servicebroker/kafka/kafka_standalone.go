@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 
@@ -30,11 +31,11 @@ const KafkaServcieBrokerName_Standalone = "Kafka_standalone"
 func init() {
 	oshandler.Register(KafkaServcieBrokerName_Standalone, &Kafka_freeHandler{})
 
-	logger = lager.NewLogger(KafkaServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(KafkaServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

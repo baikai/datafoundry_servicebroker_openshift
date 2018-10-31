@@ -14,7 +14,8 @@ import (
 
 	"github.com/pivotal-cf/brokerapi"
 
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 
 	kapiv1 "k8s.io/kubernetes/pkg/api/v1"
 
@@ -33,11 +34,11 @@ const EsClusterServiceBrokerName = "Elasticsearch_Cluster"
 func init() {
 	oshandler.Register(EsClusterServiceBrokerName, &SrvBrokerFreeHandler{})
 
-	logger = lager.NewLogger(EsClusterServiceBrokerName)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(EsClusterServiceBrokerName)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 // SrvBrokerFreeHandler  free functionality
 type SrvBrokerFreeHandler struct{}

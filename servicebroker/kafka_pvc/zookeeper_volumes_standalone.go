@@ -9,6 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	dcapi "github.com/openshift/origin/deploy/api/v1"

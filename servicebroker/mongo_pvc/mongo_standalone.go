@@ -21,7 +21,8 @@ import (
 	"os"
 	//"sync"
 
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 
 	//"k8s.io/kubernetes/pkg/util/yaml"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
@@ -39,11 +40,11 @@ const MongoServcieBrokerName_Standalone = "Mongo_volumes_standalone"
 func init() {
 	oshandler.Register(MongoServcieBrokerName_Standalone, &Mongo_freeHandler{})
 
-	logger = lager.NewLogger(MongoServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(MongoServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

@@ -8,7 +8,8 @@ import (
 	etcd "github.com/coreos/etcd/client"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 	"io/ioutil"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"net"
@@ -26,11 +27,11 @@ const EtcdServcieBrokerName_Standalone = "ETCD_standalone"
 func init() {
 	oshandler.Register(EtcdServcieBrokerName_Standalone, &Etcd_sampleHandler{})
 
-	logger = lager.NewLogger(EtcdServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(EtcdServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

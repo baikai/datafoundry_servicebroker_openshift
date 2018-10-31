@@ -10,7 +10,8 @@ import (
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 	"io/ioutil"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"os"
@@ -28,11 +29,11 @@ const ZookeeperServcieBrokerName_Standalone = "ZooKeeper_volumes_standalone"
 func init() {
 	oshandler.Register(ZookeeperServcieBrokerName_Standalone, &Zookeeper_freeHandler{})
 
-	logger = lager.NewLogger(ZookeeperServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(ZookeeperServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

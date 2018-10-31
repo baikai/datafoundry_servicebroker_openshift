@@ -22,10 +22,11 @@ import (
 	//"text/template"
 	//"io"
 	//"io/ioutil"
-	"os"
+	//"os"
 	//"sync"
 
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 
 	//"k8s.io/kubernetes/pkg/util/yaml"
 	//routeapi "github.com/openshift/origin/route/api/v1"
@@ -46,11 +47,11 @@ const MysqlServcieBrokerName_Standalone = "MySQL_hostpath_ha_cluster"
 func init() {
 	oshandler.Register(MysqlServcieBrokerName_Standalone, &Mysql_freeHandler{})
 
-	logger = lager.NewLogger(MysqlServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(MysqlServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

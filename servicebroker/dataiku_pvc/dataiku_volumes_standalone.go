@@ -8,7 +8,8 @@ import (
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 	"io/ioutil"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"net/http"
@@ -37,11 +38,11 @@ const (
 func init() {
 	oshandler.Register(DataikuServcieBrokerName_Volume_Standalone, &Dataiku_freeHandler{})
 
-	logger = lager.NewLogger(DataikuServcieBrokerName_Volume_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(DataikuServcieBrokerName_Volume_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 func volumeBaseName(instanceId string) string {
 	return "dataiku-" + instanceId

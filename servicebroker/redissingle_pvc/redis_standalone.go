@@ -8,10 +8,11 @@ import (
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	routeapi "github.com/openshift/origin/route/api/v1"
 	"github.com/pivotal-cf/brokerapi"
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 	//"io/ioutil"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
-	"os"
+	//"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -27,11 +28,11 @@ const RedisSingleServcieBrokerName_Standalone = "Redis_volumes_single"
 func init() {
 	oshandler.Register(RedisSingleServcieBrokerName_Standalone, &RedisSingle_freeHandler{})
 
-	logger = lager.NewLogger(RedisSingleServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(RedisSingleServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

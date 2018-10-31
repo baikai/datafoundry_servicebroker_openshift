@@ -6,7 +6,8 @@ import (
 	"fmt"
 	oshandler "github.com/asiainfoLDP/datafoundry_servicebroker_openshift/handler"
 	"github.com/pivotal-cf/brokerapi"
-	"github.com/pivotal-golang/lager"
+	//"github.com/pivotal-golang/lager"
+	logger "github.com/golang/glog"
 	"io/ioutil"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
 	"os"
@@ -25,11 +26,11 @@ const RedisServcieBrokerName_Standalone = "Redis_standalone"
 func init() {
 	oshandler.Register(RedisServcieBrokerName_Standalone, &Redis_freeHandler{})
 
-	logger = lager.NewLogger(RedisServcieBrokerName_Standalone)
-	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	//logger = lager.NewLogger(RedisServcieBrokerName_Standalone)
+	//logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 }
 
-var logger lager.Logger
+//var logger lager.Logger
 
 //==============================================================
 //

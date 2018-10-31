@@ -1175,3 +1175,56 @@ func Exitf(format string, args ...interface{}) {
 	atomic.StoreUint32(&fatalNoStacks, 1)
 	logging.printf(fatalLog, format, args...)
 }
+
+//================================================================
+// LiuXu: the debug function set are added for easy migration from lager to glog.
+//        They are equvalent to the info function set.
+//================================================================
+
+// Debug is equivalent to the global Debug function, guarded by the value of v.
+// See the documentation of V for usage.
+func (v Verbose) Debug(args ...interface{}) {
+	if v {
+		logging.print(infoLog, args...)
+	}
+}
+
+// Debugln is equivalent to the global Debugln function, guarded by the value of v.
+// See the documentation of V for usage.
+func (v Verbose) Debugln(args ...interface{}) {
+	if v {
+		logging.println(infoLog, args...)
+	}
+}
+
+// Debugf is equivalent to the global Debugf function, guarded by the value of v.
+// See the documentation of V for usage.
+func (v Verbose) Debugf(format string, args ...interface{}) {
+	if v {
+		logging.printf(infoLog, format, args...)
+	}
+}
+
+// Debug logs to the INFO log.
+// Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
+func Debug(args ...interface{}) {
+	logging.print(infoLog, args...)
+}
+
+// DebugDepth acts as Debug but uses depth to determine which call frame to log.
+// DebugDepth(0, "msg") is the same as Debug("msg").
+func DebugDepth(depth int, args ...interface{}) {
+	logging.printDepth(infoLog, depth, args...)
+}
+
+// Debugln logs to the INFO log.
+// Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
+func Debugln(args ...interface{}) {
+	logging.println(infoLog, args...)
+}
+
+// Debugf logs to the INFO log.
+// Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
+func Debugf(format string, args ...interface{}) {
+	logging.printf(infoLog, format, args...)
+}
