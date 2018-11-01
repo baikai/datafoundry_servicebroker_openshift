@@ -359,7 +359,7 @@ func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.Se
 	ok := func(dc *dcapi.DeploymentConfig) bool {
 		podCount, err := statRunningPodsByLabels(myServiceInfo.Database, dc.Labels)
 		if err != nil {
-			fmt.Println("statRunningPodsByLabels err:", err)
+			logger.Infoln("statRunningPodsByLabels err:", err)
 			return false
 		}
 		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
@@ -397,16 +397,13 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 	}
 
 	logger.Infoln("[DoUpdate] redis cluster ...")
-	fmt.Println("[DoUpdate] redis cluster ...")
 	go func() (finalError error) {
 		defer func() {
 			if finalError != nil {
 				logger.Infoln("[DoUpdate] redis cluster done with error:", finalError.Error())
-				fmt.Println("[DoUpdate] redis cluster done with error:", finalError.Error())
 			}
 
 			logger.Infoln("[DoUpdate] redis cluster. Updated exit.")
-			fmt.Println("[DoUpdate] redis cluster. Updated exit.")
 		}()
 
 		// get old peer 0
@@ -472,7 +469,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		}
 
 		logger.Infoln("[DoUpdate] new redis cluster parameters: newNumNodes=", newNumNodes, ", newNodeMemory=", newNodeMemory)
-		fmt.Println("[DoUpdate] new redis cluster parameters: newNumNodes=", newNumNodes, ", newNodeMemory=", newNodeMemory)
 
 		//===========================================================================
 
@@ -517,7 +513,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		}
 
 		logger.Infoln("[DoUpdate] redis cluster. NodePort svcs created done")
-		fmt.Println("[DoUpdate] redis cluster. NodePort svcs created done")
 
 		// create new volumes
 
@@ -565,7 +560,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		}
 
 		logger.Infoln("[DoUpdate] redis cluster. new dcs are created.")
-		fmt.Println("[DoUpdate] redis cluster. new dcs are created.")
 
 		err = waitAllRedisPodsAreReady(nodePorts, outputs)
 		if err != nil {
@@ -574,7 +568,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		}
 
 		logger.Infoln("[DoUpdate] redis cluster. new pods are running.")
-		fmt.Println("[DoUpdate] redis cluster. new pods are running.")
 
 		// add new nodes to cluster and rebalance
 
@@ -614,7 +607,6 @@ func (handler *RedisCluster_Handler) DoUpdate(myServiceInfo *oshandler.ServiceIn
 		// ...
 
 		logger.Infoln("[DoUpdate] redis cluster. updated info saved.")
-		fmt.Println("[DoUpdate] redis cluster. updated info saved.")
 
 		// ...
 		succeeded = true
@@ -668,7 +660,7 @@ func (handler *RedisCluster_Handler) DoDeprovision(myServiceInfo *oshandler.Serv
 
 		// ...
 
-		fmt.Println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Infoln("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()

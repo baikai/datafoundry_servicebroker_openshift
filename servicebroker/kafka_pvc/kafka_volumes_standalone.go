@@ -219,7 +219,6 @@ func (handler *Kafka_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			volumes,
 		)
 		if err != nil {
-			fmt.Println("create Zookeeper resources error: ", err)
 			logger.Error("create Zookeeper resources error: ", err)
 
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes[0:3])
@@ -253,7 +252,7 @@ func (handler *Kafka_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 	ok := func(dc *dcapi.DeploymentConfig) bool {
 		podCount, err := statRunningPodsByLabels(myServiceInfo.Database, dc.Spec.Template.Labels)
 		if err != nil {
-			fmt.Println("statRunningPodsByLabels err:", err)
+			logger.Infoln("statRunningPodsByLabels err:", err)
 			return false
 		}
 		if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
@@ -274,7 +273,7 @@ func (handler *Kafka_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 
 	zk_res, err := GetZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Volumes)
 	if err != nil {
-		fmt.Println("GetZookeeperResources_Master err:", err)
+		logger.Infoln("GetZookeeperResources_Master err:", err)
 		return brokerapi.LastOperation{}, err
 	}
 
@@ -301,7 +300,7 @@ func (handler *Kafka_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceIn
 
 	master_res, _ := getKafkaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Volumes) //, myServiceInfo.User, myServiceInfo.Password)
 	if err != nil {
-		fmt.Println("getKafkaResources_Master err:", err)
+		logger.Infoln("getKafkaResources_Master err:", err)
 		return brokerapi.LastOperation{}, err
 	}
 
@@ -340,24 +339,24 @@ func (handler *Kafka_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceInfo
 
 		// ...
 
-		fmt.Println("to destroy zookeeper resources")
+		logger.Infoln("to destroy zookeeper resources")
 		zookeeper_res, _ := GetZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Volumes)
 		destroyZookeeperResources_Master(zookeeper_res, myServiceInfo.Database)
-		fmt.Println("to destroy zookeeper resources done")
+		logger.Infoln("to destroy zookeeper resources done")
 
-		fmt.Println("to destroy zookeeper's volumes")
+		logger.Infoln("to destroy zookeeper's volumes")
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes[0:3])
-		fmt.Println("to destroy zookeeper's volumes done")
+		logger.Infoln("to destroy zookeeper's volumes done")
 		// ...
 
-		fmt.Println("to destroy kafka resources")
+		logger.Infoln("to destroy kafka resources")
 		master_res, _ := getKafkaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Volumes) //, myServiceInfo.User, myServiceInfo.Password)
 		destroyKafkaResources_Master(master_res, myServiceInfo.Database)
-		fmt.Println("to destroy kafka resources done")
+		logger.Infoln("to destroy kafka resources done")
 
-		fmt.Println("to destroy kafka's volumes")
+		logger.Infoln("to destroy kafka's volumes")
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes[3:5])
-		fmt.Println("to destroy kafka's volumes done")
+		logger.Infoln("to destroy kafka's volumes done")
 	}()
 
 	return brokerapi.IsAsync(false), nil
@@ -433,33 +432,33 @@ func (handler *Kafka_Handler) DoBind(myServiceInfo *oshandler.ServiceInfo, bindi
 	//get zk resources info
 	zookeeper_res, err := GetZookeeperResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Volumes)
 	if err != nil {
-		fmt.Println("get zk resources info err:", err)
+		logger.Infoln("get zk resources info err:", err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
 	//get big service ip port
 	zk_host, zk_port, err := zookeeper_res.ServiceHostPort(myServiceInfo.Database)
 	if err != nil {
-		fmt.Println("get zk host and port err:", err)
+		logger.Infoln("get zk host and port err:", err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
-	fmt.Println("zk_host:", zk_host, "  zk_port:", zk_port)
+	logger.Infoln("zk_host:", zk_host, "  zk_port:", zk_port)
 
 	//get kafka resources info
 	kafka_res, err := getKafkaResources_Master(myServiceInfo.Url, myServiceInfo.Database, myServiceInfo.Volumes) //, myServiceInfo.User, myServiceInfo.Password)
 	if err != nil {
-		fmt.Println("get kafka resources info err:", err)
+		logger.Infoln("get kafka resources info err:", err)
 		return brokerapi.Binding{}, oshandler.Credentials{}, err
 	}
 
 	kafka_port := oshandler.GetServicePortByName(&kafka_res.svc3, "9092-tcp")
 	if kafka_port == nil {
-		fmt.Println("kafka's port is nil")
+		logger.Infoln("kafka's port is nil")
 		return brokerapi.Binding{}, oshandler.Credentials{}, errors.New("kafka-port port not found")
 	}
 
-	fmt.Println("kafka_port:", kafka_port.Port)
+	logger.Infoln("kafka_port:", kafka_port.Port)
 
 	host := fmt.Sprintf("%s.%s.%s", kafka_res.svc3.Name, myServiceInfo.Database, oshandler.ServiceDomainSuffix(false))
 	port := strconv.Itoa(kafka_port.Port)
@@ -576,7 +575,7 @@ func (job *kafkaOrchestrationJob) run() {
 			return
 		}
 
-		fmt.Println("------>to create kafka resources...")
+		//logger.Infoln("------>to create kafka resources...")
 
 		err = job.createKafkaResources_Master(job.serviceInfo.Url, job.serviceInfo.Database, job.serviceInfo.Volumes) //, job.serviceInfo.User, job.serviceInfo.Password)
 		if err != nil {
@@ -754,14 +753,14 @@ func destroyKafkaResources_Master(masterRes *kafkaResources_Master, serviceBroke
 	kdel(serviceBrokerNamespace, "services", masterRes.svc3.Name)
 	//kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name)
 
-	fmt.Println("kafka dc1 lables:", masterRes.dc1.Labels)
+	logger.Infoln("kafka dc1 lables:", masterRes.dc1.Labels)
 	rcs, _ := statRunningRCByLabels(serviceBrokerNamespace, masterRes.dc1.Labels)
 	for _, rc := range rcs {
 		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
 		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
-	fmt.Println("kafka dc2 lables:", masterRes.dc2.Labels)
+	logger.Infoln("kafka dc2 lables:", masterRes.dc2.Labels)
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, masterRes.dc2.Labels)
 	for _, rc := range rcs {
 		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
@@ -992,7 +991,7 @@ func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]stri
 
 	osr := oshandler.NewOpenshiftREST(oshandler.OC()).KList(uri, labels, &rcs)
 	if osr.Err != nil {
-		fmt.Println("get rc list err:", osr.Err)
+		logger.Infoln("get rc list err:", osr.Err)
 		return nil, osr.Err
 	}
 
@@ -1002,6 +1001,6 @@ func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]stri
 
 	}
 
-	fmt.Println("-------->rcnames:", rcNames)
+	//logger.Infoln("-------->rcnames:", rcNames)
 	return rcs.Items, nil
 }

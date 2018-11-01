@@ -57,7 +57,7 @@ func watchZookeeperOrchestration(instanceId, serviceBrokerNamespace string, volu
 	var input ZookeeperResources_Master
 	err = loadZookeeperResources_Master(instanceId, volumes, &input)
 	if err != nil {
-		fmt.Println("loadZookeeperResources_Master err:", err)
+		logger.Infoln("loadZookeeperResources_Master err:", err)
 		return
 	}
 
@@ -71,9 +71,9 @@ func watchZookeeperOrchestration(instanceId, serviceBrokerNamespace string, volu
 	dc1 := &output.dc1
 	dc2 := &output.dc2
 	dc3 := &output.dc3
-	fmt.Println("output.dc1:", dc1.Spec.Template.Labels)
-	fmt.Println("output.dc2:", dc2.Spec.Template.Labels)
-	fmt.Println("output.dc3:", dc3.Spec.Template.Labels)
+	logger.Infoln("output.dc1:", dc1.Spec.Template.Labels)
+	logger.Infoln("output.dc2:", dc2.Spec.Template.Labels)
+	logger.Infoln("output.dc3:", dc3.Spec.Template.Labels)
 
 	theresult := make(chan bool)
 	result = theresult
@@ -83,9 +83,9 @@ func watchZookeeperOrchestration(instanceId, serviceBrokerNamespace string, volu
 	go func() {
 		ok := func(dc *dcapi.DeploymentConfig) bool {
 			podCount, err := statRunningPodsByLabels(serviceBrokerNamespace, dc.Spec.Template.Labels)
-			fmt.Println("podCount:", podCount)
+			logger.Infoln("podCount:", podCount)
 			if err != nil {
-				fmt.Println("statRunningPodsByLabels err:", err)
+				logger.Infoln("statRunningPodsByLabels err:", err)
 				return false
 			}
 			if dc == nil || dc.Name == "" || dc.Spec.Replicas == 0 || podCount < dc.Spec.Replicas {
@@ -353,21 +353,21 @@ func destroyZookeeperResources_Master(masterRes *ZookeeperResources_Master, serv
 	kdel(serviceBrokerNamespace, "services", masterRes.svc4.Name)
 	//kdel(serviceBrokerNamespace, "services", masterRes.serviceNodePort.Name)
 
-	fmt.Println("zookeeper dc1 lables:", masterRes.dc1.Labels)
+	logger.Infoln("zookeeper dc1 lables:", masterRes.dc1.Labels)
 	rcs, _ := statRunningRCByLabels(serviceBrokerNamespace, masterRes.dc1.Labels)
 	for _, rc := range rcs {
 		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
 		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
-	fmt.Println("zookeeper dc1 lables:", masterRes.dc2.Labels)
+	logger.Infoln("zookeeper dc1 lables:", masterRes.dc2.Labels)
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, masterRes.dc2.Labels)
 	for _, rc := range rcs {
 		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()
 		kdel_rc(serviceBrokerNamespace, &rc)
 	}
 
-	fmt.Println("zookeeper dc1 lables:", masterRes.dc3.Labels)
+	logger.Infoln("zookeeper dc1 lables:", masterRes.dc3.Labels)
 	rcs, _ = statRunningRCByLabels(serviceBrokerNamespace, masterRes.dc3.Labels)
 	for _, rc := range rcs {
 		//go func() { kdel_rc(serviceBrokerNamespace, &rc) }()

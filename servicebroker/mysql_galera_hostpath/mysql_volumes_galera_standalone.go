@@ -686,7 +686,7 @@ RETRY:
 }
 
 func del(serviceBrokerNamespace, typeName, resName string, apiGroup string, opt *kapi.DeleteOptions) error {
-	//fmt.Println(">>>>>>> opt=", *opt)
+	//logger.Infoln(">>>>>>> opt=", *opt)
 	if resName == "" {
 		return nil
 	}

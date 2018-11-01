@@ -354,7 +354,7 @@ func initEtcdRootPassword(namespasce string, input etcdResources_HA) bool {
 
 	ok := func(dc *dcapi.DeploymentConfig) bool {
 		podCount, err := statRunningPodsByLabels(namespasce, dc.Labels)
-		fmt.Println("running pod:", podCount)
+		//logger.Infoln("running pod:", podCount)
 		if err != nil {
 			logger.Error("statRunningPodsByLabels err:", err)
 			return false
@@ -505,7 +505,7 @@ func createEtcdResources_HA(instanceId, serviceBrokerNamespace, rootPassword str
 
 	ok := initEtcdRootPassword(serviceBrokerNamespace, input)
 	if !ok {
-		fmt.Println("init password faild")
+		logger.Infoln("init password faild")
 	}
 
 	return &output, nil
@@ -814,7 +814,7 @@ func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]stri
 
 	}
 
-	fmt.Println("-------->rcnames:", rcNames)
+	//logger.Infoln("-------->rcnames:", rcNames)
 	return rcs.Items, nil
 }
 

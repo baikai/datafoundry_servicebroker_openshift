@@ -343,7 +343,7 @@ func (handler *Anacoda_Handler) DoDeprovision(myServiceInfo *oshandler.ServiceIn
 		destroyAnacodaResources_Master(master_res, myServiceInfo.Database)
 		// ...
 
-		fmt.Println("to destroy volumes:", myServiceInfo.Volumes)
+		logger.Infoln("to destroy volumes:", myServiceInfo.Volumes)
 
 		oshandler.DeleteVolumns(myServiceInfo.Database, myServiceInfo.Volumes)
 	}()

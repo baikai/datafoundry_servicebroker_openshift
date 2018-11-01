@@ -711,7 +711,7 @@ func statRunningRCByLabels(serviceBrokerNamespace string, labels map[string]stri
 
 	}
 
-	fmt.Println("-------->rcnames:", rcNames)
+	//logger.Infoln("-------->rcnames:", rcNames)
 	return rcs.Items, nil
 }
 
