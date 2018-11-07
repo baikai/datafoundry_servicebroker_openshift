@@ -43,6 +43,11 @@ const (
 	CPU = "cpu"
 )
 
+type Volume struct {
+	Volume_size int    `json:"volume_size"`
+	Volume_name string `json:"volume_name"`
+}
+
 type ServiceInfo struct {
 	Service_name   string `json:"service_name"`
 	Plan_name      string `json:"plan_name"`
@@ -62,11 +67,21 @@ type ServiceInfo struct {
 
 	// for different bs, the meaning is different
 	Miscs map[string]string `json:"miscs,omitempty"`
+	
+	// ...
+	ProvisionFailureInfo string `json:"provision_failure_info,omitempty"`
+	
+	// The following fields are used by main.go and will not save into ectd.
+	asyncResult chan error
 }
 
-type Volume struct {
-	Volume_size int    `json:"volume_size"`
-	Volume_name string `json:"volume_name"`
+func (info *ServiceInfo) MakeAsyncResult() chan<- error {
+	info.asyncResult = make(chan error, 1)
+	return info.asyncResult
+}
+
+func (info *ServiceInfo) AsyncResult() <-chan error {
+	return info.asyncResult
 }
 
 //==================

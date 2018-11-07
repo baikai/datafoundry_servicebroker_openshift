@@ -420,12 +420,23 @@ func (myBroker *myServiceBroker) Provision(
 		etcdSaveResult <- errors.New("etcdapi.Set binding Error!")
 		logger.Error("Can not create banding directory of  "+instanceID+" in etcd", err) //todo都应该改为日志key
 		return brokerapi.ProvisionedServiceSpec{}, err
-	} else {
-		logger.Debug("Successful create banding directory of  "+instanceID+" in etcd", nil)
 	}
+	logger.Debug("Successful create banding directory of  "+instanceID+" in etcd", nil)
+
 	//完成所有操作后，返回DashboardURL和是否异步的标志
 	logger.Info("Successful create instance " + instanceID)
 	etcdSaveResult <- nil
+
+	if asyncResult := myServiceInfo.AsyncResult(); asyncResult != nil {
+		go func() {
+			if err := <-asyncResult; err != nil {			
+				myServiceInfo.ProvisionFailureInfo = err.Error()
+				tmpval, _ = json.Marshal(myServiceInfo)
+				etcdset("/servicebroker/"+servcieBrokerName+"/instance/"+instanceID+"/_info", string(tmpval))
+			}
+		}()
+	}
+	
 	return provsiondetail, nil
 }
 
