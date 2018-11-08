@@ -176,6 +176,8 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	// ...
 	go func() {
 		err := <-etcdSaveResult
@@ -196,6 +198,8 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 			logger.Error("neo4j create volume", err)
 			go func() { kdel(serviceBrokerNamespace, "services", nodePort.servicebolt.Name) }()
 			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
+			
+			asyncResultChan <- err
 			return
 		}
 
@@ -216,9 +220,12 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 
 			destroyNeo4jResources_Master(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
-
+			
+			asyncResultChan <- err
 			return
 		}
+
+		asyncResultChan <- nil
 	}()
 
 	serviceSpec.DashboardURL = "http://" + net.JoinHostPort(template.routeAdmin.Spec.Host, "80")
@@ -269,6 +276,13 @@ func (handler *Neo4j_Handler) DoProvision(etcdSaveResult chan error, instanceID 
 */
 
 func (handler *Neo4j_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
 
 	// assume in provisioning
 

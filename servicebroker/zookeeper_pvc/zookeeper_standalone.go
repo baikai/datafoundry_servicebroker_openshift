@@ -167,6 +167,8 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	// ...
 	go func() {
 		err := <-etcdSaveResult
@@ -185,6 +187,8 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 		if err != nil {
 			logger.Error("zookeeper create volume", err)
 			handler.DoDeprovision(&serviceInfo, true)
+
+			asyncResultChan <- err
 			return
 		}
 
@@ -208,8 +212,11 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 			DestroyZookeeperResources_Master(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
+			asyncResultChan <- err
 			return
 		}
+
+		asyncResultChan <- nil
 	}()
 
 	serviceSpec.DashboardURL = "" // "http://" + net.JoinHostPort(output.route.Spec.Host, "80")
@@ -222,7 +229,14 @@ func (handler *Zookeeper_Handler) DoProvision(etcdSaveResult chan error, instanc
 }
 
 func (handler *Zookeeper_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
-
+	
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
+	
 	// assume in provisioning
 
 	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))

@@ -229,6 +229,8 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 	}
 	serviceInfo.Volumes = volumes
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	go func() {
 		err := <-etcdSaveResult
 		if err != nil {
@@ -244,6 +246,8 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		if err != nil {
 			logger.Error("Anacoda create volume", err)
 			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
+
+			asyncResultChan <- err
 			return
 		}
 
@@ -254,9 +258,12 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 			logger.Error("createAnacodaResources_Master error ", err)
 			destroyAnacodaResources_Master(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
+
+			asyncResultChan <- err
 			return
 		}
 
+		asyncResultChan <- nil
 	}()
 
 	var input anacodaResources_Master
@@ -276,6 +283,13 @@ func (handler *Anacoda_Handler) DoProvision(etcdSaveResult chan error, instanceI
 }
 
 func (handler *Anacoda_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
 
 	// assume in provisioning
 

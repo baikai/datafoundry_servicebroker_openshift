@@ -121,6 +121,8 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 
 	serviceInfo.Volumes = volumes
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	go func() {
 		err := <-etcdSaveResult
 		if err != nil {
@@ -138,6 +140,8 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 		if err != nil {
 			logger.Error("etcd create volume (to delete created ones)", err)
 			handler.DoDeprovision(&serviceInfo, true)
+
+			asyncResultChan <- err
 			return
 		}
 
@@ -158,10 +162,12 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 			//oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 			_ = output
 
+			asyncResultChan <- err
 			return
 		}
 
 		logger.Debug("create etcd Resources done")
+		asyncResultChan <- nil
 	}()
 
 	serviceSpec.DashboardURL = ""
@@ -174,6 +180,13 @@ func (handler *Etcd_sampleHandler) DoProvision(etcdSaveResult chan error, instan
 }
 
 func (handler *Etcd_sampleHandler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
 
 	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
 	if volumeJob != nil {

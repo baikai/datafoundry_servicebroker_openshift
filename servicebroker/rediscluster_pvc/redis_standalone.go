@@ -251,6 +251,8 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 
 	announceInfos := collectAnnounceInfos(nodePorts)
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	// ...
 	go func() {
 		err := <-etcdSaveResult
@@ -270,6 +272,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		if err != nil {
 			logger.Error("redis cluster create volume", err)
 			handler.DoDeprovision(&serviceInfo, true)
+			asyncResultChan <- err
 			return
 		}
 
@@ -292,18 +295,23 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 			destroyRedisClusterResources_Peers(peers, serviceInfo.Database)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
+			asyncResultChan <- err
 			return
 		}
 
 		err = waitAllRedisPodsAreReady(nodePorts, outputs)
 		if err != nil {
 			logger.Error("redis waitAllRedisPodsAreReady error", err)
+
+			asyncResultChan <- err
 			return
 		}
 
 		serverIPs, err := initRedisMasterSlots(serviceInfo.Database, serviceInfo.Url, nodePorts, numPeers, serviceInfo.Password)
 		if err != nil {
 			logger.Error("redis initRedisMasterSlots error", err)
+
+			asyncResultChan <- err
 			return
 		}
 		
@@ -315,10 +323,12 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		)
 		if err != nil {
 			logger.Error("redis createRedisClusterResources_Stat (rc) error", err)
+			//asyncResultChan <- err
 			return
 		}
 		
 		logger.Infoln("redis cluster", serviceInfo.Database, "created.")
+		asyncResultChan <- nil
 	}()
 
 	// ...
@@ -333,6 +343,13 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 }
 
 func (handler *RedisCluster_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
 
 	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
 	if volumeJob != nil {

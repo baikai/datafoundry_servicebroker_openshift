@@ -149,6 +149,8 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	// ...
 	go func() {
 		err := <-etcdSaveResult
@@ -168,6 +170,8 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 		if err != nil {
 			logger.Error("rabbitmq create volume", err)
 			handler.DoDeprovision(&serviceInfo, true)
+
+			asyncResultChan <- err
 			return
 		}
 
@@ -187,8 +191,11 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 			destroyRabbitmqResources_Master(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
+			asyncResultChan <- err
 			return
 		}
+
+		asyncResultChan <- nil
 	}()
 
 	serviceSpec.DashboardURL = "http://" + net.JoinHostPort(template.routeAdmin.Spec.Host, "80")
@@ -201,6 +208,13 @@ func (handler *Rabbitmq_Handler) DoProvision(etcdSaveResult chan error, instance
 }
 
 func (handler *Rabbitmq_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
 
 	// assume in provisioning
 

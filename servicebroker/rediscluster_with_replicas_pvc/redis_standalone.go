@@ -296,7 +296,6 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 	go func() {
 		err := <-etcdSaveResult
 		if err != nil {
-			asyncResultChan <- err
 			return
 		}
 
@@ -312,6 +311,7 @@ func (handler *RedisCluster_Handler) DoProvision(etcdSaveResult chan error, inst
 		if err != nil {
 			logger.Error("redis cluster create volume", err)
 			handler.DoDeprovision(&serviceInfo, true)
+
 			asyncResultChan <- err
 			return
 		}

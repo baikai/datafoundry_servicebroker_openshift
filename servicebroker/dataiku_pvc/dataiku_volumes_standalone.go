@@ -205,6 +205,8 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		Key_DataikuCPU:    strconv.FormatFloat(dataikuCPU, 'f', 1, 64),
 	}
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	go func() {
 		err := <-etcdSaveResult
 		if err != nil {
@@ -220,6 +222,8 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 		if err != nil {
 			logger.Error("dataiku create volume", err)
 			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
+
+			asyncResultChan <- err
 			return
 		}
 
@@ -230,9 +234,11 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 			destroyDataikuResources_HA(output, serviceBrokerNamespace)
 			oshandler.DeleteVolumns(serviceInfo.Database, serviceInfo.Volumes)
 
+			asyncResultChan <- err
 			return
 		}
 
+		asyncResultChan <- nil
 	}()
 
 	var input dataikuResources_HA
@@ -251,6 +257,13 @@ func (handler *Dataiku_Handler) DoProvision(etcdSaveResult chan error, instanceI
 }
 
 func (handler *Dataiku_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
 
 	// assume in provisioning
 

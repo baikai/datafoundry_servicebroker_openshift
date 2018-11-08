@@ -158,6 +158,8 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 		return serviceSpec, oshandler.ServiceInfo{}, err
 	}
 
+	asyncResultChan := serviceInfo.MakeAsyncResult()
+
 	// ...
 	go func() {
 		err := <-etcdSaveResult
@@ -177,6 +179,8 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 		if err != nil {
 			logger.Error("redis single create volume", err)
 			handler.DoDeprovision(&serviceInfo, true)
+
+			asyncResultChan <- err
 			return
 		}
 
@@ -197,6 +201,7 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 			destroyRedisSingleResources_Master(output, serviceInfo.Database)
 			oshandler.DeleteVolumns(serviceInfo.Database, volumes)
 
+			asyncResultChan <- err
 			return
 		}
 		
@@ -209,8 +214,12 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 		)
 		if err != nil {
 			logger.Error("redis createRedisClusterResources_Stat (rc) error", err)
+
+			//asyncResultChan <- err
 			return
 		}
+
+		asyncResultChan <- nil
 	}()
 
 	// ...
@@ -225,6 +234,13 @@ func (handler *RedisSingle_Handler) DoProvision(etcdSaveResult chan error, insta
 }
 
 func (handler *RedisSingle_Handler) DoLastOperation(myServiceInfo *oshandler.ServiceInfo) (brokerapi.LastOperation, error) {
+
+	if myServiceInfo.ProvisionFailureInfo != "" {
+		return brokerapi.LastOperation{
+			State:       brokerapi.Failed,
+			Description: myServiceInfo.ProvisionFailureInfo,
+		}, nil
+	}
 
 	volumeJob := oshandler.GetCreatePvcVolumnJob(volumeBaseName(myServiceInfo.Url))
 	if volumeJob != nil {

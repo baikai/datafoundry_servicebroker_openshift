@@ -427,6 +427,8 @@ func (myBroker *myServiceBroker) Provision(
 	logger.Info("Successful create instance " + instanceID)
 	etcdSaveResult <- nil
 
+	// If the instance is been provisioning asyncronously,
+	// wait the result and update myServiceInfo on error.
 	if asyncResult := myServiceInfo.AsyncResult(); asyncResult != nil {
 		go func() {
 			if err := <-asyncResult; err != nil {			
